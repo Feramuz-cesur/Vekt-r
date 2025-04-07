@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+        integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <title>Vector V2</title>
+</head>
+
+<body>
+    <div id="main-container">
+        <div id="mode-container">
+            <button class="button-mod" id="HAPPY" onclick="updateMood('HAPPY'); "><i
+                    class="fa-solid fa-face-grin-beam fa-rotate-90"></i></button>
+            <button class="button-mod" id="ANGRY" onclick="updateMood('ANGRY'); "><i
+                    class="fa-solid fa-face-angry fa-rotate-90"></i></button>
+            <button class="button-mod" id="TIRED" onclick="updateMood('TIRED'); "><i
+                    class="fa-solid fa-face-sad-tear fa-rotate-90"></i></button>
+            <button class="button-mod" id="CONFUSED" onclick="updateMood('CONFUSED'); "><i
+                    class="fa-solid fa-face-dizzy fa-rotate-90"></i></button>
+            <button class="button-mod" id="DEFAULT" onclick="updateMood('DEFAULT'); "><i
+                    class="fa-solid fa-face-smile fa-rotate-90"></i></button>
+        </div>
+        <div id="control-contanier">
+            <div id="slider-container">
+                <label class="switch">
+                    <input type="checkbox" onchange="toggleCheckbox(this)">
+                    <span class="check"></span>
+                    <span id="currentSwitch">RANDOM MODE</span>
+                </label>
+                <input class="slider" id="armSlider" type="range" oninput="sendData()" min="0" max="50" step="1"
+                    value="0" class="slider">
+                <input class="slider" id="headSlider" type="range" oninput="sendData()" min="15" max="50" step="1"
+                    value="0" class="slider">
+            </div>
+            <div id="but-container">
+                <div id="button">
+                    <button class="button-dir" id="FORWARD" onmousedown="updateDirection('FORWARD');"
+                        onmouseup="updateDirection('STOP');" ontouchstart="updateDirection('FORWARD');"
+                        ontouchend="updateDirection('STOP');"></button>
+                    <button class="button-dir" id="BACKWARD" onmousedown="updateDirection('BACKWARD');"
+                        onmouseup="updateDirection('STOP');" ontouchstart="updateDirection('BACKWARD');"
+                        ontouchend="updateDirection('STOP');"></button>
+                    <button class="button-dir" id="RIGHT" onmousedown="updateDirection('RIGHT');"
+                        onmouseup="updateDirection('STOP');" ontouchstart="updateDirection('RIGHT');"
+                        ontouchend="updateDirection('STOP');"></button>
+                    <button class="button-dir" id="LEFT" onmousedown="updateDirection('LEFT');"
+                        onmouseup="updateDirection('STOP');" ontouchstart="updateDirection('LEFT');"
+                        ontouchend="updateDirection('STOP');"></button>
+                </div>
+
+            </div>
+            <div id="speed-container">
+                <input class="slider" id="speedSlider" type="range" oninput="sendData()" min="0" max="254" step="1"
+                    value="0" class="slider">
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
