@@ -46,8 +46,8 @@ roboEyes RoboEyes; // create RoboEyes instance
 #define THC_PIN 13
 
 // Replace with your network credentials
-const char *ssid = "DUNYA2A";
-const char *password = "10203040";
+const char *ssid = "Redmi";
+const char *password = "makina321";
 
 // Create AsyncWebServer object on port 80
 AsyncWebServer server(80);
@@ -61,6 +61,7 @@ const int servoPin1 = 27;
 const int servoPin2 = 14;
 
 // Initialize SPIFFS
+
 void initSPIFFS()
 {
   if (!SPIFFS.begin(true))
@@ -71,6 +72,7 @@ void initSPIFFS()
 }
 
 // Initialize WiFi
+
 void initWiFi()
 {
   WiFi.mode(WIFI_STA);
@@ -83,7 +85,6 @@ void initWiFi()
   }
   Serial.println(WiFi.localIP());
 }
-
 
 // Yön tayini
 
@@ -141,13 +142,13 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
     String mood = (const char *)myObj["mood"];
     String direction = (const char *)myObj["direction"];
 
-    Serial.printf("Arm: %d, Head: %d, Speed: %d, Mood: %s\n",
-                  arm, head, speed, mood.c_str());
+    Serial.printf("Arm: %d, Head: %d, Speed: %d, Mood: %s, Direction: %s\n",
+                  arm, head, speed, mood, direction);
 
 
     // Servo kontrolü ******************
 
-    servo1.write(50 - arm);
+    servo1.write(arm);
     servo2.write(head);
 
     // Hareket kontrolü ****************
@@ -306,6 +307,7 @@ void rand_mood_control()
     interval = random(2000, 4000); // Random interval between 2 to 4 seconds
   }
 }
+
 void touch()
 {
   if (digitalRead(THC_PIN) == HIGH)
@@ -335,6 +337,7 @@ void mood()
   touch();
   checkTouchTimeout(); // Zamanlayıcıyı kontrol et
 }
+
 void loop()
 {
   ws.cleanupClients();
