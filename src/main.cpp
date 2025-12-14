@@ -32,6 +32,10 @@ bool touchActive = false;
 #define IN3 25
 #define IN4 26
 
+#define RXD2 16 // DFPlayer'ın TX pinine bağlanır (Yeşil Kablo)
+#define TXD2 17 // DFPlayer'ın RX pinine bağlanır (Mavi Kablo)
+DFRobotDFPlayerMini myDFPlayer;
+
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
@@ -46,8 +50,8 @@ roboEyes RoboEyes; // create RoboEyes instance
 #define THC_PIN 13
 
 // Replace with your network credentials
-const char *ssid = "Redmi";
-const char *password = "makina321";
+const char *ssid = "FiberHGW_TPB9C0";
+const char *password = "NVArVrUNL3Ap";
 
 // Create AsyncWebServer object on port 80
 AsyncWebServer server(80);
@@ -150,6 +154,8 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
 
     servo1.write(arm);
     servo2.write(head);
+    myDFPlayer.volume(map(head, 15, 50, 0, 30)); // Head pozisyonuna göre ses seviyesi ayarla
+    
 
     // Hareket kontrolü ****************
 
@@ -187,14 +193,17 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
       if (mood == "HAPPY")
       {
         RoboEyes.setMood(HAPPY);
+        myDFPlayer.play(1);
       }
       else if (mood == "ANGRY")
       {
         RoboEyes.setMood(ANGRY);
+        myDFPlayer.play(2);
       }
       else if (mood == "TIRED")
       {
         RoboEyes.setMood(TIRED);
+        myDFPlayer.pause();
       }
       else if (mood == "CONFUSED")
       {
@@ -236,12 +245,55 @@ void initWebSocket()
 
 void setup()
 {
-  pinMode(IN4, OUTPUT);  // IN4
-  pinMode(IN3, OUTPUT);  // IN3
-  pinMode(IN2, OUTPUT);  // IN2
-  pinMode(IN1, OUTPUT);  // IN1
+  // 1. GÜVENLİ BAŞLANGIÇ BEKLEMESİ
+  // Sisteme enerji verildikten sonra voltajın oturması ve DFPlayer'ın uyanması için bekleyin.
+  Serial.begin(115200);
+  delay(3000); // 3 saniye bekleme (Çok önemli!)
+  
+  Serial.println("Sistem Başlatılıyor...");
 
+  // 2. PIN TANIMLAMALARI
+  pinMode(IN4, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN1, OUTPUT);
   pinMode(THC_PIN, INPUT);
+
+  // 3. DFPLAYER BAŞLATMA (En öncelikli adım)
+  Serial2.begin(9600, SERIAL_8N1, RXD2, TXD2);
+  delay(1000); // Serial portun oturması için bekle
+
+  Serial.println(F("DFPlayer Mini Başlatılıyor..."));
+  
+  // DFPlayer başlamazsa 3 kere dene
+  int deneme = 0;
+  boolean dfPlayerDurum = false;
+  while(deneme < 3 && !dfPlayerDurum){
+    if (myDFPlayer.begin(Serial2)) {
+      dfPlayerDurum = true;
+      Serial.println(F("DFPlayer Mini Çevrimiçi."));
+    } else {
+      Serial.println(F("DFPlayer Bağlanamadı, tekrar deneniyor..."));
+      delay(1000);
+      deneme++;
+    }
+  }
+
+  if(dfPlayerDurum){
+    myDFPlayer.volume(25); 
+    delay(500); // Volume komutunun işlenmesi için zaman tanı
+    myDFPlayer.play(1); // Açılış sesi
+    delay(1000); // Sesin başladığından emin olmak için bekle
+  } else {
+    Serial.println(F("HATA: DFPlayer başlatılamadı!"));
+  }
+
+  // 4. DİĞER DONANIMLAR (Servo, Ekran vs.)
+  // Servo motoru başlatıyoruz
+  servo1.attach(servoPin1, 500, 2400);
+  servo2.attach(servoPin2, 500, 2400);
+
+  // Ekran ve Gözler
   display.begin(i2c_Address, true);
   RoboEyes.begin(SCREEN_WIDTH, SCREEN_HEIGHT, 100);
   RoboEyes.setAutoblinker(ON, 3, 2);
@@ -249,22 +301,19 @@ void setup()
   RoboEyes.setCuriosity(ON);
   RoboEyes.anim_confused();
 
-  Serial.begin(115200);
-
-  // Servo motoru başlatıyoruz
-  servo1.attach(servoPin1, 500, 2400);
-  servo2.attach(servoPin2, 500, 2400);
-
+  // 5. BAĞLANTILAR (WiFi ve Dosya Sistemi)
+  // WiFi bağlanırken güç çekeceği için en sona sakladık
   initSPIFFS();
   initWiFi();
   initWebSocket();
 
-  // Web sunucusunu ayarla
+  // Web sunucusu
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
             { request->send(SPIFFS, "/index.html", "text/html"); });
   server.serveStatic("/", SPIFFS, "/");
-  // Başlat
   server.begin();
+  
+  Serial.println("Kurulum Tamamlandı.");
 }
 
 void rand_mood_control()
