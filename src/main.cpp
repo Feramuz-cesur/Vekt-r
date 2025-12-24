@@ -64,6 +64,8 @@ Servo servo1, servo2;
 const int servoPin1 = 27;
 const int servoPin2 = 14;
 
+int currentVoice = 0;
+
 // Initialize SPIFFS
 
 void initSPIFFS()
@@ -189,26 +191,47 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
     else
     {
       randORdefault = false;
+      
+
 
       if (mood == "HAPPY")
       {
         RoboEyes.setMood(HAPPY);
-        myDFPlayer.play(1);
+        if (currentVoice != 1)
+        {
+          myDFPlayer.play(1);
+          currentVoice = 1;
+        }
+            
       }
       else if (mood == "ANGRY")
       {
         RoboEyes.setMood(ANGRY);
-        myDFPlayer.play(2);
+        if (currentVoice != 2)
+        {
+            currentVoice = 2;
+            myDFPlayer.play(2);
+        }
       }
       else if (mood == "TIRED")
       {
         RoboEyes.setMood(TIRED);
-        myDFPlayer.pause();
+        if (currentVoice != 0)
+        {
+            currentVoice = 0;
+            myDFPlayer.pause();
+        }
+        
       }
       else if (mood == "CONFUSED")
       {
         RoboEyes.setMood(DEFAULT);
         RoboEyes.anim_confused();
+        if (currentVoice != 3)
+        {
+            currentVoice = 3;
+            myDFPlayer.start();
+        }
       }
       else if (mood == "DEFAULT")
       {
@@ -248,7 +271,7 @@ void setup()
   // 1. GÜVENLİ BAŞLANGIÇ BEKLEMESİ
   // Sisteme enerji verildikten sonra voltajın oturması ve DFPlayer'ın uyanması için bekleyin.
   Serial.begin(115200);
-  delay(3000); // 3 saniye bekleme (Çok önemli!)
+  ///delay(3000); // 3 saniye bekleme (Çok önemli!)
   
   Serial.println("Sistem Başlatılıyor...");
 
@@ -261,7 +284,7 @@ void setup()
 
   // 3. DFPLAYER BAŞLATMA (En öncelikli adım)
   Serial2.begin(9600, SERIAL_8N1, RXD2, TXD2);
-  delay(1000); // Serial portun oturması için bekle
+  ///delay(1000); // Serial portun oturması için bekle
 
   Serial.println(F("DFPlayer Mini Başlatılıyor..."));
   
@@ -280,10 +303,10 @@ void setup()
   }
 
   if(dfPlayerDurum){
-    myDFPlayer.volume(25); 
-    delay(500); // Volume komutunun işlenmesi için zaman tanı
-    myDFPlayer.play(1); // Açılış sesi
-    delay(1000); // Sesin başladığından emin olmak için bekle
+    myDFPlayer.volume(10); 
+    ///delay(500); // Volume komutunun işlenmesi için zaman tanı
+    //myDFPlayer.play(1); // Açılış sesi
+    ///delay(1000); // Sesin başladığından emin olmak için bekle
   } else {
     Serial.println(F("HATA: DFPlayer başlatılamadı!"));
   }
