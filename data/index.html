@@ -1,72 +1,480 @@
 <!DOCTYPE html>
 <html lang="tr">
-
-<style>
-    
-</style>
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
-        integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg=="
-        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Vector V2 - Cyber Control</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'neon-blue': '#00f3ff',
+                        'neon-purple': '#bc13fe',
+                        'neon-green': '#32ff09',
+                        'neon-orange': '#ff9100',
+                        'dark-bg': '#0a0a12',
+                        'panel-bg': 'rgba(20, 20, 35, 0.9)',
+                    },
+                    fontFamily: {
+                        'tech': ['Orbitron', 'sans-serif'],
+                        'body': ['Roboto', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
 
-    <title>Vector V2</title>
+    <style>
+        body {
+            background-color: #0a0a12;
+            color: white;
+            overflow: hidden;
+            touch-action: none; /* Mobilde sayfa kaydırmayı engelle */
+        }
+
+        /* --- Slider Tasarımı (Büyütülmüş) --- */
+        input[type=range] {
+            -webkit-appearance: none;
+            appearance: none; /* Standart özellik eklendi */
+            background: transparent;
+        }
+        
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none; /* Standart özellik eklendi */
+            height: 36px; /* Daha büyük başparmak alanı */
+            width: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            margin-top: -12px;
+            box-shadow: 0 0 15px currentColor;
+            background: white;
+            border: 4px solid currentColor;
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 12px;
+            cursor: pointer;
+            background: #333;
+            border-radius: 6px;
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
+        }
+
+        /* Renkler */
+        #armSlider::-webkit-slider-thumb { color: #bc13fe; }
+        #headSlider::-webkit-slider-thumb { color: #ff9100; }
+        #speedSlider::-webkit-slider-thumb { color: #00f3ff; }
+
+        /* Dikey Slider Wrapper */
+        .vertical-slider-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 180px; /* Daha uzun */
+            width: 60px;
+        }
+        .vertical-slider {
+            transform: rotate(-90deg);
+            width: 180px; /* Yükseklik kadar genişlik verip döndürüyoruz */
+        }
+
+        /* --- Buton Efektleri --- */
+        .neon-btn {
+            transition: all 0.1s;
+        }
+        .neon-btn:active, .neon-btn.active {
+            transform: scale(0.95);
+            box-shadow: 0 0 20px currentColor;
+            background-color: currentColor;
+            color: black !important;
+        }
+
+        /* Landscape Uyarısı */
+        #rotate-message { display: none; }
+        @media only screen and (orientation: portrait) {
+            #main-interface { display: none; }
+            #rotate-message { display: flex; }
+        }
+    </style>
 </head>
+<body class="h-screen w-screen font-body select-none">
 
-<body>
-    <div id="main-container">
-        <div id="mode-container">
-            <button class="button-mod" id="HAPPY" onclick="updateMood('HAPPY'); "><i
-                    class="fa-solid fa-face-grin-beam fa-rotate-90"></i></button>
-            <button class="button-mod" id="ANGRY" onclick="updateMood('ANGRY'); "><i
-                    class="fa-solid fa-face-angry fa-rotate-90"></i></button>
-            <button class="button-mod" id="TIRED" onclick="updateMood('TIRED'); "><i
-                    class="fa-solid fa-face-sad-tear fa-rotate-90"></i></button>
-            <button class="button-mod" id="CONFUSED" onclick="updateMood('CONFUSED'); "><i
-                    class="fa-solid fa-face-dizzy fa-rotate-90"></i></button>
-            <button class="button-mod" id="DEFAULT" onclick="updateMood('DEFAULT'); "><i
-                    class="fa-solid fa-face-smile fa-rotate-90"></i></button>
-        </div>
-        <div id="control-contanier">
-            <div id="slider-container">
-                <label class="switch">
-                    <input type="checkbox" onchange="toggleCheckbox(this)">
-                    <span class="check"></span>
-                    <span id="currentSwitch">RANDOM MODE</span>
-                </label>
-                <input class="slider" id="armSlider" type="range" oninput="sendData()" min="0" max="220" step="1"
-                    value="0" class="slider">
-                <input class="slider" id="headSlider" type="range" oninput="sendData()" min="15" max="50" step="1"
-                    value="0" class="slider">
-            </div>
-            <div id="but-container">
-                <div id="button">
-                    <button class="button-dir" id="FORWARD" onmousedown="updateDirection('FORWARD');"
-                        onmouseup="updateDirection('STOP');" ontouchstart="updateDirection('FORWARD');"
-                        ontouchend="updateDirection('STOP');"></button>
-                    <button class="button-dir" id="BACKWARD" onmousedown="updateDirection('BACKWARD');"
-                        onmouseup="updateDirection('STOP');" ontouchstart="updateDirection('BACKWARD');"
-                        ontouchend="updateDirection('STOP');"></button>
-                    <button class="button-dir" id="RIGHT" onmousedown="updateDirection('RIGHT');"
-                        onmouseup="updateDirection('STOP');" ontouchstart="updateDirection('RIGHT');"
-                        ontouchend="updateDirection('STOP');"></button>
-                    <button class="button-dir" id="LEFT" onmousedown="updateDirection('LEFT');"
-                        onmouseup="updateDirection('STOP');" ontouchstart="updateDirection('LEFT');"
-                        ontouchend="updateDirection('STOP');"></button>
-                </div>
-
-            </div>
-            <div id="speed-container">
-                <input class="slider" id="speedSlider" type="range" oninput="sendData()" min="0" max="254" step="1"
-                    value="0" class="slider">
-            </div>
-        </div>
+    <!-- Oryantasyon Uyarısı -->
+    <div id="rotate-message" class="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center text-center p-5">
+        <i class="fa-solid fa-mobile-screen-button fa-rotate-270 text-6xl text-neon-blue mb-4 animate-pulse"></i>
+        <h1 class="text-2xl font-tech text-neon-blue">Yatay Çeviriniz</h1>
     </div>
 
-    <script src="script.js"></script>
-</body>
+    <!-- Ana Arayüz -->
+    <div id="main-interface" class="h-full w-full flex flex-col p-2 relative">
+        
+        <!-- Üst Bar -->
+        <header class="flex justify-between items-center bg-panel-bg border-b border-gray-700 p-2 rounded-t-lg shrink-0">
+            <div class="flex items-center gap-3">
+                <div class="flex items-center gap-1 text-neon-blue font-tech">
+                    <i class="fa-solid fa-robot text-2xl"></i>
+                    <span class="text-xl tracking-wider">VECTOR V2</span>
+                </div>
+                <div id="connection-status" class="text-xs px-2 py-1 rounded border border-red-500 text-red-300 bg-red-900/50">
+                    BAĞLANTI YOK
+                </div>
+            </div>
 
+            <!-- Mod Seçici -->
+            <div class="flex bg-gray-900 rounded-lg p-1 gap-1">
+                <button onclick="setUIMode('manual')" id="btn-manual" class="px-6 py-2 rounded text-base font-bold transition-all bg-neon-blue text-black shadow-[0_0_10px_#00f3ff]">MANUEL</button>
+                <button onclick="setUIMode('semi')" id="btn-semi" class="px-6 py-2 rounded text-base font-bold transition-all text-gray-400 hover:text-white">MODLAR</button>
+                <button onclick="setUIMode('auto')" id="btn-auto" class="px-6 py-2 rounded text-base font-bold transition-all text-gray-400 hover:text-white">AUTO</button>
+            </div>
+        </header>
+
+        <!-- İçerik Alanı -->
+        <main class="flex-1 relative mt-2 overflow-hidden flex gap-2">
+            
+            <!-- 1. MANUEL PANEL (Sol: Yön, Sağ: Sliderlar) -->
+            <div id="mode-manual" class="w-full h-full flex gap-4">
+                
+                <!-- SOL: Yön Kontrolü (BÜYÜTÜLMÜŞ) -->
+                <div class="w-1/2 bg-panel-bg rounded-lg border border-gray-800 flex items-center justify-center relative p-4">
+                    <span class="absolute top-2 left-3 text-xs text-gray-500 font-tech">HAREKET</span>
+                    
+                    <div class="grid grid-cols-3 gap-3 p-4 bg-gray-900/50 rounded-full border border-gray-700">
+                        <!-- İleri -->
+                        <div></div>
+                        <button id="btn-forward" 
+                            class="w-24 h-24 bg-gray-800 rounded-xl border-2 border-neon-blue text-neon-blue neon-btn flex items-center justify-center text-4xl"
+                            onmousedown="updateDirection('FORWARD')" onmouseup="updateDirection('STOP')" 
+                            ontouchstart="updateDirection('FORWARD')" ontouchend="updateDirection('STOP')">
+                            <i class="fa-solid fa-arrow-up"></i>
+                        </button>
+                        <div></div>
+
+                        <!-- Sol -->
+                        <button id="btn-left" 
+                            class="w-24 h-24 bg-gray-800 rounded-xl border-2 border-neon-blue text-neon-blue neon-btn flex items-center justify-center text-4xl"
+                            onmousedown="updateDirection('LEFT')" onmouseup="updateDirection('STOP')" 
+                            ontouchstart="updateDirection('LEFT')" ontouchend="updateDirection('STOP')">
+                            <i class="fa-solid fa-arrow-left"></i>
+                        </button>
+                        
+                        <!-- Merkez (Speed Göstergesi veya Logo) -->
+                        <div class="w-24 h-24 bg-black rounded-full flex items-center justify-center border border-gray-700">
+                            <i class="fa-solid fa-crosshairs text-gray-600 text-3xl"></i>
+                        </div>
+
+                        <!-- Sağ -->
+                        <button id="btn-right" 
+                            class="w-24 h-24 bg-gray-800 rounded-xl border-2 border-neon-blue text-neon-blue neon-btn flex items-center justify-center text-4xl"
+                            onmousedown="updateDirection('RIGHT')" onmouseup="updateDirection('STOP')" 
+                            ontouchstart="updateDirection('RIGHT')" ontouchend="updateDirection('STOP')">
+                            <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+
+                        <!-- Geri -->
+                        <div></div>
+                        <button id="btn-backward" 
+                            class="w-24 h-24 bg-gray-800 rounded-xl border-2 border-neon-blue text-neon-blue neon-btn flex items-center justify-center text-4xl"
+                            onmousedown="updateDirection('BACKWARD')" onmouseup="updateDirection('STOP')" 
+                            ontouchstart="updateDirection('BACKWARD')" ontouchend="updateDirection('STOP')">
+                            <i class="fa-solid fa-arrow-down"></i>
+                        </button>
+                        <div></div>
+                    </div>
+                </div>
+
+                <!-- SAĞ: Slider Kontrolleri (Kafa, Kol, Hız) -->
+                <div class="w-1/2 bg-panel-bg rounded-lg border border-gray-800 p-4 flex flex-col justify-between relative">
+                    <span class="absolute top-2 left-3 text-xs text-gray-500 font-tech">MEKANİK & HIZ</span>
+
+                    <div class="flex flex-1 items-center justify-around w-full">
+                        <!-- KAFA (HEAD) -->
+                        <div class="flex flex-col items-center">
+                            <div class="vertical-slider-wrapper bg-gray-900 rounded-full border border-gray-700">
+                                <input id="headSlider" class="vertical-slider" type="range" min="15" max="50" step="1" value="30" oninput="sendData()">
+                            </div>
+                            <span class="mt-3 text-sm font-bold text-neon-orange font-tech">KAFA</span>
+                            <span id="disp-head" class="text-xs text-gray-400">30</span>
+                        </div>
+
+                        <!-- KOL (ARM) -->
+                        <div class="flex flex-col items-center">
+                            <div class="vertical-slider-wrapper bg-gray-900 rounded-full border border-gray-700">
+                                <input id="armSlider" class="vertical-slider" type="range" min="0" max="220" step="1" value="0" oninput="sendData()">
+                            </div>
+                            <span class="mt-3 text-sm font-bold text-neon-purple font-tech">KOL</span>
+                            <span id="disp-arm" class="text-xs text-gray-400">0</span>
+                        </div>
+                    </div>
+
+                    <!-- HIZ (SPEED) - Yatay Slider -->
+                    <div class="w-full bg-gray-900/50 p-3 rounded-xl border border-gray-700 mt-2">
+                        <div class="flex justify-between mb-1">
+                            <span class="text-xs text-neon-blue font-bold">MOTOR HIZI</span>
+                            <span id="disp-speed" class="text-xs text-white">0</span>
+                        </div>
+                        <input id="speedSlider" type="range" class="w-full" min="0" max="254" step="1" value="0" oninput="sendData()">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. MODLAR / DUYGU PANELİ (Semi-Auto) -->
+            <div id="mode-semi" class="w-full h-full hidden flex gap-4">
+                 <!-- Sol: Yön Kontrolü (Tekrar - Kullanıcı Yarı Otonomda da sürmek istedi) -->
+                 <div class="w-1/3 bg-panel-bg rounded-lg border border-gray-800 flex flex-col items-center justify-center p-2 relative">
+                    <span class="absolute top-2 left-3 text-xs text-gray-500 font-tech">SÜRÜŞ</span>
+                    <div class="grid grid-cols-3 gap-2 scale-90">
+                        <div></div>
+                        <button class="w-20 h-20 bg-gray-800 rounded-lg border border-gray-600 text-gray-300 flex items-center justify-center text-2xl active:bg-neon-blue active:text-black"
+                            onmousedown="updateDirection('FORWARD')" onmouseup="updateDirection('STOP')" 
+                            ontouchstart="updateDirection('FORWARD')" ontouchend="updateDirection('STOP')"><i class="fa-solid fa-chevron-up"></i></button>
+                        <div></div>
+                        <button class="w-20 h-20 bg-gray-800 rounded-lg border border-gray-600 text-gray-300 flex items-center justify-center text-2xl active:bg-neon-blue active:text-black"
+                            onmousedown="updateDirection('LEFT')" onmouseup="updateDirection('STOP')" 
+                            ontouchstart="updateDirection('LEFT')" ontouchend="updateDirection('STOP')"><i class="fa-solid fa-chevron-left"></i></button>
+                        <div class="flex items-center justify-center"><i class="fa-solid fa-gamepad text-gray-600 text-2xl"></i></div>
+                        <button class="w-20 h-20 bg-gray-800 rounded-lg border border-gray-600 text-gray-300 flex items-center justify-center text-2xl active:bg-neon-blue active:text-black"
+                            onmousedown="updateDirection('RIGHT')" onmouseup="updateDirection('STOP')" 
+                            ontouchstart="updateDirection('RIGHT')" ontouchend="updateDirection('STOP')"><i class="fa-solid fa-chevron-right"></i></button>
+                        <div></div>
+                        <button class="w-20 h-20 bg-gray-800 rounded-lg border border-gray-600 text-gray-300 flex items-center justify-center text-2xl active:bg-neon-blue active:text-black"
+                            onmousedown="updateDirection('BACKWARD')" onmouseup="updateDirection('STOP')" 
+                            ontouchstart="updateDirection('BACKWARD')" ontouchend="updateDirection('STOP')"><i class="fa-solid fa-chevron-down"></i></button>
+                        <div></div>
+                    </div>
+                </div>
+
+                <!-- Sağ: Duygular (Moods) -->
+                <div class="w-2/3 bg-panel-bg rounded-lg border border-gray-800 p-6 relative flex flex-col items-center justify-center">
+                    <span class="absolute top-2 left-3 text-xs text-gray-500 font-tech">DUYGU DURUMU (MOOD)</span>
+                    
+                    <div class="grid grid-cols-3 gap-6 w-full h-full pt-4">
+                        <button onclick="updateMood('HAPPY')" class="mood-btn flex flex-col items-center justify-center bg-gray-900 border border-green-500/30 rounded-xl hover:bg-green-900/20 active:scale-95 transition-all p-2">
+                            <i class="fa-solid fa-face-grin-beam text-5xl text-green-400 mb-2"></i>
+                            <span class="font-tech text-green-400">MUTLU</span>
+                        </button>
+                        
+                        <button onclick="updateMood('ANGRY')" class="mood-btn flex flex-col items-center justify-center bg-gray-900 border border-red-500/30 rounded-xl hover:bg-red-900/20 active:scale-95 transition-all p-2">
+                            <i class="fa-solid fa-face-angry text-5xl text-red-500 mb-2"></i>
+                            <span class="font-tech text-red-500">KIZGIN</span>
+                        </button>
+
+                        <button onclick="updateMood('TIRED')" class="mood-btn flex flex-col items-center justify-center bg-gray-900 border border-blue-500/30 rounded-xl hover:bg-blue-900/20 active:scale-95 transition-all p-2">
+                            <i class="fa-solid fa-face-sad-tear text-5xl text-blue-400 mb-2"></i>
+                            <span class="font-tech text-blue-400">YORGUN</span>
+                        </button>
+
+                        <button onclick="updateMood('CONFUSED')" class="mood-btn flex flex-col items-center justify-center bg-gray-900 border border-yellow-500/30 rounded-xl hover:bg-yellow-900/20 active:scale-95 transition-all p-2">
+                            <i class="fa-solid fa-face-dizzy text-5xl text-yellow-400 mb-2"></i>
+                            <span class="font-tech text-yellow-400">ŞAŞKIN</span>
+                        </button>
+
+                        <button onclick="updateMood('DEFAULT')" class="mood-btn col-span-2 flex flex-col items-center justify-center bg-gray-900 border border-gray-500/30 rounded-xl hover:bg-gray-800 active:scale-95 transition-all p-2">
+                            <i class="fa-solid fa-face-smile text-5xl text-gray-300 mb-2"></i>
+                            <span class="font-tech text-gray-300">NORMAL (DEFAULT)</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. AUTO MOD (RANDOM) -->
+            <div id="mode-auto" class="w-full h-full hidden bg-panel-bg rounded-lg border border-gray-800 p-6 flex flex-col items-center justify-center text-center relative">
+                <span class="absolute top-2 left-3 text-xs text-gray-500 font-tech">TAM OTONOM</span>
+                
+                <div class="animate-pulse mb-6">
+                    <i class="fa-solid fa-shuffle text-8xl text-neon-purple"></i>
+                </div>
+                <h2 class="text-3xl font-tech text-white mb-2">RASTGELE MODU</h2>
+                <p class="text-gray-400 max-w-md">Robot tamamen kendi kendine karar verir. Duygular ve hareketler rastgele değişir.</p>
+                
+                <div class="mt-8 px-6 py-2 bg-neon-purple text-black font-bold rounded shadow-[0_0_15px_#bc13fe]">
+                    AKTİF
+                </div>
+            </div>
+
+        </main>
+        
+        <!-- Log Footer -->
+        <footer class="h-6 mt-1 flex items-center text-xs font-mono text-gray-500 px-2 bg-black border-t border-gray-800">
+            <span class="text-green-500 mr-2">></span> <span id="system-log">Sistem Hazır.</span>
+        </footer>
+
+    </div>
+
+    <!-- JAVASCRIPT: Logic entegrasyonu -->
+    <script>
+        // --- 1. DEĞİŞKENLER VE AYARLAR ---
+        var gateway = `ws://${window.location.hostname}/ws`;
+        var websocket;
+        
+        // Varsayılan Değerler
+        var currentMood = "DEFAULT"; 
+        var direction = "STOP";
+
+        // Sayfa Yüklenince
+        window.addEventListener('load', onLoad);
+
+        function onLoad(event) {
+            initWebSocket();
+            // Sliderların sayısal değerlerini güncelle
+            updateSliderDisplays();
+        }
+
+        function updateSliderDisplays() {
+            document.getElementById('disp-head').innerText = document.getElementById('headSlider').value;
+            document.getElementById('disp-arm').innerText = document.getElementById('armSlider').value;
+            document.getElementById('disp-speed').innerText = document.getElementById('speedSlider').value;
+        }
+
+        // --- 2. WEBSOCKET BAĞLANTISI ---
+        function initWebSocket() {
+            log('WebSocket bağlanıyor...');
+            
+            // HATA DÜZELTME: HTTPS ortamında (Preview ekranı) ws:// çalışmaz.
+            // Bu yüzden gerçek cihazda (HTTP) çalışması için bu kontrolü koyuyoruz.
+            if (window.location.protocol === 'https:') {
+                console.warn("HTTPS ortamında güvenli olmayan WebSocket (ws://) başlatılamaz. Gerçek cihazda (HTTP) bu sorun olmayacaktır.");
+                log('Simülasyon Modu (Preview)');
+                document.getElementById('connection-status').innerText = "SİMÜLASYON";
+                document.getElementById('connection-status').className = "text-xs px-2 py-1 rounded border border-blue-500 text-blue-300 bg-blue-900/50";
+                return; // Bağlantı kurmaya çalışma, hata vermesin
+            }
+
+            try {
+                websocket = new WebSocket(gateway);
+                websocket.onopen = onOpen;
+                websocket.onclose = onClose;
+                websocket.onmessage = onMessage;
+            } catch (error) {
+                console.log('WS Bağlantı hatası (Normal, cihaz bağlı değil)');
+                log('Bağlantı Hatası (Cihaz Bulunamadı)');
+            }
+        }
+
+        function onOpen(event) {
+            log('Bağlantı KURULDU.');
+            document.getElementById('connection-status').innerText = "BAĞLI";
+            document.getElementById('connection-status').className = "text-xs px-2 py-1 rounded border border-green-500 text-green-300 bg-green-900/50";
+        }
+
+        function onClose(event) {
+            log('Bağlantı KOPTU. 2sn sonra tekrar deneniyor...');
+            document.getElementById('connection-status').innerText = "BAĞLANTI YOK";
+            document.getElementById('connection-status').className = "text-xs px-2 py-1 rounded border border-red-500 text-red-300 bg-red-900/50";
+            setTimeout(initWebSocket, 2000);
+        }
+
+        function onMessage(event) {
+            // Sunucudan gelen mesaj varsa buraya
+            log('Gelen: ' + event.data);
+        }
+
+        // --- 3. VERİ GÖNDERME (Senin Script Mantığın) ---
+        function sendData() {
+            updateSliderDisplays(); // Ekranda sayıyı güncelle
+
+            var data = {
+                arm: document.getElementById("armSlider").value,
+                head: document.getElementById("headSlider").value,
+                speed: document.getElementById("speedSlider").value,
+                mood: currentMood,
+                direction: direction,
+            };
+
+            // WebSocket açık mı kontrol et, yoksa hata vermesin
+            if (websocket && websocket.readyState === WebSocket.OPEN) {
+                websocket.send(JSON.stringify(data));
+            } else {
+                // Bağlantı yoksa sadece konsola yaz (Hata verme)
+                // console.log("Veri (Simülasyon):", data);
+            }
+
+            // Confused özel durumu (Senin kodundan)
+            if (currentMood == "CONFUSED") {
+                setTimeout(() => {
+                    currentMood = "DEFAULT";
+                    // UI'da değişikliği göstermek gerekirse buraya eklenebilir
+                }, 1000); 
+            }
+        }
+
+        // --- 4. KONTROL FONKSİYONLARI ---
+        
+        // Yön Güncelleme
+        function updateDirection(dir) {
+            direction = dir;
+            // Buton basılıyken görsel efekt için class ekleyip çıkarabiliriz
+            // (CSS active pseudo-class'ı zaten hallediyor ama JS ile de garanti olsun)
+            sendData();
+            
+            if(dir !== 'STOP') log(`Yön: ${dir}`);
+        }
+
+        // Mod/Duygu Güncelleme
+        function updateMood(mood) {
+            currentMood = mood;
+            log(`Duygu: ${mood}`);
+            sendData();
+        }
+
+        // Arayüz Sekme Geçişi (Manuel, Modlar, Auto)
+        function setUIMode(modeName) {
+            // Görünümleri gizle
+            document.getElementById('mode-manual').classList.add('hidden');
+            document.getElementById('mode-semi').classList.add('hidden');
+            document.getElementById('mode-auto').classList.add('hidden');
+
+            // Buton renklerini sıfırla
+            resetBtnStyle('btn-manual');
+            resetBtnStyle('btn-semi');
+            resetBtnStyle('btn-auto');
+
+            // Seçileni aç
+            const activeBtn = document.getElementById(`btn-${modeName}`);
+            activeBtn.classList.remove('text-gray-400');
+            activeBtn.classList.add('bg-neon-blue', 'text-black', 'shadow-[0_0_10px_#00f3ff]');
+
+            const activeView = document.getElementById(`mode-${modeName}`);
+            activeView.classList.remove('hidden');
+            activeView.classList.add('flex'); // Flex yapısını korumak için
+
+            // Modlara göre arka planda değişkenleri ayarla
+            if (modeName === 'auto') {
+                currentMood = "RANDOM"; // Senin kodundaki "Random Mode" checkbox mantığı
+                log("Mod: OTO (RANDOM)");
+                sendData();
+            } else if (modeName === 'manual') {
+                currentMood = "DEFAULT"; // Manuel modda varsayılan duygu
+                log("Mod: MANUEL");
+                sendData();
+            } else {
+                // Semi-auto (Modlar) ekranında son seçilen duygu kalır veya default olur
+                log("Mod: MOD SEÇİMİ");
+            }
+        }
+
+        function resetBtnStyle(btnId) {
+            const btn = document.getElementById(btnId);
+            btn.className = "px-6 py-2 rounded text-base font-bold transition-all text-gray-400 hover:text-white";
+        }
+
+        // Log Helper
+        function log(msg) {
+            const el = document.getElementById('system-log');
+            el.innerText = msg;
+            el.classList.remove('animate-pulse');
+            void el.offsetWidth;
+            el.classList.add('animate-pulse');
+        }
+
+    </script>
+</body>
 </html>

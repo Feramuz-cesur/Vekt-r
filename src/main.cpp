@@ -22,7 +22,7 @@
 
 unsigned long touchMillis = 0; // Zamanlayıcı için değişken
 unsigned long lastMillis = 0;
-int long interval = 3000;
+int long interval = 18000;
 bool isMoodActive = false;
 bool randORdefault = false;
 bool touchActive = false;
@@ -129,7 +129,6 @@ void dur() {
   analogWrite(IN4, 0);     // Sağ motor PWM
 }
 
-
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
 {
   AwsFrameInfo *info = (AwsFrameInfo *)arg;
@@ -191,47 +190,34 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
     else
     {
       randORdefault = false;
-      
+
+      // 1 Happy
+      // 2 Angry  
+      // 3 Tired
+      // 4 Confused
 
 
       if (mood == "HAPPY")
       {
         RoboEyes.setMood(HAPPY);
         if (currentVoice != 1)
-        {
-          myDFPlayer.play(1);
-          currentVoice = 1;
-        }
-            
+        myDFPlayer.play(1);
       }
       else if (mood == "ANGRY")
       {
         RoboEyes.setMood(ANGRY);
-        if (currentVoice != 2)
-        {
-            currentVoice = 2;
-            myDFPlayer.play(2);
-        }
+        myDFPlayer.play(2);
       }
       else if (mood == "TIRED")
       {
         RoboEyes.setMood(TIRED);
-        if (currentVoice != 0)
-        {
-            currentVoice = 0;
-            myDFPlayer.pause();
-        }
-        
+        myDFPlayer.play(3);
       }
       else if (mood == "CONFUSED")
       {
         RoboEyes.setMood(DEFAULT);
         RoboEyes.anim_confused();
-        if (currentVoice != 3)
-        {
-            currentVoice = 3;
-            myDFPlayer.start();
-        }
+        myDFPlayer.play(4); 
       }
       else if (mood == "DEFAULT")
       {
@@ -264,6 +250,89 @@ void initWebSocket()
 {
   ws.onEvent(onEvent);
   server.addHandler(&ws);
+}
+
+void rand_mood_control()
+{
+  unsigned long currentMillis = millis();
+  
+  if (currentMillis - lastMillis >= interval)
+  {
+    lastMillis = currentMillis;
+    
+    if (isMoodActive)
+    {
+      // Reset mood
+      RoboEyes.setMood(DEFAULT); // Return to default expression
+      isMoodActive = false;
+    }
+    else
+    {
+      // 1 Happy
+      // 2 Angry  
+      // 3 Tired
+      // 4 Confused
+
+      // Randomly select a mood
+      int randomMood = random(0, 4); // 0, 1, 2, 3
+      switch (randomMood)
+      {
+        case 0:
+        RoboEyes.setMood(TIRED);
+        myDFPlayer.play(3);
+        break;
+        case 1:
+        RoboEyes.setMood(ANGRY);
+        myDFPlayer.play(2);
+        break;
+        case 2:
+        RoboEyes.setMood(HAPPY);
+        RoboEyes.anim_laugh();
+        myDFPlayer.play(1);
+        break;
+        case 3:
+        RoboEyes.anim_confused();
+        myDFPlayer.play(4);
+        break;
+      }
+      isMoodActive = true;
+    }
+
+    interval = random(2000, 4000); // Random interval between 2 to 4 seconds
+  }
+}
+
+void touch()
+{
+  if (digitalRead(THC_PIN) == HIGH)
+  {
+    myDFPlayer.play(5);
+    RoboEyes.setMood(HAPPY);
+    //RoboEyes.anim_laugh();
+    RoboEyes.anim_confused();
+    touchActive = true;
+    touchMillis = millis(); // Zamanlayıcıyı başla
+  }
+}
+
+void checkTouchTimeout()
+{
+  if (touchActive && (millis() - touchMillis >= 2000)) // 2 saniye sonra
+  {
+    RoboEyes.setMood(DEFAULT); // Varsayılan moda geç
+    touchActive = false;
+    myDFPlayer.pause();
+  }
+}
+
+void mood()
+{
+  if (randORdefault == true)
+  {
+    rand_mood_control();
+  }
+  touch();
+  checkTouchTimeout(); // Zamanlayıcıyı kontrol et
 }
 
 void setup()
@@ -303,7 +372,7 @@ void setup()
   }
 
   if(dfPlayerDurum){
-    myDFPlayer.volume(10); 
+    myDFPlayer.volume(30); // Ses seviyesini ayarla (0-30)
     ///delay(500); // Volume komutunun işlenmesi için zaman tanı
     //myDFPlayer.play(1); // Açılış sesi
     ///delay(1000); // Sesin başladığından emin olmak için bekle
@@ -322,14 +391,13 @@ void setup()
   RoboEyes.setAutoblinker(ON, 3, 2);
   RoboEyes.setIdleMode(ON, 2, 2);
   RoboEyes.setCuriosity(ON);
-  RoboEyes.anim_confused();
-
   // 5. BAĞLANTILAR (WiFi ve Dosya Sistemi)
   // WiFi bağlanırken güç çekeceği için en sona sakladık
   initSPIFFS();
   initWiFi();
   initWebSocket();
-
+  RoboEyes.anim_confused();
+  myDFPlayer.play(5); // Açılış sesi
   // Web sunucusu
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
             { request->send(SPIFFS, "/index.html", "text/html"); });
@@ -337,77 +405,6 @@ void setup()
   server.begin();
   
   Serial.println("Kurulum Tamamlandı.");
-}
-
-void rand_mood_control()
-{
-  unsigned long currentMillis = millis();
-
-  if (currentMillis - lastMillis >= interval)
-  {
-    lastMillis = currentMillis;
-
-    if (isMoodActive)
-    {
-      // Reset mood
-      RoboEyes.setMood(DEFAULT); // Return to default expression
-      isMoodActive = false;
-    }
-    else
-    {
-      // Randomly select a mood
-      int randomMood = random(0, 4); // 0, 1, 2, 3
-      switch (randomMood)
-      {
-      case 0:
-        RoboEyes.setMood(TIRED);
-        break;
-      case 1:
-        RoboEyes.setMood(ANGRY);
-        break;
-      case 2:
-        RoboEyes.setMood(HAPPY);
-        RoboEyes.anim_laugh();
-        break;
-      case 3:
-        RoboEyes.anim_confused();
-        break;
-      }
-      isMoodActive = true;
-    }
-
-    interval = random(2000, 4000); // Random interval between 2 to 4 seconds
-  }
-}
-
-void touch()
-{
-  if (digitalRead(THC_PIN) == HIGH)
-  {
-    RoboEyes.setMood(HAPPY);
-    RoboEyes.anim_laugh();
-    touchActive = true;
-    touchMillis = millis(); // Zamanlayıcıyı başla
-  }
-}
-
-void checkTouchTimeout()
-{
-  if (touchActive && (millis() - touchMillis >= 2000)) // 2 saniye sonra
-  {
-    RoboEyes.setMood(DEFAULT); // Varsayılan moda geç
-    touchActive = false;
-  }
-}
-
-void mood()
-{
-  if (randORdefault == true)
-  {
-    rand_mood_control();
-  }
-  touch();
-  checkTouchTimeout(); // Zamanlayıcıyı kontrol et
 }
 
 void loop()

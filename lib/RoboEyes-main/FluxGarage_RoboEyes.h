@@ -168,7 +168,7 @@ unsigned long idleAnimationTimer = 0; // for organising eyeblink timing
 // Animation - eyes confused: eyes shaking left and right
 bool confused = 0;
 unsigned long confusedAnimationTimer = 0;
-int confusedAnimationDuration = 500;
+int confusedAnimationDuration = 2000;
 bool confusedToggle = 1;
 
 // Animation - eyes laughing: eyes shaking up and down
@@ -312,7 +312,7 @@ void setPosition(unsigned char position)
       eyeLxNext = 0;
       eyeLyNext = 0;
       break;
-    default:
+    default: 
       // Middle center
       eyeLxNext = getScreenConstraint_X()/2;
       eyeLyNext = getScreenConstraint_Y()/2;
