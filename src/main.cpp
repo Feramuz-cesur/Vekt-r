@@ -32,8 +32,11 @@ bool touchActive = false;
 #define IN3 25
 #define IN4 26
 
-#define RXD2 16 // DFPlayer'ın TX pinine bağlanır (Yeşil Kablo)
-#define TXD2 17 // DFPlayer'ın RX pinine bağlanır (Mavi Kablo)
+// #define RXD2 16 // DFPlayer'ın TX pinine bağlanır (Yeşil Kablo)
+// #define TXD2 17 // DFPlayer'ın RX pinine bağlanır (Mavi Kablo)
+
+#define RX_PIN 4  // DFPlayer TX -> ESP32 GPIO 4
+#define TX_PIN 5  // DFPlayer RX -> ESP32 GPIO 5
 DFRobotDFPlayerMini myDFPlayer;
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
@@ -155,7 +158,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
 
     servo1.write(arm);
     servo2.write(head);
-    myDFPlayer.volume(map(head, 15, 50, 0, 30)); // Head pozisyonuna göre ses seviyesi ayarla
+    // myDFPlayer.volume(map(head, 15, 50, 0, 30)); // Head pozisyonuna göre ses seviyesi ayarla
     
 
     // Hareket kontrolü ****************
@@ -352,7 +355,9 @@ void setup()
   pinMode(THC_PIN, INPUT);
 
   // 3. DFPLAYER BAŞLATMA (En öncelikli adım)
-  Serial2.begin(9600, SERIAL_8N1, RXD2, TXD2);
+  // Serial2.begin(9600, SERIAL_8N1, RXD2, TXD2);
+
+  Serial2.begin(9600, SERIAL_8N1, RX_PIN, TX_PIN);
   ///delay(1000); // Serial portun oturması için bekle
 
   Serial.println(F("DFPlayer Mini Başlatılıyor..."));

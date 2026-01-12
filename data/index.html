@@ -37,35 +37,37 @@
             background-color: #0a0a12;
             color: white;
             overflow: hidden;
-            touch-action: none; /* Mobilde sayfa kaydırmayı engelle */
+            touch-action: none;
         }
 
-        /* --- Slider Tasarımı (Büyütülmüş) --- */
+        /* --- Slider Genel --- */
         input[type=range] {
             -webkit-appearance: none;
-            appearance: none; /* Standart özellik eklendi */
+            appearance: none;
             background: transparent;
         }
         
+        /* Thumb (Tutamaç) Boyutları - vh cinsinden orantılı */
         input[type=range]::-webkit-slider-thumb {
             -webkit-appearance: none;
-            appearance: none; /* Standart özellik eklendi */
-            height: 36px; /* Daha büyük başparmak alanı */
-            width: 36px;
+            appearance: none;
+            height: 5vh; /* Ekran yüksekliğinin %5'i */
+            width: 5vh;  /* Kare olması için aynı oran */
             border-radius: 50%;
             cursor: pointer;
-            margin-top: -12px;
-            box-shadow: 0 0 15px currentColor;
+            /* Ortalamak için margin hesabı: track yüksekliği (1.5vh) - thumb yüksekliği (5vh) / 2 */
+            margin-top: -1.75vh; 
+            box-shadow: 0 0 10px currentColor;
             background: white;
-            border: 4px solid currentColor;
+            border: 0.5vh solid currentColor;
         }
 
         input[type=range]::-webkit-slider-runnable-track {
             width: 100%;
-            height: 12px;
+            height: 1.5vh; /* Track kalınlığı da orantılı */
             cursor: pointer;
             background: #333;
-            border-radius: 6px;
+            border-radius: 1vh;
             box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
         }
 
@@ -74,17 +76,20 @@
         #headSlider::-webkit-slider-thumb { color: #ff9100; }
         #speedSlider::-webkit-slider-thumb { color: #00f3ff; }
 
-        /* Dikey Slider Wrapper */
-        .vertical-slider-wrapper {
+        /* --- Dikey Slider --- */
+        /* Flex wrapper, slider'ı ortalamak için */
+        .vertical-slider-container {
             display: flex;
             align-items: center;
             justify-content: center;
-            height: 180px; /* Daha uzun */
-            width: 60px;
+            height: 40vh; /* Wrapper yüksekliği = Slider uzunluğu */
+            width: 8vh;   /* Genişlik thumb'ı kapsayacak kadar */
         }
+
         .vertical-slider {
             transform: rotate(-90deg);
-            width: 180px; /* Yükseklik kadar genişlik verip döndürüyoruz */
+            /* Dikey slider'ın boyu aslında width'tir. Ekranın %40'ı kadar uzun olsun */
+            width: 40vh; 
         }
 
         /* --- Buton Efektleri --- */
@@ -93,7 +98,7 @@
         }
         .neon-btn:active, .neon-btn.active {
             transform: scale(0.95);
-            box-shadow: 0 0 20px currentColor;
+            box-shadow: 0 0 2vh currentColor; /* Gölge de orantılı */
             background-color: currentColor;
             color: black !important;
         }
@@ -106,7 +111,7 @@
         }
     </style>
 </head>
-<body class="h-screen w-screen font-body select-none">
+<body class="h-screen w-screen font-body select-none flex flex-col">
 
     <!-- Oryantasyon Uyarısı -->
     <div id="rotate-message" class="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center text-center p-5">
@@ -115,43 +120,55 @@
     </div>
 
     <!-- Ana Arayüz -->
-    <div id="main-interface" class="h-full w-full flex flex-col p-2 relative">
+    <div id="main-interface" class="flex-1 w-full flex flex-col p-[1vh] relative overflow-hidden">
         
-        <!-- Üst Bar -->
-        <header class="flex justify-between items-center bg-panel-bg border-b border-gray-700 p-2 rounded-t-lg shrink-0">
-            <div class="flex items-center gap-3">
-                <div class="flex items-center gap-1 text-neon-blue font-tech">
-                    <i class="fa-solid fa-robot text-2xl"></i>
-                    <span class="text-xl tracking-wider">VECTOR V2</span>
+        <!-- Üst Bar (Header): Yüksekliği vh ile sabitlendi (Örn: %12) -->
+        <header class="flex justify-between items-center bg-panel-bg border-b border-gray-700 px-[2vh] rounded-t-lg shrink-0 h-[9vh] gap-4">
+            <!-- Sol: Logo ve Durum -->
+            <div class="flex items-center gap-[2vh]">
+                <div class="flex items-center gap-[1vh] text-neon-blue font-tech">
+                    <i class="fa-solid fa-robot text-[4vh]"></i>
+                    <span class="text-[3vh] tracking-wider hidden sm:inline">VECTOR V2</span>
                 </div>
-                <div id="connection-status" class="text-xs px-2 py-1 rounded border border-red-500 text-red-300 bg-red-900/50">
+                <div id="connection-status" class="text-[1.8vh] px-[1vh] py-[0.5vh] rounded border border-red-500 text-red-300 bg-red-900/50">
                     BAĞLANTI YOK
                 </div>
             </div>
 
-            <!-- Mod Seçici -->
-            <div class="flex bg-gray-900 rounded-lg p-1 gap-1">
-                <button onclick="setUIMode('manual')" id="btn-manual" class="px-6 py-2 rounded text-base font-bold transition-all bg-neon-blue text-black shadow-[0_0_10px_#00f3ff]">MANUEL</button>
-                <button onclick="setUIMode('semi')" id="btn-semi" class="px-6 py-2 rounded text-base font-bold transition-all text-gray-400 hover:text-white">MODLAR</button>
-                <button onclick="setUIMode('auto')" id="btn-auto" class="px-6 py-2 rounded text-base font-bold transition-all text-gray-400 hover:text-white">AUTO</button>
+            <!-- Sağ: Modlar ve Tam Ekran -->
+            <div class="flex items-center gap-[1vh]">
+                <!-- Mod Seçici -->
+                <div class="flex bg-gray-900 rounded-lg p-[0.5vh] gap-[0.5vh]">
+                    <button onclick="setUIMode('manual')" id="btn-manual" class="px-[3vh] py-[1vh] rounded text-[2vh] font-bold transition-all bg-neon-blue text-black shadow-[0_0_10px_#00f3ff]">MANUEL</button>
+                    <button onclick="setUIMode('semi')" id="btn-semi" class="px-[3vh] py-[1vh] rounded text-[2vh] font-bold transition-all text-gray-400 hover:text-white">MODLAR</button>
+                    <button onclick="setUIMode('auto')" id="btn-auto" class="px-[3vh] py-[1vh] rounded text-[2vh] font-bold transition-all text-gray-400 hover:text-white">AUTO</button>
+                </div>
+
+                <!-- Tam Ekran Butonu -->
+                <button onclick="toggleFullScreen()" id="btn-fullscreen" class="bg-gray-800 border border-gray-600 text-gray-300 hover:text-white hover:border-white w-[5vh] h-[5vh] rounded text-[2vh] flex items-center justify-center transition-all ml-[1vh]" title="Tam Ekran">
+                    <i class="fa-solid fa-expand"></i>
+                </button>
             </div>
         </header>
 
-        <!-- İçerik Alanı -->
-        <main class="flex-1 relative mt-2 overflow-hidden flex gap-2">
+        <!-- İçerik Alanı (Main): Kalan alanı doldurur -->
+        <main class="flex-1 relative mt-[1vh] overflow-hidden flex gap-[1vh]">
             
-            <!-- 1. MANUEL PANEL (Sol: Yön, Sağ: Sliderlar) -->
-            <div id="mode-manual" class="w-full h-full flex gap-4">
+            <!-- 1. MANUEL PANEL -->
+            <div id="mode-manual" class="w-full h-full flex gap-[2vh]">
                 
-                <!-- SOL: Yön Kontrolü (BÜYÜTÜLMÜŞ) -->
-                <div class="w-1/2 bg-panel-bg rounded-lg border border-gray-800 flex items-center justify-center relative p-4">
-                    <span class="absolute top-2 left-3 text-xs text-gray-500 font-tech">HAREKET</span>
+                <!-- SOL: Yön Kontrolü -->
+                <div class="w-1/2 bg-panel-bg rounded-lg border border-gray-800 flex items-center justify-center relative p-[2vh]">
+                    <span class="absolute top-[1vh] left-[2vh] text-[2vh] text-gray-500 font-tech">HAREKET</span>
                     
-                    <div class="grid grid-cols-3 gap-3 p-4 bg-gray-900/50 rounded-full border border-gray-700">
+                    <!-- Yön Tuşları Grid -->
+                    <!-- gap değerini de vh cinsinden veriyoruz -->
+                    <div class="grid grid-cols-3 gap-[2vh] p-[2vh] bg-gray-900/50 rounded-full border border-gray-700">
                         <!-- İleri -->
                         <div></div>
+                        <!-- Buton Boyutları: Ekran yüksekliğinin %18'i kadar kare (vh) -->
                         <button id="btn-forward" 
-                            class="w-24 h-24 bg-gray-800 rounded-xl border-2 border-neon-blue text-neon-blue neon-btn flex items-center justify-center text-4xl"
+                            class="w-[18vh] h-[18vh] bg-gray-800 rounded-xl border-2 border-neon-blue text-neon-blue neon-btn flex items-center justify-center text-[6vh]"
                             onmousedown="updateDirection('FORWARD')" onmouseup="updateDirection('STOP')" 
                             ontouchstart="updateDirection('FORWARD')" ontouchend="updateDirection('STOP')">
                             <i class="fa-solid fa-arrow-up"></i>
@@ -160,20 +177,20 @@
 
                         <!-- Sol -->
                         <button id="btn-left" 
-                            class="w-24 h-24 bg-gray-800 rounded-xl border-2 border-neon-blue text-neon-blue neon-btn flex items-center justify-center text-4xl"
+                            class="w-[18vh] h-[18vh] bg-gray-800 rounded-xl border-2 border-neon-blue text-neon-blue neon-btn flex items-center justify-center text-[6vh]"
                             onmousedown="updateDirection('LEFT')" onmouseup="updateDirection('STOP')" 
                             ontouchstart="updateDirection('LEFT')" ontouchend="updateDirection('STOP')">
                             <i class="fa-solid fa-arrow-left"></i>
                         </button>
                         
-                        <!-- Merkez (Speed Göstergesi veya Logo) -->
-                        <div class="w-24 h-24 bg-black rounded-full flex items-center justify-center border border-gray-700">
-                            <i class="fa-solid fa-crosshairs text-gray-600 text-3xl"></i>
+                        <!-- Merkez -->
+                        <div class="w-[18vh] h-[18vh] bg-black rounded-full flex items-center justify-center border border-gray-700">
+                            <i class="fa-solid fa-crosshairs text-gray-600 text-[5vh]"></i>
                         </div>
 
                         <!-- Sağ -->
                         <button id="btn-right" 
-                            class="w-24 h-24 bg-gray-800 rounded-xl border-2 border-neon-blue text-neon-blue neon-btn flex items-center justify-center text-4xl"
+                            class="w-[18vh] h-[18vh] bg-gray-800 rounded-xl border-2 border-neon-blue text-neon-blue neon-btn flex items-center justify-center text-[6vh]"
                             onmousedown="updateDirection('RIGHT')" onmouseup="updateDirection('STOP')" 
                             ontouchstart="updateDirection('RIGHT')" ontouchend="updateDirection('STOP')">
                             <i class="fa-solid fa-arrow-right"></i>
@@ -182,7 +199,7 @@
                         <!-- Geri -->
                         <div></div>
                         <button id="btn-backward" 
-                            class="w-24 h-24 bg-gray-800 rounded-xl border-2 border-neon-blue text-neon-blue neon-btn flex items-center justify-center text-4xl"
+                            class="w-[18vh] h-[18vh] bg-gray-800 rounded-xl border-2 border-neon-blue text-neon-blue neon-btn flex items-center justify-center text-[6vh]"
                             onmousedown="updateDirection('BACKWARD')" onmouseup="updateDirection('STOP')" 
                             ontouchstart="updateDirection('BACKWARD')" ontouchend="updateDirection('STOP')">
                             <i class="fa-solid fa-arrow-down"></i>
@@ -191,140 +208,129 @@
                     </div>
                 </div>
 
-                <!-- SAĞ: Slider Kontrolleri (Kafa, Kol, Hız) -->
-                <div class="w-1/2 bg-panel-bg rounded-lg border border-gray-800 p-4 flex flex-col justify-between relative">
-                    <span class="absolute top-2 left-3 text-xs text-gray-500 font-tech">MEKANİK & HIZ</span>
+                <!-- SAĞ: Slider Kontrolleri -->
+                <div class="w-1/2 bg-panel-bg rounded-lg border border-gray-800 p-[2vh] flex flex-col justify-between relative">
+                    <span class="absolute top-[1vh] left-[2vh] text-[2vh] text-gray-500 font-tech">MEKANİK & HIZ</span>
 
-                    <div class="flex flex-1 items-center justify-around w-full">
-                        <!-- KAFA (HEAD) -->
+                    <!-- Dikey Sliderlar Alanı -->
+                    <div class="flex flex-1 items-center justify-around w-full mt-[3vh]">
                         <div class="flex flex-col items-center">
-                            <div class="vertical-slider-wrapper bg-gray-900 rounded-full border border-gray-700">
-                                <input id="headSlider" class="vertical-slider" type="range" min="15" max="50" step="1" value="30" oninput="sendData()">
+                            <!-- Wrapper yüksekliği ve slider boyu CSS'de vh ile ayarlandı -->
+                            <div class="vertical-slider-container  bg-gray-900 rounded-full border border-gray-700">
+                                <input id="headSlider" class="vertical-slider" type="range" min="0" max="60" step="1" value="30" oninput="sendData()">
                             </div>
-                            <span class="mt-3 text-sm font-bold text-neon-orange font-tech">KAFA</span>
-                            <span id="disp-head" class="text-xs text-gray-400">30</span>
+                            <span class="mt-[1.5vh] text-[2vh] font-bold text-neon-orange font-tech">KAFA</span>
+                            <span id="disp-head" class="text-[1.8vh] text-gray-400">30</span>
                         </div>
 
-                        <!-- KOL (ARM) -->
                         <div class="flex flex-col items-center">
-                            <div class="vertical-slider-wrapper bg-gray-900 rounded-full border border-gray-700">
-                                <input id="armSlider" class="vertical-slider" type="range" min="0" max="220" step="1" value="0" oninput="sendData()">
+                            <div class="vertical-slider-container bg-gray-900 rounded-full border border-gray-700">
+                                <input id="armSlider" class="vertical-slider" type="range" min="0" max="70" step="1" value="0" oninput="sendData()">
                             </div>
-                            <span class="mt-3 text-sm font-bold text-neon-purple font-tech">KOL</span>
-                            <span id="disp-arm" class="text-xs text-gray-400">0</span>
+                            <span class="mt-[1.5vh] text-[2vh] font-bold text-neon-purple font-tech">KOL</span>
+                            <span id="disp-arm" class="text-[1.8vh] text-gray-400">0</span>
                         </div>
                     </div>
 
-                    <!-- HIZ (SPEED) - Yatay Slider -->
-                    <div class="w-full bg-gray-900/50 p-3 rounded-xl border border-gray-700 mt-2">
-                        <div class="flex justify-between mb-1">
-                            <span class="text-xs text-neon-blue font-bold">MOTOR HIZI</span>
-                            <span id="disp-speed" class="text-xs text-white">0</span>
+                    <!-- Hız Sliderı (Yatay) -->
+                    <div class="w-full bg-gray-900/50 p-[1.5vh] rounded-xl border border-gray-700 mt-[1vh] mb-[1vh]">
+                        <div class="flex justify-between mb-[0.5vh]">
+                            <span class="text-[1.8vh] text-neon-blue font-bold">MOTOR HIZI</span>
+                            <span id="disp-speed" class="text-[1.8vh] text-white">0</span>
                         </div>
                         <input id="speedSlider" type="range" class="w-full" min="0" max="254" step="1" value="0" oninput="sendData()">
                     </div>
                 </div>
             </div>
 
-            <!-- 2. MODLAR / DUYGU PANELİ (Semi-Auto) -->
-            <div id="mode-semi" class="w-full h-full hidden flex gap-4">
-                 <!-- Sol: Yön Kontrolü (Tekrar - Kullanıcı Yarı Otonomda da sürmek istedi) -->
-                 <div class="w-1/3 bg-panel-bg rounded-lg border border-gray-800 flex flex-col items-center justify-center p-2 relative">
-                    <span class="absolute top-2 left-3 text-xs text-gray-500 font-tech">SÜRÜŞ</span>
-                    <div class="grid grid-cols-3 gap-2 scale-90">
+            <!-- 2. MODLAR / DUYGU PANELİ -->
+            <div id="mode-semi" class="w-full h-full hidden flex gap-[2vh]">
+                 <!-- Sol: Mini Yön Kontrolü -->
+                 <div class="w-1/3 bg-panel-bg rounded-lg border border-gray-800 flex flex-col items-center justify-center p-[2vh] relative">
+                    <span class="absolute top-[1vh] left-[2vh] text-[1.8vh] text-gray-500 font-tech">SÜRÜŞ</span>
+                    <div class="grid grid-cols-3 gap-[1vh]">
                         <div></div>
-                        <button class="w-20 h-20 bg-gray-800 rounded-lg border border-gray-600 text-gray-300 flex items-center justify-center text-2xl active:bg-neon-blue active:text-black"
+                        <button class="w-[12vh] h-[12vh] bg-gray-800 rounded-lg border border-gray-600 text-gray-300 flex items-center justify-center text-[4vh] active:bg-neon-blue active:text-black"
                             onmousedown="updateDirection('FORWARD')" onmouseup="updateDirection('STOP')" 
                             ontouchstart="updateDirection('FORWARD')" ontouchend="updateDirection('STOP')"><i class="fa-solid fa-chevron-up"></i></button>
                         <div></div>
-                        <button class="w-20 h-20 bg-gray-800 rounded-lg border border-gray-600 text-gray-300 flex items-center justify-center text-2xl active:bg-neon-blue active:text-black"
+                        <button class="w-[12vh] h-[12vh] bg-gray-800 rounded-lg border border-gray-600 text-gray-300 flex items-center justify-center text-[4vh] active:bg-neon-blue active:text-black"
                             onmousedown="updateDirection('LEFT')" onmouseup="updateDirection('STOP')" 
                             ontouchstart="updateDirection('LEFT')" ontouchend="updateDirection('STOP')"><i class="fa-solid fa-chevron-left"></i></button>
-                        <div class="flex items-center justify-center"><i class="fa-solid fa-gamepad text-gray-600 text-2xl"></i></div>
-                        <button class="w-20 h-20 bg-gray-800 rounded-lg border border-gray-600 text-gray-300 flex items-center justify-center text-2xl active:bg-neon-blue active:text-black"
+                        <div class="flex items-center justify-center"><i class="fa-solid fa-gamepad text-gray-600 text-[4vh]"></i></div>
+                        <button class="w-[12vh] h-[12vh] bg-gray-800 rounded-lg border border-gray-600 text-gray-300 flex items-center justify-center text-[4vh] active:bg-neon-blue active:text-black"
                             onmousedown="updateDirection('RIGHT')" onmouseup="updateDirection('STOP')" 
                             ontouchstart="updateDirection('RIGHT')" ontouchend="updateDirection('STOP')"><i class="fa-solid fa-chevron-right"></i></button>
                         <div></div>
-                        <button class="w-20 h-20 bg-gray-800 rounded-lg border border-gray-600 text-gray-300 flex items-center justify-center text-2xl active:bg-neon-blue active:text-black"
+                        <button class="w-[12vh] h-[12vh] bg-gray-800 rounded-lg border border-gray-600 text-gray-300 flex items-center justify-center text-[4vh] active:bg-neon-blue active:text-black"
                             onmousedown="updateDirection('BACKWARD')" onmouseup="updateDirection('STOP')" 
                             ontouchstart="updateDirection('BACKWARD')" ontouchend="updateDirection('STOP')"><i class="fa-solid fa-chevron-down"></i></button>
                         <div></div>
                     </div>
                 </div>
 
-                <!-- Sağ: Duygular (Moods) -->
-                <div class="w-2/3 bg-panel-bg rounded-lg border border-gray-800 p-6 relative flex flex-col items-center justify-center">
-                    <span class="absolute top-2 left-3 text-xs text-gray-500 font-tech">DUYGU DURUMU (MOOD)</span>
+                <!-- Sağ: Duygu Butonları -->
+                <div class="w-2/3 bg-panel-bg rounded-lg border border-gray-800 p-[2vh] relative flex flex-col items-center justify-center">
+                    <span class="absolute top-[1vh] left-[2vh] text-[1.8vh] text-gray-500 font-tech">DUYGU DURUMU (MOOD)</span>
                     
-                    <div class="grid grid-cols-3 gap-6 w-full h-full pt-4">
-                        <button onclick="updateMood('HAPPY')" class="mood-btn flex flex-col items-center justify-center bg-gray-900 border border-green-500/30 rounded-xl hover:bg-green-900/20 active:scale-95 transition-all p-2">
-                            <i class="fa-solid fa-face-grin-beam text-5xl text-green-400 mb-2"></i>
-                            <span class="font-tech text-green-400">MUTLU</span>
+                    <div class="grid grid-cols-3 gap-[2vh] w-full h-full pt-[4vh]">
+                        <button onclick="updateMood('HAPPY')" class="mood-btn flex flex-col items-center justify-center bg-gray-900 border border-green-500/30 rounded-xl hover:bg-green-900/20 active:scale-95 transition-all p-[1vh]">
+                            <i class="fa-solid fa-face-grin-beam text-[6vh] text-green-400 mb-[1vh]"></i>
+                            <span class="font-tech text-[2vh] text-green-400">MUTLU</span>
                         </button>
-                        
-                        <button onclick="updateMood('ANGRY')" class="mood-btn flex flex-col items-center justify-center bg-gray-900 border border-red-500/30 rounded-xl hover:bg-red-900/20 active:scale-95 transition-all p-2">
-                            <i class="fa-solid fa-face-angry text-5xl text-red-500 mb-2"></i>
-                            <span class="font-tech text-red-500">KIZGIN</span>
+                        <button onclick="updateMood('ANGRY')" class="mood-btn flex flex-col items-center justify-center bg-gray-900 border border-red-500/30 rounded-xl hover:bg-red-900/20 active:scale-95 transition-all p-[1vh]">
+                            <i class="fa-solid fa-face-angry text-[6vh] text-red-500 mb-[1vh]"></i>
+                            <span class="font-tech text-[2vh] text-red-500">KIZGIN</span>
                         </button>
-
-                        <button onclick="updateMood('TIRED')" class="mood-btn flex flex-col items-center justify-center bg-gray-900 border border-blue-500/30 rounded-xl hover:bg-blue-900/20 active:scale-95 transition-all p-2">
-                            <i class="fa-solid fa-face-sad-tear text-5xl text-blue-400 mb-2"></i>
-                            <span class="font-tech text-blue-400">YORGUN</span>
+                        <button onclick="updateMood('TIRED')" class="mood-btn flex flex-col items-center justify-center bg-gray-900 border border-blue-500/30 rounded-xl hover:bg-blue-900/20 active:scale-95 transition-all p-[1vh]">
+                            <i class="fa-solid fa-face-sad-tear text-[6vh] text-blue-400 mb-[1vh]"></i>
+                            <span class="font-tech text-[2vh] text-blue-400">YORGUN</span>
                         </button>
-
-                        <button onclick="updateMood('CONFUSED')" class="mood-btn flex flex-col items-center justify-center bg-gray-900 border border-yellow-500/30 rounded-xl hover:bg-yellow-900/20 active:scale-95 transition-all p-2">
-                            <i class="fa-solid fa-face-dizzy text-5xl text-yellow-400 mb-2"></i>
-                            <span class="font-tech text-yellow-400">ŞAŞKIN</span>
+                        <button onclick="updateMood('CONFUSED')" class="mood-btn flex flex-col items-center justify-center bg-gray-900 border border-yellow-500/30 rounded-xl hover:bg-yellow-900/20 active:scale-95 transition-all p-[1vh]">
+                            <i class="fa-solid fa-face-dizzy text-[6vh] text-yellow-400 mb-[1vh]"></i>
+                            <span class="font-tech text-[2vh] text-yellow-400">ŞAŞKIN</span>
                         </button>
-
-                        <button onclick="updateMood('DEFAULT')" class="mood-btn col-span-2 flex flex-col items-center justify-center bg-gray-900 border border-gray-500/30 rounded-xl hover:bg-gray-800 active:scale-95 transition-all p-2">
-                            <i class="fa-solid fa-face-smile text-5xl text-gray-300 mb-2"></i>
-                            <span class="font-tech text-gray-300">NORMAL (DEFAULT)</span>
+                        <button onclick="updateMood('DEFAULT')" class="mood-btn col-span-2 flex flex-col items-center justify-center bg-gray-900 border border-gray-500/30 rounded-xl hover:bg-gray-800 active:scale-95 transition-all p-[1vh]">
+                            <i class="fa-solid fa-face-smile text-[6vh] text-gray-300 mb-[1vh]"></i>
+                            <span class="font-tech text-[2vh] text-gray-300">NORMAL</span>
                         </button>
                     </div>
                 </div>
             </div>
 
-            <!-- 3. AUTO MOD (RANDOM) -->
-            <div id="mode-auto" class="w-full h-full hidden bg-panel-bg rounded-lg border border-gray-800 p-6 flex flex-col items-center justify-center text-center relative">
-                <span class="absolute top-2 left-3 text-xs text-gray-500 font-tech">TAM OTONOM</span>
-                
-                <div class="animate-pulse mb-6">
-                    <i class="fa-solid fa-shuffle text-8xl text-neon-purple"></i>
+            <!-- 3. AUTO MOD -->
+            <div id="mode-auto" class="w-full h-full hidden bg-panel-bg rounded-lg border border-gray-800 p-[4vh] flex flex-col items-center justify-center text-center relative">
+                <span class="absolute top-[1vh] left-[2vh] text-[1.8vh] text-gray-500 font-tech">TAM OTONOM</span>
+                <div class="animate-pulse mb-[4vh]">
+                    <i class="fa-solid fa-shuffle text-[15vh] text-neon-purple"></i>
                 </div>
-                <h2 class="text-3xl font-tech text-white mb-2">RASTGELE MODU</h2>
-                <p class="text-gray-400 max-w-md">Robot tamamen kendi kendine karar verir. Duygular ve hareketler rastgele değişir.</p>
-                
-                <div class="mt-8 px-6 py-2 bg-neon-purple text-black font-bold rounded shadow-[0_0_15px_#bc13fe]">
+                <h2 class="text-[4vh] font-tech text-white mb-[1vh]">RASTGELE MODU</h2>
+                <p class="text-[2vh] text-gray-400 max-w-md">Robot tamamen kendi kendine karar verir.</p>
+                <div class="mt-[4vh] px-[4vh] py-[1.5vh] bg-neon-purple text-black font-bold rounded shadow-[0_0_15px_#bc13fe] text-[2.5vh]">
                     AKTİF
                 </div>
             </div>
 
         </main>
         
-        <!-- Log Footer -->
-        <footer class="h-6 mt-1 flex items-center text-xs font-mono text-gray-500 px-2 bg-black border-t border-gray-800">
-            <span class="text-green-500 mr-2">></span> <span id="system-log">Sistem Hazır.</span>
+        <!-- Alt Bilgi (Footer): Sabit %5 yükseklik (5vh) -->
+        <footer class="h-[5vh] mt-[0.5vh] flex items-center text-[1.5vh] font-mono text-gray-500 px-[2vh] bg-black border-t border-gray-800 shrink-0">
+            <span class="text-green-500 mr-[1vh]">></span> <span id="system-log">Sistem Hazır.</span>
         </footer>
 
     </div>
 
-    <!-- JAVASCRIPT: Logic entegrasyonu -->
+    <!-- JAVASCRIPT -->
     <script>
-        // --- 1. DEĞİŞKENLER VE AYARLAR ---
         var gateway = `ws://${window.location.hostname}/ws`;
         var websocket;
-        
-        // Varsayılan Değerler
         var currentMood = "DEFAULT"; 
         var direction = "STOP";
 
-        // Sayfa Yüklenince
         window.addEventListener('load', onLoad);
 
         function onLoad(event) {
             initWebSocket();
-            // Sliderların sayısal değerlerini güncelle
             updateSliderDisplays();
         }
 
@@ -334,27 +340,21 @@
             document.getElementById('disp-speed').innerText = document.getElementById('speedSlider').value;
         }
 
-        // --- 2. WEBSOCKET BAĞLANTISI ---
         function initWebSocket() {
-            log('WebSocket bağlanıyor...');
-            
-            // HATA DÜZELTME: HTTPS ortamında (Preview ekranı) ws:// çalışmaz.
-            // Bu yüzden gerçek cihazda (HTTP) çalışması için bu kontrolü koyuyoruz.
             if (window.location.protocol === 'https:') {
-                console.warn("HTTPS ortamında güvenli olmayan WebSocket (ws://) başlatılamaz. Gerçek cihazda (HTTP) bu sorun olmayacaktır.");
+                console.warn("HTTPS ortamında güvenli olmayan WebSocket (ws://) başlatılamaz.");
                 log('Simülasyon Modu (Preview)');
                 document.getElementById('connection-status').innerText = "SİMÜLASYON";
-                document.getElementById('connection-status').className = "text-xs px-2 py-1 rounded border border-blue-500 text-blue-300 bg-blue-900/50";
-                return; // Bağlantı kurmaya çalışma, hata vermesin
+                document.getElementById('connection-status').className = "text-[1.8vh] px-[1vh] py-[0.5vh] rounded border border-blue-500 text-blue-300 bg-blue-900/50";
+                return;
             }
-
             try {
                 websocket = new WebSocket(gateway);
                 websocket.onopen = onOpen;
                 websocket.onclose = onClose;
                 websocket.onmessage = onMessage;
             } catch (error) {
-                console.log('WS Bağlantı hatası (Normal, cihaz bağlı değil)');
+                console.log('WS Bağlantı hatası');
                 log('Bağlantı Hatası (Cihaz Bulunamadı)');
             }
         }
@@ -362,25 +362,39 @@
         function onOpen(event) {
             log('Bağlantı KURULDU.');
             document.getElementById('connection-status').innerText = "BAĞLI";
-            document.getElementById('connection-status').className = "text-xs px-2 py-1 rounded border border-green-500 text-green-300 bg-green-900/50";
+            document.getElementById('connection-status').className = "text-[1.8vh] px-[1vh] py-[0.5vh] rounded border border-green-500 text-green-300 bg-green-900/50";
         }
 
         function onClose(event) {
             log('Bağlantı KOPTU. 2sn sonra tekrar deneniyor...');
             document.getElementById('connection-status').innerText = "BAĞLANTI YOK";
-            document.getElementById('connection-status').className = "text-xs px-2 py-1 rounded border border-red-500 text-red-300 bg-red-900/50";
+            document.getElementById('connection-status').className = "text-[1.8vh] px-[1vh] py-[0.5vh] rounded border border-red-500 text-red-300 bg-red-900/50";
             setTimeout(initWebSocket, 2000);
         }
 
         function onMessage(event) {
-            // Sunucudan gelen mesaj varsa buraya
             log('Gelen: ' + event.data);
         }
 
-        // --- 3. VERİ GÖNDERME (Senin Script Mantığın) ---
-        function sendData() {
-            updateSliderDisplays(); // Ekranda sayıyı güncelle
+        function toggleFullScreen() {
+            var doc = window.document;
+            var docEl = doc.documentElement;
+            var requestFullScreen = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullScreen || docEl.msRequestFullscreen;
+            var cancelFullScreen = doc.exitFullscreen || doc.mozCancelFullScreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
 
+            if(!doc.fullscreenElement && !doc.mozFullScreenElement && !doc.webkitFullscreenElement && !doc.msFullscreenElement) {
+                requestFullScreen.call(docEl);
+                document.querySelector('#btn-fullscreen i').classList.remove('fa-expand');
+                document.querySelector('#btn-fullscreen i').classList.add('fa-compress');
+            } else {
+                cancelFullScreen.call(doc);
+                document.querySelector('#btn-fullscreen i').classList.add('fa-expand');
+                document.querySelector('#btn-fullscreen i').classList.remove('fa-compress');
+            }
+        }
+
+        function sendData() {
+            updateSliderDisplays();
             var data = {
                 arm: document.getElementById("armSlider").value,
                 head: document.getElementById("headSlider").value,
@@ -388,85 +402,59 @@
                 mood: currentMood,
                 direction: direction,
             };
-
-            // WebSocket açık mı kontrol et, yoksa hata vermesin
             if (websocket && websocket.readyState === WebSocket.OPEN) {
                 websocket.send(JSON.stringify(data));
-            } else {
-                // Bağlantı yoksa sadece konsola yaz (Hata verme)
-                // console.log("Veri (Simülasyon):", data);
             }
-
-            // Confused özel durumu (Senin kodundan)
             if (currentMood == "CONFUSED") {
                 setTimeout(() => {
                     currentMood = "DEFAULT";
-                    // UI'da değişikliği göstermek gerekirse buraya eklenebilir
                 }, 1000); 
             }
         }
 
-        // --- 4. KONTROL FONKSİYONLARI ---
-        
-        // Yön Güncelleme
         function updateDirection(dir) {
             direction = dir;
-            // Buton basılıyken görsel efekt için class ekleyip çıkarabiliriz
-            // (CSS active pseudo-class'ı zaten hallediyor ama JS ile de garanti olsun)
             sendData();
-            
             if(dir !== 'STOP') log(`Yön: ${dir}`);
         }
 
-        // Mod/Duygu Güncelleme
         function updateMood(mood) {
             currentMood = mood;
             log(`Duygu: ${mood}`);
             sendData();
         }
 
-        // Arayüz Sekme Geçişi (Manuel, Modlar, Auto)
         function setUIMode(modeName) {
-            // Görünümleri gizle
             document.getElementById('mode-manual').classList.add('hidden');
             document.getElementById('mode-semi').classList.add('hidden');
             document.getElementById('mode-auto').classList.add('hidden');
-
-            // Buton renklerini sıfırla
             resetBtnStyle('btn-manual');
             resetBtnStyle('btn-semi');
             resetBtnStyle('btn-auto');
-
-            // Seçileni aç
             const activeBtn = document.getElementById(`btn-${modeName}`);
             activeBtn.classList.remove('text-gray-400');
             activeBtn.classList.add('bg-neon-blue', 'text-black', 'shadow-[0_0_10px_#00f3ff]');
-
             const activeView = document.getElementById(`mode-${modeName}`);
             activeView.classList.remove('hidden');
-            activeView.classList.add('flex'); // Flex yapısını korumak için
-
-            // Modlara göre arka planda değişkenleri ayarla
+            activeView.classList.add('flex');
             if (modeName === 'auto') {
-                currentMood = "RANDOM"; // Senin kodundaki "Random Mode" checkbox mantığı
+                currentMood = "RANDOM";
                 log("Mod: OTO (RANDOM)");
                 sendData();
             } else if (modeName === 'manual') {
-                currentMood = "DEFAULT"; // Manuel modda varsayılan duygu
+                currentMood = "DEFAULT";
                 log("Mod: MANUEL");
                 sendData();
             } else {
-                // Semi-auto (Modlar) ekranında son seçilen duygu kalır veya default olur
                 log("Mod: MOD SEÇİMİ");
             }
         }
 
         function resetBtnStyle(btnId) {
             const btn = document.getElementById(btnId);
-            btn.className = "px-6 py-2 rounded text-base font-bold transition-all text-gray-400 hover:text-white";
+            btn.className = "px-[3vh] py-[1vh] rounded text-[2vh] font-bold transition-all text-gray-400 hover:text-white";
         }
 
-        // Log Helper
         function log(msg) {
             const el = document.getElementById('system-log');
             el.innerText = msg;
@@ -474,7 +462,6 @@
             void el.offsetWidth;
             el.classList.add('animate-pulse');
         }
-
     </script>
 </body>
 </html>

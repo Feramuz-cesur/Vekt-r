@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Responsive Range Slider</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Range Slider Özelleştirmesi (Cross-browser uyumluluğu için) */
+        input[type=range] {
+            -webkit-appearance: none; /* Varsayılan stili kaldır */
+            width: 100%;
+            background: transparent;
+        }
+
+        /* Webkit (Chrome, Safari, Edge) Track (Çubuk) */
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 8px;
+            cursor: pointer;
+            background: #e5e7eb; /* gray-200 */
+            border-radius: 9999px;
+            transition: background 0.2s;
+        }
+
+        /* Webkit Thumb (Yuvarlak Başlık) */
+        input[type=range]::-webkit-slider-thumb {
+            height: 24px;
+            width: 24px;
+            border-radius: 50%;
+            background: #3b82f6; /* blue-500 */
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -8px; /* Track yüksekliğinin yarısı kadar yukarı çek */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: transform 0.1s;
+        }
+
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+        }
+
+        /* Firefox Track */
+        input[type=range]::-moz-range-track {
+            width: 100%;
+            height: 8px;
+            cursor: pointer;
+            background: #e5e7eb;
+            border-radius: 9999px;
+        }
+
+        /* Firefox Thumb */
+        input[type=range]::-moz-range-thumb {
+            height: 24px;
+            width: 24px;
+            border: none;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Doluluk oranı için dinamik stil (JS ile güncellenecek) */
+        .slider-progress {
+            background: linear-gradient(to right, #3b82f6 0%, #3b82f6 50%, #e5e7eb 50%, #e5e7eb 100%);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-6 font-sans">
+
+    <!-- Ana Kart -->
+    <!-- DEĞİŞİKLİK: Breakpointler kaldırıldı, sadece w-[80%] kullanıldı -->
+    <div class="bg-white w-[80%] p-8 rounded-2xl shadow-xl border border-slate-100">
+        
+        <div class="mb-8 text-center">
+            <h1 class="text-2xl font-bold text-slate-800 mb-2">Değer Seçiniz</h1>
+            <p class="text-slate-500 text-sm">Aşağıdaki çubuğu kaydırarak bir değer belirleyin.</p>
+        </div>
+
+        <!-- Slider Konteyner -->
+        <div class="relative w-full">
+            
+            <!-- Değer Göstergesi (Balon) -->
+            <div class="relative w-full h-8 mb-4">
+                <output id="rangeValue" 
+                        class="absolute -translate-x-1/2 bg-blue-600 text-white font-bold text-sm py-1 px-3 rounded-lg shadow-md transition-all duration-75"
+                        style="left: 50%;">
+                    50
+                    <!-- Küçük üçgen ok -->
+                    <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-blue-600"></div>
+                </output>
+            </div>
+
+            <!-- Input Range -->
+            <input type="range" 
+                   id="rangeInput" 
+                   min="0" 
+                   max="100" 
+                   value="50" 
+                   class="w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded-full slider-progress">
+            
+            <!-- Min/Max Etiketleri -->
+            <div class="flex justify-between mt-2 text-xs font-medium text-slate-400">
+                <span>0</span>
+                <span>100</span>
+            </div>
+        </div>
+
+        <div class="mt-8 pt-6 border-t border-slate-100 text-center">
+            <p class="text-slate-600">
+                Seçilen Değer: <span id="displayValue" class="font-bold text-blue-600 text-xl">50</span>
+            </p>
+        </div>
+
+    </div>
+
+    <script>
+        const rangeInput = document.getElementById('rangeInput');
+        const rangeValue = document.getElementById('rangeValue');
+        const displayValue = document.getElementById('displayValue');
+
+        function updateSlider() {
+            const value = rangeInput.value;
+            const min = rangeInput.min ? rangeInput.min : 0;
+            const max = rangeInput.max ? rangeInput.max : 100;
+            
+            // Yüzdeyi hesapla (0 ile 100 arası)
+            const percentage = ((value - min) * 100) / (max - min);
+
+            // 1. Balonun (Output) pozisyonunu güncelle
+            // Balonun genişliğini hesaba katarak tam ortaya hizalamak için ufak bir offset ayarı gerekebilir
+            // rangeInput'un genişliğine göre 'left' değerini yüzde olarak atıyoruz.
+            // Thumb genişliğini (24px) hesaba katarak kenarlarda taşmayı önleyen formül:
+            const thumbWidth = 24; 
+            const newPosition = `calc(${percentage}% + (${8 - percentage * 0.15}px))`;
+            
+            rangeValue.style.left = newPosition;
+            rangeValue.textContent = value;
+            displayValue.textContent = value;
+
+            // 2. Arka plan doluluk oranını güncelle (Mavi kısım vs Gri kısım)
+            rangeInput.style.background = `linear-gradient(to right, #3b82f6 ${percentage}%, #e5e7eb ${percentage}%)`;
+        }
+
+        // Event Listeners
+        rangeInput.addEventListener('input', updateSlider);
+
+        // Sayfa yüklendiğinde ilk durumu ayarla
+        document.addEventListener('DOMContentLoaded', updateSlider);
+    </script>
+</body>
+</html>
