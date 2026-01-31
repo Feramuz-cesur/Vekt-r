@@ -78,19 +78,35 @@
 
         /* --- Dikey Slider --- */
         /* Flex wrapper, slider'ı ortalamak için */
-        .vertical-slider-container {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 40vh; /* Wrapper yüksekliği = Slider uzunluğu */
-            width: 8vh;   /* Genişlik thumb'ı kapsayacak kadar */
-        }
+       /* --- Dikey Slider --- */
 
-        .vertical-slider {
-            transform: rotate(-90deg);
-            /* Dikey slider'ın boyu aslında width'tir. Ekranın %40'ı kadar uzun olsun */
-            width: 40vh; 
-        }
+.vertical-slider-container {
+    position: relative; /* İçindeki absolute elemanı hizalamak için şart */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    /* Slider'ın DİKEY uzunluğu burada belirlenir */
+    height: 50vh; /* Örnek: 40vh'den 50vh'ye çıkardık */
+    width: 8vh;   /* Genişlik thumb kalınlığına göre kalabilir */
+}
+
+.vertical-slider {
+    /* Flexbox sıkıştırmasını engellemek için absolute kullanıyoruz */
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    
+    /* Önce merkeze al (translate), sonra döndür (rotate) */
+    transform: translate(-50%, -50%) rotate(-90deg);
+    
+    /* Slider'ın genişliği, kapsayıcının yüksekliği (height) ile AYNI olmalı */
+    width: 43vh; /* Container height değeri ile eşleşmeli */
+    
+    /* Diğer ayarlar */
+    margin: 0;
+    transform-origin: center;
+}
 
         /* --- Buton Efektleri --- */
         .neon-btn {
@@ -217,7 +233,7 @@
                         <div class="flex flex-col items-center">
                             <!-- Wrapper yüksekliği ve slider boyu CSS'de vh ile ayarlandı -->
                             <div class="vertical-slider-container  bg-gray-900 rounded-full border border-gray-700">
-                                <input id="headSlider" class="vertical-slider" type="range" min="0" max="60" step="1" value="30" oninput="sendData()">
+                                <input id="headSlider" class="vertical-slider ]" type="range" min="0" max="60" step="1" value="30" oninput="sendData()">
                             </div>
                             <span class="mt-[1.5vh] text-[2vh] font-bold text-neon-orange font-tech">KAFA</span>
                             <span id="disp-head" class="text-[1.8vh] text-gray-400">30</span>
@@ -246,31 +262,58 @@
             <!-- 2. MODLAR / DUYGU PANELİ -->
             <div id="mode-semi" class="w-full h-full hidden flex gap-[2vh]">
                  <!-- Sol: Mini Yön Kontrolü -->
-                 <div class="w-1/3 bg-panel-bg rounded-lg border border-gray-800 flex flex-col items-center justify-center p-[2vh] relative">
-                    <span class="absolute top-[1vh] left-[2vh] text-[1.8vh] text-gray-500 font-tech">SÜRÜŞ</span>
-                    <div class="grid grid-cols-3 gap-[1vh]">
+                <div class="w-1/2 bg-panel-bg rounded-lg border border-gray-800 flex items-center justify-center relative p-[2vh]">
+                    <span class="absolute top-[1vh] left-[2vh] text-[2vh] text-gray-500 font-tech">HAREKET</span>
+                    
+                    <!-- Yön Tuşları Grid -->
+                    <!-- gap değerini de vh cinsinden veriyoruz -->
+                    <div class="grid grid-cols-3 gap-[2vh] p-[2vh] bg-gray-900/50 rounded-full border border-gray-700">
+                        <!-- İleri -->
                         <div></div>
-                        <button class="w-[12vh] h-[12vh] bg-gray-800 rounded-lg border border-gray-600 text-gray-300 flex items-center justify-center text-[4vh] active:bg-neon-blue active:text-black"
+                        <!-- Buton Boyutları: Ekran yüksekliğinin %18'i kadar kare (vh) -->
+                        <button id="btn-forward" 
+                            class="w-[18vh] h-[18vh] bg-gray-800 rounded-xl border-2 border-neon-blue text-neon-blue neon-btn flex items-center justify-center text-[6vh]"
                             onmousedown="updateDirection('FORWARD')" onmouseup="updateDirection('STOP')" 
-                            ontouchstart="updateDirection('FORWARD')" ontouchend="updateDirection('STOP')"><i class="fa-solid fa-chevron-up"></i></button>
+                            ontouchstart="updateDirection('FORWARD')" ontouchend="updateDirection('STOP')">
+                            <i class="fa-solid fa-arrow-up"></i>
+                        </button>
                         <div></div>
-                        <button class="w-[12vh] h-[12vh] bg-gray-800 rounded-lg border border-gray-600 text-gray-300 flex items-center justify-center text-[4vh] active:bg-neon-blue active:text-black"
+
+                        <!-- Sol -->
+                        <button id="btn-left" 
+                            class="w-[18vh] h-[18vh] bg-gray-800 rounded-xl border-2 border-neon-blue text-neon-blue neon-btn flex items-center justify-center text-[6vh]"
                             onmousedown="updateDirection('LEFT')" onmouseup="updateDirection('STOP')" 
-                            ontouchstart="updateDirection('LEFT')" ontouchend="updateDirection('STOP')"><i class="fa-solid fa-chevron-left"></i></button>
-                        <div class="flex items-center justify-center"><i class="fa-solid fa-gamepad text-gray-600 text-[4vh]"></i></div>
-                        <button class="w-[12vh] h-[12vh] bg-gray-800 rounded-lg border border-gray-600 text-gray-300 flex items-center justify-center text-[4vh] active:bg-neon-blue active:text-black"
+                            ontouchstart="updateDirection('LEFT')" ontouchend="updateDirection('STOP')">
+                            <i class="fa-solid fa-arrow-left"></i>
+                        </button>
+                        
+                        <!-- Merkez -->
+                        <div class="w-[18vh] h-[18vh] bg-black rounded-full flex items-center justify-center border border-gray-700">
+                            <i class="fa-solid fa-crosshairs text-gray-600 text-[5vh]"></i>
+                        </div>
+
+                        <!-- Sağ -->
+                        <button id="btn-right" 
+                            class="w-[18vh] h-[18vh] bg-gray-800 rounded-xl border-2 border-neon-blue text-neon-blue neon-btn flex items-center justify-center text-[6vh]"
                             onmousedown="updateDirection('RIGHT')" onmouseup="updateDirection('STOP')" 
-                            ontouchstart="updateDirection('RIGHT')" ontouchend="updateDirection('STOP')"><i class="fa-solid fa-chevron-right"></i></button>
+                            ontouchstart="updateDirection('RIGHT')" ontouchend="updateDirection('STOP')">
+                            <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+
+                        <!-- Geri -->
                         <div></div>
-                        <button class="w-[12vh] h-[12vh] bg-gray-800 rounded-lg border border-gray-600 text-gray-300 flex items-center justify-center text-[4vh] active:bg-neon-blue active:text-black"
+                        <button id="btn-backward" 
+                            class="w-[18vh] h-[18vh] bg-gray-800 rounded-xl border-2 border-neon-blue text-neon-blue neon-btn flex items-center justify-center text-[6vh]"
                             onmousedown="updateDirection('BACKWARD')" onmouseup="updateDirection('STOP')" 
-                            ontouchstart="updateDirection('BACKWARD')" ontouchend="updateDirection('STOP')"><i class="fa-solid fa-chevron-down"></i></button>
+                            ontouchstart="updateDirection('BACKWARD')" ontouchend="updateDirection('STOP')">
+                            <i class="fa-solid fa-arrow-down"></i>
+                        </button>
                         <div></div>
                     </div>
                 </div>
 
                 <!-- Sağ: Duygu Butonları -->
-                <div class="w-2/3 bg-panel-bg rounded-lg border border-gray-800 p-[2vh] relative flex flex-col items-center justify-center">
+                <div class="w-1/2 bg-panel-bg rounded-lg border border-gray-800 p-[2vh] relative flex flex-col items-center justify-center">
                     <span class="absolute top-[1vh] left-[2vh] text-[1.8vh] text-gray-500 font-tech">DUYGU DURUMU (MOOD)</span>
                     
                     <div class="grid grid-cols-3 gap-[2vh] w-full h-full pt-[4vh]">
@@ -298,16 +341,61 @@
                 </div>
             </div>
 
-            <!-- 3. AUTO MOD -->
-            <div id="mode-auto" class="w-full h-full hidden bg-panel-bg rounded-lg border border-gray-800 p-[4vh] flex flex-col items-center justify-center text-center relative">
-                <span class="absolute top-[1vh] left-[2vh] text-[1.8vh] text-gray-500 font-tech">TAM OTONOM</span>
-                <div class="animate-pulse mb-[4vh]">
-                    <i class="fa-solid fa-shuffle text-[15vh] text-neon-purple"></i>
-                </div>
-                <h2 class="text-[4vh] font-tech text-white mb-[1vh]">RASTGELE MODU</h2>
-                <p class="text-[2vh] text-gray-400 max-w-md">Robot tamamen kendi kendine karar verir.</p>
-                <div class="mt-[4vh] px-[4vh] py-[1.5vh] bg-neon-purple text-black font-bold rounded shadow-[0_0_15px_#bc13fe] text-[2.5vh]">
-                    AKTİF
+            <!-- 3. AUTO MOD (GÜNCELLENEN KISIM) -->
+            <div id="mode-auto" class="w-full h-full hidden bg-panel-bg rounded-lg border border-gray-800 p-[2vh] flex flex-col relative">
+                <span class="absolute top-[1vh] left-[2vh] text-[1.8vh] text-gray-500 font-tech">OTONOM DANSLAR & MODLAR</span>
+                
+                <!-- 8'li Buton Grid -->
+                <div class="grid grid-cols-4 grid-rows-2 gap-[2vh] w-full h-full pt-[4vh]">
+                    
+                    <!-- DANCE 1 -->
+                    <button onclick="updateMood('DANCE_1')" class="flex flex-col items-center justify-center bg-gray-900 border border-neon-blue/30 rounded-xl hover:bg-neon-blue/20 active:scale-95 transition-all p-[1vh] group shadow-[0_0_5px_rgba(0,243,255,0.1)]">
+                        <i class="fa-solid fa-music text-[4vh] text-neon-blue mb-[1vh] group-hover:scale-110 transition-transform"></i>
+                        <span class="font-tech text-[1.5vh] text-neon-blue">DANCE 1</span>
+                    </button>
+
+                    <!-- DANCE 2 -->
+                    <button onclick="updateMood('DANCE_2')" class="flex flex-col items-center justify-center bg-gray-900 border border-neon-blue/30 rounded-xl hover:bg-neon-blue/20 active:scale-95 transition-all p-[1vh] group shadow-[0_0_5px_rgba(0,243,255,0.1)]">
+                        <i class="fa-solid fa-robot text-[4vh] text-neon-blue mb-[1vh] group-hover:scale-110 transition-transform"></i>
+                        <span class="font-tech text-[1.5vh] text-neon-blue">DANCE 2</span>
+                    </button>
+
+                    <!-- DANCE 3 -->
+                    <button onclick="updateMood('DANCE_3')" class="flex flex-col items-center justify-center bg-gray-900 border border-neon-blue/30 rounded-xl hover:bg-neon-blue/20 active:scale-95 transition-all p-[1vh] group shadow-[0_0_5px_rgba(0,243,255,0.1)]">
+                        <i class="fa-solid fa-bolt text-[4vh] text-neon-blue mb-[1vh] group-hover:scale-110 transition-transform"></i>
+                        <span class="font-tech text-[1.5vh] text-neon-blue">DANCE 3</span>
+                    </button>
+
+                    <!-- DANCE 4 -->
+                    <button onclick="updateMood('DANCE_4')" class="flex flex-col items-center justify-center bg-gray-900 border border-neon-blue/30 rounded-xl hover:bg-neon-blue/20 active:scale-95 transition-all p-[1vh] group shadow-[0_0_5px_rgba(0,243,255,0.1)]">
+                        <i class="fa-solid fa-wand-magic-sparkles text-[4vh] text-neon-blue mb-[1vh] group-hover:scale-110 transition-transform"></i>
+                        <span class="font-tech text-[1.5vh] text-neon-blue">DANCE 4</span>
+                    </button>
+
+                    <!-- DANCE 5 -->
+                    <button onclick="updateMood('DANCE_5')" class="flex flex-col items-center justify-center bg-gray-900 border border-neon-blue/30 rounded-xl hover:bg-neon-blue/20 active:scale-95 transition-all p-[1vh] group shadow-[0_0_5px_rgba(0,243,255,0.1)]">
+                        <i class="fa-solid fa-compact-disc text-[4vh] text-neon-blue mb-[1vh] group-hover:scale-110 transition-transform animate-spin-slow"></i>
+                        <span class="font-tech text-[1.5vh] text-neon-blue">DANCE 5</span>
+                    </button>
+
+                    <!-- DANCE 6 -->
+                    <button onclick="updateMood('DANCE_6')" class="flex flex-col items-center justify-center bg-gray-900 border border-neon-blue/30 rounded-xl hover:bg-neon-blue/20 active:scale-95 transition-all p-[1vh] group shadow-[0_0_5px_rgba(0,243,255,0.1)]">
+                        <i class="fa-solid fa-drum text-[4vh] text-neon-blue mb-[1vh] group-hover:scale-110 transition-transform"></i>
+                        <span class="font-tech text-[1.5vh] text-neon-blue">DANCE 6</span>
+                    </button>
+
+                    <!-- DANCE 7 -->
+                    <button onclick="updateMood('DANCE_7')" class="flex flex-col items-center justify-center bg-gray-900 border border-neon-blue/30 rounded-xl hover:bg-neon-blue/20 active:scale-95 transition-all p-[1vh] group shadow-[0_0_5px_rgba(0,243,255,0.1)]">
+                        <i class="fa-solid fa-guitar text-[4vh] text-neon-blue mb-[1vh] group-hover:scale-110 transition-transform"></i>
+                        <span class="font-tech text-[1.5vh] text-neon-blue">DANCE 7</span>
+                    </button>
+
+                    <!-- RANDOM (ÖZEL BUTON) -->
+                    <button onclick="updateMood('RANDOM')" class="flex flex-col items-center justify-center bg-gray-900 border border-neon-purple rounded-xl hover:bg-neon-purple hover:text-black active:scale-95 transition-all p-[1vh] group shadow-[0_0_15px_#bc13fe]">
+                        <i class="fa-solid fa-shuffle text-[4vh] text-neon-purple group-hover:text-black mb-[1vh] group-hover:rotate-180 transition-all duration-500"></i>
+                        <span class="font-tech text-[1.5vh] text-neon-purple group-hover:text-black font-bold">RANDOM</span>
+                    </button>
+
                 </div>
             </div>
 
@@ -420,7 +508,7 @@
 
         function updateMood(mood) {
             currentMood = mood;
-            log(`Duygu: ${mood}`);
+            log(`Mod: ${mood}`);
             sendData();
         }
 
@@ -437,10 +525,10 @@
             const activeView = document.getElementById(`mode-${modeName}`);
             activeView.classList.remove('hidden');
             activeView.classList.add('flex');
+            
+            // Auto moduna geçerken otomatik Random yollama, kullanıcı seçsin.
             if (modeName === 'auto') {
-                currentMood = "RANDOM";
-                log("Mod: OTO (RANDOM)");
-                sendData();
+                log("Mod: OTO SEÇİMİ");
             } else if (modeName === 'manual') {
                 currentMood = "DEFAULT";
                 log("Mod: MANUEL");

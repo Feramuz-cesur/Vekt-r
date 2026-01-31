@@ -1,9 +1,9 @@
 /*
- * FluxGarage RoboEyes for OLED Displays V 1.0.1
+ * FluxGarage RoboEyes for OLED Displays V 1.1.1
  * Draws smoothly animated robot eyes on OLED displays, based on the Adafruit GFX 
  * library's graphics primitives, such as rounded rectangles and triangles.
  *   
- * Copyright (C) 2024 Dennis Hoelscher
+ * Copyright (C) 2024-2025 Dennis Hoelscher
  * www.fluxgarage.com
  * www.youtube.com/@FluxGarage
  *
@@ -27,9 +27,9 @@
 #define _FLUXGARAGE_ROBOEYES_H
 
 
-// Usage of monochrome display colors
-#define BGCOLOR 0 // background and overlays
-#define MAINCOLOR 1 // drawings
+// Display colors
+uint8_t BGCOLOR = 0; // background and overlays
+uint8_t MAINCOLOR = 1; // drawings
 
 // For mood type switch
 #define DEFAULT 0
@@ -52,15 +52,20 @@
 #define NW 8 // north-west, top left 
 // for middle center set "DEFAULT"
 
-class roboEyes
+
+// Constructor: takes a reference to the active Adafruit display object (e.g., Adafruit_SSD1327)
+// Eg: roboEyes<Adafruit_SSD1327> = eyes(display);
+template<typename AdafruitDisplay>
+class RoboEyes
 {
 private:
 
-// Yes, everything is currently still accessible. Be responsibly and don't mess things up :)
+// Yes, everything is currently still accessible. Be responsible and don't mess things up :)
 
 public:
 
-
+// Reference to Adafruit display object
+AdafruitDisplay *display;
 
 // For general setup - screen size and max. frame rate
 int screenWidth = 128; // OLED display width, in pixels
@@ -170,7 +175,7 @@ unsigned long idleAnimationTimer = 0; // for organising eyeblink timing
 // Animation - eyes confused: eyes shaking left and right
 bool confused = 0;
 unsigned long confusedAnimationTimer = 0;
-int confusedAnimationDuration = 2000;
+int confusedAnimationDuration = 500;
 bool confusedToggle = 1;
 
 // Animation - eyes laughing: eyes shaking up and down
@@ -179,17 +184,47 @@ unsigned long laughAnimationTimer = 0;
 int laughAnimationDuration = 500;
 bool laughToggle = 1;
 
+// Animation - sweat on the forehead
+bool sweat = 0;
+byte sweatBorderradius = 3;
+
+// Sweat drop 1
+int sweat1XPosInitial = 2;
+int sweat1XPos;
+float sweat1YPos = 2;
+int sweat1YPosMax;
+float sweat1Height = 2;
+float sweat1Width = 1;
+
+// Sweat drop 2
+int sweat2XPosInitial = 2;
+int sweat2XPos;
+float sweat2YPos = 2;
+int sweat2YPosMax;
+float sweat2Height = 2;
+float sweat2Width = 1;
+
+// Sweat drop 3
+int sweat3XPosInitial = 2;
+int sweat3XPos;
+float sweat3YPos = 2;
+int sweat3YPosMax;
+float sweat3Height = 2;
+float sweat3Width = 1;
+
 
 //*********************************************************************************************
 //  GENERAL METHODS
 //*********************************************************************************************
 
+RoboEyes(AdafruitDisplay &disp) : display(&disp) {};
+
 // Startup RoboEyes with defined screen-width, screen-height and max. frames per second
 void begin(int width, int height, byte frameRate) {
 	screenWidth = width; // OLED display width, in pixels
 	screenHeight = height; // OLED display height, in pixels
-  display.clearDisplay(); // clear the display buffer
-  display.display(); // show empty screen
+  display->clearDisplay(); // clear the display buffer
+  display->display(); // show empty screen
   eyeLheightCurrent = 1; // start with closed eyes
   eyeRheightCurrent = 1; // start with closed eyes
   setFramerate(frameRate); // calculate frame interval based on defined frameRate
@@ -211,6 +246,12 @@ void update(){
 // Calculate frame interval based on defined frameRate
 void setFramerate(byte fps){
   frameInterval = 1000/fps;
+}
+
+// Set color values
+void setDisplayColors(uint8_t background, uint8_t main) {
+  BGCOLOR = background; // background and overlays, choose 0 for monochrome displays and 0x00 for grayscale displays such as SSD1322
+  MAINCOLOR = main; // drawings, choose 1 for monochrome displays and 0x0F for grayscale displays such as SSD1322 (0x0F = maximum brightness)
 }
 
 void setWidth(byte leftEye, byte rightEye) {
@@ -314,7 +355,7 @@ void setPosition(unsigned char position)
       eyeLxNext = 0;
       eyeLyNext = 0;
       break;
-    default: 
+    default:
       // Middle center
       eyeLxNext = getScreenConstraint_X()/2;
       eyeLyNext = getScreenConstraint_Y()/2;
@@ -361,7 +402,6 @@ void setHFlicker (bool flickerBit) {
   hFlicker = flickerBit; // turn flicker on or off
 }
 
-
 // Set vertical flickering (displacing eyes up/down)
 void setVFlicker (bool flickerBit, byte Amplitude) {
   vFlicker = flickerBit; // turn flicker on or off
@@ -369,6 +409,10 @@ void setVFlicker (bool flickerBit, byte Amplitude) {
 }
 void setVFlicker (bool flickerBit) {
   vFlicker = flickerBit; // turn flicker on or off
+}
+
+void setSweat (bool sweatBit) {
+  sweat = sweatBit; // turn sweat on or off
 }
 
 
@@ -595,12 +639,12 @@ void drawEyes(){
 
   //// ACTUAL DRAWINGS ////
 
-  display.clearDisplay(); // start with a blank screen
+  display->clearDisplay(); // start with a blank screen
 
   // Draw basic eye rectangles
-  display.fillRoundRect(eyeLx, eyeLy, eyeLwidthCurrent, eyeLheightCurrent, eyeLborderRadiusCurrent, MAINCOLOR); // left eye
+  display->fillRoundRect(eyeLx, eyeLy, eyeLwidthCurrent, eyeLheightCurrent, eyeLborderRadiusCurrent, MAINCOLOR); // left eye
   if (!cyclops){
-    display.fillRoundRect(eyeRx, eyeRy, eyeRwidthCurrent, eyeRheightCurrent, eyeRborderRadiusCurrent, MAINCOLOR); // right eye
+    display->fillRoundRect(eyeRx, eyeRy, eyeRwidthCurrent, eyeRheightCurrent, eyeRborderRadiusCurrent, MAINCOLOR); // right eye
   }
 
   // Prepare mood type transitions
@@ -611,37 +655,67 @@ void drawEyes(){
   // Draw tired top eyelids 
     eyelidsTiredHeight = (eyelidsTiredHeight + eyelidsTiredHeightNext)/2;
     if (!cyclops){
-      display.fillTriangle(eyeLx, eyeLy-1, eyeLx+eyeLwidthCurrent, eyeLy-1, eyeLx, eyeLy+eyelidsTiredHeight-1, BGCOLOR); // left eye 
-      display.fillTriangle(eyeRx, eyeRy-1, eyeRx+eyeRwidthCurrent, eyeRy-1, eyeRx+eyeRwidthCurrent, eyeRy+eyelidsTiredHeight-1, BGCOLOR); // right eye
+      display->fillTriangle(eyeLx, eyeLy-1, eyeLx+eyeLwidthCurrent, eyeLy-1, eyeLx, eyeLy+eyelidsTiredHeight-1, BGCOLOR); // left eye 
+      display->fillTriangle(eyeRx, eyeRy-1, eyeRx+eyeRwidthCurrent, eyeRy-1, eyeRx+eyeRwidthCurrent, eyeRy+eyelidsTiredHeight-1, BGCOLOR); // right eye
     } else {
       // Cyclops tired eyelids
-      display.fillTriangle(eyeLx, eyeLy-1, eyeLx+(eyeLwidthCurrent/2), eyeLy-1, eyeLx, eyeLy+eyelidsTiredHeight-1, BGCOLOR); // left eyelid half
-      display.fillTriangle(eyeLx+(eyeLwidthCurrent/2), eyeLy-1, eyeLx+eyeLwidthCurrent, eyeLy-1, eyeLx+eyeLwidthCurrent, eyeLy+eyelidsTiredHeight-1, BGCOLOR); // right eyelid half
+      display->fillTriangle(eyeLx, eyeLy-1, eyeLx+(eyeLwidthCurrent/2), eyeLy-1, eyeLx, eyeLy+eyelidsTiredHeight-1, BGCOLOR); // left eyelid half
+      display->fillTriangle(eyeLx+(eyeLwidthCurrent/2), eyeLy-1, eyeLx+eyeLwidthCurrent, eyeLy-1, eyeLx+eyeLwidthCurrent, eyeLy+eyelidsTiredHeight-1, BGCOLOR); // right eyelid half
     }
 
   // Draw angry top eyelids 
     eyelidsAngryHeight = (eyelidsAngryHeight + eyelidsAngryHeightNext)/2;
     if (!cyclops){ 
-      display.fillTriangle(eyeLx, eyeLy-1, eyeLx+eyeLwidthCurrent, eyeLy-1, eyeLx+eyeLwidthCurrent, eyeLy+eyelidsAngryHeight-1, BGCOLOR); // left eye
-      display.fillTriangle(eyeRx, eyeRy-1, eyeRx+eyeRwidthCurrent, eyeRy-1, eyeRx, eyeRy+eyelidsAngryHeight-1, BGCOLOR); // right eye
+      display->fillTriangle(eyeLx, eyeLy-1, eyeLx+eyeLwidthCurrent, eyeLy-1, eyeLx+eyeLwidthCurrent, eyeLy+eyelidsAngryHeight-1, BGCOLOR); // left eye
+      display->fillTriangle(eyeRx, eyeRy-1, eyeRx+eyeRwidthCurrent, eyeRy-1, eyeRx, eyeRy+eyelidsAngryHeight-1, BGCOLOR); // right eye
     } else {
       // Cyclops angry eyelids
-      display.fillTriangle(eyeLx, eyeLy-1, eyeLx+(eyeLwidthCurrent/2), eyeLy-1, eyeLx+(eyeLwidthCurrent/2), eyeLy+eyelidsAngryHeight-1, BGCOLOR); // left eyelid half
-      display.fillTriangle(eyeLx+(eyeLwidthCurrent/2), eyeLy-1, eyeLx+eyeLwidthCurrent, eyeLy-1, eyeLx+(eyeLwidthCurrent/2), eyeLy+eyelidsAngryHeight-1, BGCOLOR); // right eyelid half
+      display->fillTriangle(eyeLx, eyeLy-1, eyeLx+(eyeLwidthCurrent/2), eyeLy-1, eyeLx+(eyeLwidthCurrent/2), eyeLy+eyelidsAngryHeight-1, BGCOLOR); // left eyelid half
+      display->fillTriangle(eyeLx+(eyeLwidthCurrent/2), eyeLy-1, eyeLx+eyeLwidthCurrent, eyeLy-1, eyeLx+(eyeLwidthCurrent/2), eyeLy+eyelidsAngryHeight-1, BGCOLOR); // right eyelid half
     }
 
   // Draw happy bottom eyelids
     eyelidsHappyBottomOffset = (eyelidsHappyBottomOffset + eyelidsHappyBottomOffsetNext)/2;
-    display.fillRoundRect(eyeLx-1, (eyeLy+eyeLheightCurrent)-eyelidsHappyBottomOffset+1, eyeLwidthCurrent+2, eyeLheightDefault, eyeLborderRadiusCurrent, BGCOLOR); // left eye
+    display->fillRoundRect(eyeLx-1, (eyeLy+eyeLheightCurrent)-eyelidsHappyBottomOffset+1, eyeLwidthCurrent+2, eyeLheightDefault, eyeLborderRadiusCurrent, BGCOLOR); // left eye
     if (!cyclops){ 
-      display.fillRoundRect(eyeRx-1, (eyeRy+eyeRheightCurrent)-eyelidsHappyBottomOffset+1, eyeRwidthCurrent+2, eyeRheightDefault, eyeRborderRadiusCurrent, BGCOLOR); // right eye
+      display->fillRoundRect(eyeRx-1, (eyeRy+eyeRheightCurrent)-eyelidsHappyBottomOffset+1, eyeRwidthCurrent+2, eyeRheightDefault, eyeRborderRadiusCurrent, BGCOLOR); // right eye
     }
 
-  display.display(); // show drawings on display
+  // Add sweat drops
+    if (sweat){
+      // Sweat drop 1 -> left corner
+      if(sweat1YPos <= sweat1YPosMax){sweat1YPos+=0.5;} // vertical movement from initial to max
+      else {sweat1XPosInitial = random(30); sweat1YPos = 2; sweat1YPosMax = (random(10)+10); sweat1Width = 1; sweat1Height = 2;} // if max vertical position is reached: reset all values for next drop
+      if(sweat1YPos <= sweat1YPosMax/2){sweat1Width+=0.5; sweat1Height+=0.5;} // shape grows in first half of animation ...
+      else {sweat1Width-=0.1; sweat1Height-=0.5;} // ... and shrinks in second half of animation
+      sweat1XPos = sweat1XPosInitial-(sweat1Width/2); // keep the growing shape centered to initial x position
+      display->fillRoundRect(sweat1XPos, sweat1YPos, sweat1Width, sweat1Height, sweatBorderradius, MAINCOLOR); // draw sweat drop
+
+
+      // Sweat drop 2 -> center area
+      if(sweat2YPos <= sweat2YPosMax){sweat2YPos+=0.5;} // vertical movement from initial to max
+      else {sweat2XPosInitial = random((screenWidth-60))+30; sweat2YPos = 2; sweat2YPosMax = (random(10)+10); sweat2Width = 1; sweat2Height = 2;} // if max vertical position is reached: reset all values for next drop
+      if(sweat2YPos <= sweat2YPosMax/2){sweat2Width+=0.5; sweat2Height+=0.5;} // shape grows in first half of animation ...
+      else {sweat2Width-=0.1; sweat2Height-=0.5;} // ... and shrinks in second half of animation
+      sweat2XPos = sweat2XPosInitial-(sweat2Width/2); // keep the growing shape centered to initial x position
+      display->fillRoundRect(sweat2XPos, sweat2YPos, sweat2Width, sweat2Height, sweatBorderradius, MAINCOLOR); // draw sweat drop
+
+
+      // Sweat drop 3 -> right corner
+      if(sweat3YPos <= sweat3YPosMax){sweat3YPos+=0.5;} // vertical movement from initial to max
+      else {sweat3XPosInitial = (screenWidth-30)+(random(30)); sweat3YPos = 2; sweat3YPosMax = (random(10)+10); sweat3Width = 1; sweat3Height = 2;} // if max vertical position is reached: reset all values for next drop
+      if(sweat3YPos <= sweat3YPosMax/2){sweat3Width+=0.5; sweat3Height+=0.5;} // shape grows in first half of animation ...
+      else {sweat3Width-=0.1; sweat3Height-=0.5;} // ... and shrinks in second half of animation
+      sweat3XPos = sweat3XPosInitial-(sweat3Width/2); // keep the growing shape centered to initial x position
+      display->fillRoundRect(sweat3XPos, sweat3YPos, sweat3Width, sweat3Height, sweatBorderradius, MAINCOLOR); // draw sweat drop
+    }
+
+  display->display(); // show drawings on display
 
 } // end of drawEyes method
 
 
 }; // end of class roboEyes
+
 
 #endif

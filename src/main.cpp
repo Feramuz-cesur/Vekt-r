@@ -1,421 +1,388 @@
-// Import required libraries
 #include <Arduino.h>
 #include <WiFi.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include "SPIFFS.h"
 #include <Arduino_JSON.h>
-#include <ESP32Servo.h> 
-//display
+#include <ESP32Servo.h>
+#include <ArduinoOTA.h> 
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SH110X.h>
 #include "DFRobotDFPlayerMini.h"
+#include <FluxGarage_RoboEyes.h>
 
-//              SOL MOT      SAĞ MOT5
-//           
-//            IN1    IN2    IN3    IN4
-// ielri       0     PWM     0     PWM
-// geri        1    rPWM     1    rPWM
-// sağ         0     PWM     1    rPWM
-// sol         1    rPWM     0     PWM
-
-unsigned long touchMillis = 0; // Zamanlayıcı için değişken
-unsigned long lastMillis = 0;
-int long interval = 18000;
-bool isMoodActive = false;
-bool randORdefault = false;
-bool touchActive = false;
-
+// --- PIN TANIMLAMALARI ---
 #define IN1 32
 #define IN2 33
 #define IN3 25
 #define IN4 26
-
-// #define RXD2 16 // DFPlayer'ın TX pinine bağlanır (Yeşil Kablo)
-// #define TXD2 17 // DFPlayer'ın RX pinine bağlanır (Mavi Kablo)
-
-#define RX_PIN 4  // DFPlayer TX -> ESP32 GPIO 4
-#define TX_PIN 5  // DFPlayer RX -> ESP32 GPIO 5
-DFRobotDFPlayerMini myDFPlayer;
-
-#define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define SCREEN_HEIGHT 64 // OLED display height, in pixels
-// Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
-#define i2c_Address 0x3c
-#define OLED_RESET -1
-Adafruit_SH1106G display = Adafruit_SH1106G(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-
-#include <FluxGarage_RoboEyes.h>
-
-roboEyes RoboEyes; // create RoboEyes instance
-
 #define THC_PIN 13
+const int servoPin1 = 27; 
+const int servoPin2 = 14; 
+#define RX_PIN 4 
+#define TX_PIN 5 
 
-// Replace with your network credentials
+// --- NESNELER ---
+DFRobotDFPlayerMini myDFPlayer;
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define i2c_Address 0x3c
+Adafruit_SH1106G display = Adafruit_SH1106G(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+RoboEyes<Adafruit_SH1106G> eyes(display);
+
+Servo servo1, servo2;
+AsyncWebServer server(80);
+AsyncWebSocket ws("/ws");
+
+// --- GLOBAL DEĞİŞKENLER ---
 const char *ssid = "FiberHGW_TPB9C0";
 const char *password = "NVArVrUNL3Ap";
 
-// Create AsyncWebServer object on port 80
-AsyncWebServer server(80);
-// Create a WebSocket object
-AsyncWebSocket ws("/ws");
+// Görevler arasında veri paylaşımı için "volatile" veya thread-safe yapılar kullanılır
+volatile int danceTrigger = 0; 
+volatile bool touchTrigger = false;
+unsigned long lastMillis = 0;
+int long interval = 18000;
+bool isMoodActive = false;
+bool randORdefault = false;
 
-// Servo motor nesnesi
-Servo servo1, servo2;
 
-const int servoPin1 = 27;
-const int servoPin2 = 14;
-
-int currentVoice = 0;
-
-// Initialize SPIFFS
-
-void initSPIFFS()
-{
-  if (!SPIFFS.begin(true))
-  {
-    Serial.println("An error has occurred while mounting SPIFFS");
-  }
-  Serial.println("SPIFFS mounted successfully");
-}
-
-// Initialize WiFi
-
-void initWiFi()
-{
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
-  Serial.print("Connecting to WiFi ..");
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    Serial.print('.');
-    delay(1000);
-  }
-  Serial.println(WiFi.localIP());
-}
-
-// Yön tayini
-
+// --- MOTOR FONKSİYONLARI ---
 void ileri(int pwm) {
-  digitalWrite(IN1, LOW);  // Sol motor ileri
-  digitalWrite(IN3, LOW);  // Sağ motor ileri
-  analogWrite(IN2, pwm);   // Sol motor PWM
-  analogWrite(IN4, pwm);   // Sağ motor PWM
+  digitalWrite(IN1, LOW); digitalWrite(IN3, LOW);
+  analogWrite(IN2, pwm); analogWrite(IN4, pwm);
 }
-
 void geri(int pwm) {
-  digitalWrite(IN1, HIGH);      // Sol motor geri
-  digitalWrite(IN3, HIGH);      // Sağ motor geri
-  analogWrite(IN2, 254 - pwm);  // Sol motor PWM
-  analogWrite(IN4, 254 - pwm);  // Sağ motor PWM
+  digitalWrite(IN1, HIGH); digitalWrite(IN3, HIGH);
+  analogWrite(IN2, 254 - pwm); analogWrite(IN4, 254 - pwm);
 }
-
 void sag(int pwm) {
-  digitalWrite(IN1, LOW);       // Sol motor ileri
-  digitalWrite(IN3, HIGH);      // Sağ motor geri
-  analogWrite(IN2, pwm);        // Sol motor PWM
-  analogWrite(IN4, 254 - pwm);  // Sağ motor PWM
+  digitalWrite(IN1, LOW); digitalWrite(IN3, HIGH);
+  analogWrite(IN2, pwm); analogWrite(IN4, 254 - pwm);
 }
-
 void sol(int pwm) {
-  digitalWrite(IN1, HIGH);      // Sol motor geri
-  digitalWrite(IN3, LOW);       // Sağ motor ileri
-  analogWrite(IN2, 254 - pwm);  // Sol motor PWM
-  analogWrite(IN4, pwm);        // Sağ motor PWM
+  digitalWrite(IN1, HIGH); digitalWrite(IN3, LOW);
+  analogWrite(IN2, 254 - pwm); analogWrite(IN4, pwm);
 }
-
 void dur() {
-  digitalWrite(IN1, LOW);  // Sol motor ileri
-  digitalWrite(IN3, LOW);  // Sağ motor ileri
-  analogWrite(IN2, 0);     // Sol motor PWM
-  analogWrite(IN4, 0);     // Sağ motor PWM
+  digitalWrite(IN1, LOW); digitalWrite(IN3, LOW);
+  analogWrite(IN2, 0); analogWrite(IN4, 0);
 }
 
-void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
-{
+
+void servoGit(Servo &s, int hedefAci, int hiz) {
+  if (hiz <= 0) {
+    s.write(hedefAci);
+    return;
+  }
+
+  // Hız güvenliği: Çok yavaşlatıp sistemi kilitlemeyelim
+  // Max bekleme süresini 40ms ile sınırlayalım
+  int bekleme = map(hiz, 1, 10, 40, 5); 
+  
+  int baslangicAci = s.read();
+  
+  // Eğer okunan açı saçma bir değerse (örn: servo takılı değilse) varsayılan ata
+  if (baslangicAci > 180 || baslangicAci < 0) baslangicAci = 90; 
+
+  if (baslangicAci < hedefAci) {
+    for (int i = baslangicAci; i <= hedefAci; i++) {
+      s.write(i);
+       vTaskDelay(bekleme / portTICK_PERIOD_MS); 
+      // Ekstra güvenlik için buraya da yield koyabilirsin ama smartDelay içindeki yeterli olur.
+    }
+  } 
+  else {
+    for (int i = baslangicAci; i >= hedefAci; i--) {
+      s.write(i);
+       vTaskDelay(bekleme / portTICK_PERIOD_MS); 
+    }
+  }
+}
+
+// --- EKRANA YAZI YAZDIRMA YARDIMCISI ---
+void ekranaYaz(String satir1, String satir2) {
+  display.clearDisplay(); // Ekranı temizle
+  display.setTextSize(1); // Yazı boyutu (1: Küçük, 2: Orta)
+  display.setTextColor(SH110X_WHITE); // Yazı rengi
+  
+  // 1. Satırı yaz
+  display.setCursor(0, 20); // Konum (x, y)
+  display.println(satir1);
+  
+  // 2. Satırı yaz
+  display.setTextSize(1); // İstersen IP adresi sığsın diye boyutu 1 tutabilirsin
+  display.setCursor(0, 40);
+  display.println(satir2);
+  
+  display.display(); // Değişiklikleri ekrana bas
+}
+
+// --- DANS FONKSİYONU (Blocking olmayan versiyon) ---
+// Bu fonksiyon artık Task_Mantik içinde çağrılacak
+void dance_1() {
+  Serial.println("Dans Basladi...");
+  eyes.setMood(HAPPY);
+  
+  ileri(80);
+  vTaskDelay(1500 / portTICK_PERIOD_MS); // vTaskDelay işlemciyi kilitlemez!
+  
+  dur();
+  vTaskDelay(200 / portTICK_PERIOD_MS);
+  
+  servoGit(servo1, 50, 7);
+  servoGit(servo1, 10, 7);
+  geri(60);
+  vTaskDelay(1500 / portTICK_PERIOD_MS);
+  
+
+
+  dur();
+  Serial.println("Dans Bitti.");
+  danceTrigger = 0; // Bayrağı indir
+}
+
+void dance_2() {
+  danceTrigger = 0; // Bayrağı indir
+}
+
+void dance_3() {
+  danceTrigger = 0; // Bayrağı indir
+}
+
+void dance_4() {
+  danceTrigger = 0; // Bayrağı indir
+}
+
+void dance_5() {
+  danceTrigger = 0; // Bayrağı indir
+}
+
+void dance_6() {
+  danceTrigger = 0; // Bayrağı indir
+}
+
+void dance_7() {
+  danceTrigger = 0; // Bayrağı indir
+}
+
+// --- WEBSOCKET HANDLERS ---
+void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
   AwsFrameInfo *info = (AwsFrameInfo *)arg;
-  if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT)
-  {
-    data[len] = 0; // Null-terminate string
-
-    // Serial.printf("Raw Data: %s\n", (char *)data);
-
+  if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
+    data[len] = 0; 
     JSONVar myObj = JSON.parse((char *)data);
+    if (JSON.typeof(myObj) == "undefined") return;
 
-    // Verileri işleme
     int arm = atoi((const char *)myObj["arm"]);
     int head = atoi((const char *)myObj["head"]);
     int speed = atoi((const char *)myObj["speed"]);
     String mood = (const char *)myObj["mood"];
     String direction = (const char *)myObj["direction"];
 
-    Serial.printf("Arm: %d, Head: %d, Speed: %d, Mood: %s, Direction: %s\n",
-                  arm, head, speed, mood, direction);
-
-
-    // Servo kontrolü ******************
-
+    // Servo ve Motor anlık tepki vermelidir, direkt burada çağırabiliriz
     servo1.write(arm);
-    servo2.write(head);
-    // myDFPlayer.volume(map(head, 15, 50, 0, 30)); // Head pozisyonuna göre ses seviyesi ayarla
-    
+    servo2.write(map(head, 0, 60, 60, 0)); 
 
-    // Hareket kontrolü ****************
+    if (direction == "FORWARD") ileri(speed);
+    else if (direction == "BACKWARD") geri(speed);
+    else if (direction == "RIGHT") sag(speed);
+    else if (direction == "LEFT") sol(speed);
+    else if (direction == "STOP") dur();
 
-    if (direction == "FORWARD")
-    {
-      ileri(speed);
-    }
-    else if (direction == "BACKWARD")
-    {
-      geri(speed);
-    }
-    else if (direction == "RIGHT")
-    {
-      sag(speed);
-    }
-    else if (direction == "LEFT")
-    {
-      sol(speed);
-    }
-    else if (direction == "STOP")
-    {
-      dur();
-    }
-
-    // Mood kontrolü *******************
-
-    if (mood == "RANDOM")
-    {
-      randORdefault = true;
-    }
-    else
-    {
+    // Mood Kontrolü
+    if (mood == "RANDOM") randORdefault = true;
+    else {
       randORdefault = false;
-
-      // 1 Happy
-      // 2 Angry  
-      // 3 Tired
-      // 4 Confused
-
-
-      if (mood == "HAPPY")
-      {
-        RoboEyes.setMood(HAPPY);
-        if (currentVoice != 1)
-        myDFPlayer.play(1);
-      }
-      else if (mood == "ANGRY")
-      {
-        RoboEyes.setMood(ANGRY);
-        myDFPlayer.play(2);
-      }
-      else if (mood == "TIRED")
-      {
-        RoboEyes.setMood(TIRED);
-        myDFPlayer.play(3);
-      }
-      else if (mood == "CONFUSED")
-      {
-        RoboEyes.setMood(DEFAULT);
-        RoboEyes.anim_confused();
-        myDFPlayer.play(4); 
-      }
-      else if (mood == "DEFAULT")
-      {
-        RoboEyes.setMood(DEFAULT);
-      }
+      if (mood == "HAPPY") { eyes.setMood(HAPPY); eyes.anim_laugh(); myDFPlayer.play(1); }
+      else if (mood == "ANGRY") { eyes.setMood(ANGRY); myDFPlayer.play(2); }
+      else if (mood == "TIRED") { eyes.setMood(TIRED); myDFPlayer.play(3); }
+      else if (mood == "CONFUSED") { eyes.setMood(DEFAULT); eyes.anim_confused(); myDFPlayer.play(4); }
+      else if (mood == "DEFAULT") eyes.setMood(DEFAULT);
+      else if (mood == "DANCE_1") danceTrigger = 1; // Dansı Task_Mantik'a devret
+      else if (mood == "DANCE_2") danceTrigger = 2; // Dansı Task_Mantik'a devret
+      else if (mood == "DANCE_3") danceTrigger = 3; // Dansı Task_Mantik'a devret
+      else if (mood == "DANCE_4") danceTrigger = 4; // Dansı Task_Mantik'a devret
+      else if (mood == "DANCE_5") danceTrigger = 5; // Dansı Task_Mantik'a devret
+      else if (mood == "DANCE_6") danceTrigger = 6; // Dansı Task_Mantik'a devret
+      else if (mood == "DANCE_7") danceTrigger = 7; // Dansı Task_Mantik'a devret
     }
   }
 }
 
-void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len)
-{
-  switch (type)
-  {
-  case WS_EVT_CONNECT:
-    Serial.printf("WebSocketttt client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
-    break;
-  case WS_EVT_DISCONNECT:
-    Serial.printf("WebSocket client #%u disconnected\n", client->id());
-    break;
-  case WS_EVT_DATA:
-    handleWebSocketMessage(arg, data, len);
-    break;
-  case WS_EVT_PONG:
-  case WS_EVT_ERROR:
-    break;
+void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
+  if(type == WS_EVT_DATA) handleWebSocketMessage(arg, data, len);
+}
+
+// =========================================================================
+// GÖREV 1: GÖRSEL (Task_Gozler) - Yüksek Öncelik, Core 1
+// =========================================================================
+void Task_Gozler(void * parameter) {
+  // Gözlerin akıcı olması için çok hızlı bir döngü
+  for(;;) {
+    eyes.update(); 
+    // Watchdog'u beslemek için çok kısa bekleme (1ms yeterli)
+    vTaskDelay(1 / portTICK_PERIOD_MS); 
   }
 }
 
-void initWebSocket()
-{
-  ws.onEvent(onEvent);
-  server.addHandler(&ws);
+// =========================================================================
+// GÖREV 2: AĞ İŞLEMLERİ (Task_Network) - Core 0 (WiFi Stack ile aynı yer)
+// =========================================================================
+void Task_Network(void * parameter) {
+  for(;;) {
+    ws.cleanupClients();
+    ArduinoOTA.handle();
+    // Ağ işlemleri için 50-100ms arası kontrol yeterlidir
+    vTaskDelay(50 / portTICK_PERIOD_MS);
+  }
 }
 
-void rand_mood_control()
-{
-  unsigned long currentMillis = millis();
-  
-  if (currentMillis - lastMillis >= interval)
-  {
-    lastMillis = currentMillis;
+// =========================================================================
+// GÖREV 3: MANTIK & SENSÖR (Task_Mantik) - Core 1
+// =========================================================================
+void Task_Mantik(void * parameter) {
+  for(;;) {
+    unsigned long currentMillis = millis();
+
+    // 1. Dokunmatik Kontrolü
+    if (digitalRead(THC_PIN)) {
+      if(!touchTrigger) { // Debounce mantığı (sürekli tetiklenmesin)
+        Serial.println("Touch Triggered!");
+        eyes.setMood(HAPPY);
+        eyes.anim_laugh();
+        touchTrigger = true;
+      }
+    } else {
+      touchTrigger = false;
+    }
+
+    // 2. Dans İsteği Var mı?
+    switch (danceTrigger)
+    {
+    case 1: dance_1(); break;
+    case 2: dance_2(); break;
+    case 3: dance_3(); break;
+    case 4: dance_4(); break;
+    case 5: dance_5(); break;
+    case 6: dance_6(); break;
+    case 7: dance_7(); break;
+      
     
-    if (isMoodActive)
-    {
-      // Reset mood
-      RoboEyes.setMood(DEFAULT); // Return to default expression
-      isMoodActive = false;
+    default:
+      break;
     }
-    else
-    {
-      // 1 Happy
-      // 2 Angry  
-      // 3 Tired
-      // 4 Confused
+    
 
-      // Randomly select a mood
-      int randomMood = random(0, 4); // 0, 1, 2, 3
-      switch (randomMood)
-      {
-        case 0:
-        RoboEyes.setMood(TIRED);
-        myDFPlayer.play(3);
-        break;
-        case 1:
-        RoboEyes.setMood(ANGRY);
-        myDFPlayer.play(2);
-        break;
-        case 2:
-        RoboEyes.setMood(HAPPY);
-        RoboEyes.anim_laugh();
-        myDFPlayer.play(1);
-        break;
-        case 3:
-        RoboEyes.anim_confused();
-        myDFPlayer.play(4);
-        break;
+    // 3. Random Mood Mantığı
+    if (randORdefault && (currentMillis - lastMillis >= interval)) {
+      lastMillis = currentMillis;
+      if (isMoodActive) {
+        eyes.setMood(DEFAULT);
+        isMoodActive = false;
+      } else {
+        int randomMood = random(0, 4);
+        switch (randomMood) {
+          case 0: eyes.setMood(TIRED); myDFPlayer.play(3); break;
+          case 1: eyes.setMood(ANGRY); myDFPlayer.play(2); break;
+          case 2: eyes.setMood(HAPPY); eyes.anim_laugh(); myDFPlayer.play(1); break;
+          case 3: eyes.anim_confused(); myDFPlayer.play(4); break;
+        }
+        isMoodActive = true;
       }
-      isMoodActive = true;
+      interval = random(4000, 20000);
     }
 
-    interval = random(2000, 4000); // Random interval between 2 to 4 seconds
+    // Mantık döngüsü çok hızlı dönmek zorunda değil
+    vTaskDelay(50 / portTICK_PERIOD_MS);
   }
 }
 
-void touch()
-{
-  if (digitalRead(THC_PIN) == HIGH)
-  {
-    myDFPlayer.play(5);
-    RoboEyes.setMood(HAPPY);
-    //RoboEyes.anim_laugh();
-    RoboEyes.anim_confused();
-    touchActive = true;
-    touchMillis = millis(); // Zamanlayıcıyı başla
-  }
-}
-
-void checkTouchTimeout()
-{
-  if (touchActive && (millis() - touchMillis >= 2000)) // 2 saniye sonra
-  {
-    RoboEyes.setMood(DEFAULT); // Varsayılan moda geç
-    touchActive = false;
-    myDFPlayer.pause();
-  }
-}
-
-void mood()
-{
-  if (randORdefault == true)
-  {
-    rand_mood_control();
-  }
-  touch();
-  checkTouchTimeout(); // Zamanlayıcıyı kontrol et
-}
-
-void setup()
-{
-  // 1. GÜVENLİ BAŞLANGIÇ BEKLEMESİ
-  // Sisteme enerji verildikten sonra voltajın oturması ve DFPlayer'ın uyanması için bekleyin.
+// =========================================================================
+// SETUP
+// =========================================================================
+void setup() {
   Serial.begin(115200);
-  ///delay(3000); // 3 saniye bekleme (Çok önemli!)
-  
-  Serial.println("Sistem Başlatılıyor...");
 
-  // 2. PIN TANIMLAMALARI
-  pinMode(IN4, OUTPUT);
-  pinMode(IN3, OUTPUT);
-  pinMode(IN2, OUTPUT);
-  pinMode(IN1, OUTPUT);
+  // Pin Ayarları
+  pinMode(IN4, OUTPUT); pinMode(IN3, OUTPUT);
+  pinMode(IN2, OUTPUT); pinMode(IN1, OUTPUT);
   pinMode(THC_PIN, INPUT);
 
-  // 3. DFPLAYER BAŞLATMA (En öncelikli adım)
-  // Serial2.begin(9600, SERIAL_8N1, RXD2, TXD2);
-
+  // DFPlayer Init
   Serial2.begin(9600, SERIAL_8N1, RX_PIN, TX_PIN);
-  ///delay(1000); // Serial portun oturması için bekle
-
-  Serial.println(F("DFPlayer Mini Başlatılıyor..."));
-  
-  // DFPlayer başlamazsa 3 kere dene
-  int deneme = 0;
-  boolean dfPlayerDurum = false;
-  while(deneme < 3 && !dfPlayerDurum){
-    if (myDFPlayer.begin(Serial2)) {
-      dfPlayerDurum = true;
-      Serial.println(F("DFPlayer Mini Çevrimiçi."));
-    } else {
-      Serial.println(F("DFPlayer Bağlanamadı, tekrar deneniyor..."));
-      delay(1000);
-      deneme++;
-    }
-  }
-
-  if(dfPlayerDurum){
-    myDFPlayer.volume(30); // Ses seviyesini ayarla (0-30)
-    ///delay(500); // Volume komutunun işlenmesi için zaman tanı
-    //myDFPlayer.play(1); // Açılış sesi
-    ///delay(1000); // Sesin başladığından emin olmak için bekle
+  if (myDFPlayer.begin(Serial2)) {
+    myDFPlayer.volume(20);
   } else {
-    Serial.println(F("HATA: DFPlayer başlatılamadı!"));
+    Serial.println("DFPlayer Error");
   }
 
-  // 4. DİĞER DONANIMLAR (Servo, Ekran vs.)
-  // Servo motoru başlatıyoruz
+  // Servo Init
   servo1.attach(servoPin1, 500, 2400);
   servo2.attach(servoPin2, 500, 2400);
 
-  // Ekran ve Gözler
+  // --- EKRAN INIT ---
   display.begin(i2c_Address, true);
-  RoboEyes.begin(SCREEN_WIDTH, SCREEN_HEIGHT, 100);
-  RoboEyes.setAutoblinker(ON, 3, 2);
-  RoboEyes.setIdleMode(ON, 2, 2);
-  RoboEyes.setCuriosity(ON);
-  // 5. BAĞLANTILAR (WiFi ve Dosya Sistemi)
-  // WiFi bağlanırken güç çekeceği için en sona sakladık
-  initSPIFFS();
-  initWiFi();
-  initWebSocket();
-  RoboEyes.anim_confused();
-  myDFPlayer.play(5); // Açılış sesi
-  // Web sunucusu
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-            { request->send(SPIFFS, "/index.html", "text/html"); });
-  server.serveStatic("/", SPIFFS, "/");
-  server.begin();
   
-  Serial.println("Kurulum Tamamlandı.");
+  // RoboEyes başlatılıyor ama henüz loop'a girmediğimiz için kontrol bizde
+  eyes.begin(SCREEN_WIDTH, SCREEN_HEIGHT, 100);
+  eyes.setAutoblinker(ON, 3, 2);
+  eyes.setIdleMode(ON, 2, 2);
+  eyes.setCuriosity(ON);
+
+  // --- WIFI BAĞLANTISI VE EKRAN MESAJI ---
+  
+  // 1. Ekrana bağlanıyor yazısı gönder
+  ekranaYaz("WiFi Agina", "Baglaniyor...");
+
+  if(!SPIFFS.begin(true)) Serial.println("SPIFFS Error");
+  
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+  
+  // Bağlanana kadar bekle
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500); 
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.println(WiFi.localIP());
+
+  // 2. Bağlandı mesajı ve IP Adresi
+  ekranaYaz("BAGLANDI!", WiFi.localIP().toString());
+  
+  // Kullanıcının IP'yi okuması için 3 saniye bekle
+  delay(3000); 
+
+  // --- ARTIK NORMAL ROBOT MODUNA GEÇEBİLİRİZ ---
+
+  // WebSocket & Server
+  ws.onEvent(onEvent);
+  server.addHandler(&ws);
+  server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
+  server.begin();
+
+  // OTA
+  ArduinoOTA.begin();
+
+  // --- FREE RTOS GÖREVLERİNİ OLUŞTURMA ---
+  // Göz görevi başladığı anda ekran kontrolü RoboEyes kütüphanesine geçer
+  
+  // 1. Gözler (En yüksek öncelik)
+  xTaskCreatePinnedToCore(Task_Gozler, "TaskGozler", 10000, NULL, 2, NULL, 1); 
+
+  // 2. Network (Core 0)
+  xTaskCreatePinnedToCore(Task_Network, "TaskNetwork", 10000, NULL, 1, NULL, 0);
+
+  // 3. Mantık (Dans ve Sensörler)
+  xTaskCreatePinnedToCore(Task_Mantik, "TaskMantik", 10000, NULL, 1, NULL, 1);
+
+  myDFPlayer.play(5); 
 }
 
-void loop()
-{
-  ws.cleanupClients();
-  RoboEyes.update(); // update eyes drawings
-  mood();
-}
-
+void loop() {
+  // Loop artık boş! Her şey Task'larda dönüyor.
+  // İstersen burayı da vTaskDelete(NULL); ile silebilirsin ama boş kalması zararsızdır.
+  vTaskDelay(1000 / portTICK_PERIOD_MS); // Boş döngüyü yavaşlat
+} 
