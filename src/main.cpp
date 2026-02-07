@@ -71,6 +71,9 @@ void dur() {
 }
 
 
+/// Motor hızını ayarlar
+/// @param hiz 1 - 10
+/// @param hedefAci 0 - 70
 void servoGit(Servo &s, int hedefAci, int hiz) {
   if (hiz <= 0) {
     s.write(hedefAci);
@@ -79,12 +82,12 @@ void servoGit(Servo &s, int hedefAci, int hiz) {
 
   // Hız güvenliği: Çok yavaşlatıp sistemi kilitlemeyelim
   // Max bekleme süresini 40ms ile sınırlayalım
-  int bekleme = map(hiz, 1, 10, 40, 5); 
+  int bekleme = map(hiz, 1, 10, 40, 1); 
   
   int baslangicAci = s.read();
   
   // Eğer okunan açı saçma bir değerse (örn: servo takılı değilse) varsayılan ata
-  if (baslangicAci > 180 || baslangicAci < 0) baslangicAci = 90; 
+  // if (baslangicAci > 180 || baslangicAci < 0) baslangicAci = 90; 
 
   if (baslangicAci < hedefAci) {
     for (int i = baslangicAci; i <= hedefAci; i++) {
@@ -124,6 +127,8 @@ void ekranaYaz(String satir1, String satir2) {
 void dance_1() {
   Serial.println("Dans Basladi...");
   eyes.setMood(HAPPY);
+  eyes.anim_laugh();
+  myDFPlayer.play(1);
   
   ileri(80);
   vTaskDelay(1500 / portTICK_PERIOD_MS); // vTaskDelay işlemciyi kilitlemez!
@@ -131,23 +136,40 @@ void dance_1() {
   dur();
   vTaskDelay(200 / portTICK_PERIOD_MS);
   
-  servoGit(servo1, 50, 7);
+  servoGit(servo1, 50, 2);
   servoGit(servo1, 10, 7);
   geri(60);
   vTaskDelay(1500 / portTICK_PERIOD_MS);
-  
-
-
   dur();
+  
+  servoGit(servo2, 40, 9);
+  servoGit(servo2, 0, 9);
+  servoGit(servo2, 40, 9);
+  servoGit(servo2, 0, 9);
+  servoGit(servo2, 40, 9);
+  servoGit(servo2, 0, 9);
+
   Serial.println("Dans Bitti.");
   danceTrigger = 0; // Bayrağı indir
 }
 
 void dance_2() {
+  servoGit(servo2, 40, 9);
+  servoGit(servo2, 0, 9);
+  servoGit(servo2, 40, 9);
+  servoGit(servo2, 0, 9);
+  servoGit(servo2, 40, 9);
+  servoGit(servo2, 0, 9);
   danceTrigger = 0; // Bayrağı indir
 }
 
 void dance_3() {
+  servoGit(servo1, 40, 9);
+  servoGit(servo1, 0, 9);
+  servoGit(servo1, 40, 9);
+  servoGit(servo1, 0, 9);
+  servoGit(servo1, 40, 9);
+  servoGit(servo1, 0, 9);
   danceTrigger = 0; // Bayrağı indir
 }
 
@@ -313,7 +335,7 @@ void setup() {
   // DFPlayer Init
   Serial2.begin(9600, SERIAL_8N1, RX_PIN, TX_PIN);
   if (myDFPlayer.begin(Serial2)) {
-    myDFPlayer.volume(20);
+    myDFPlayer.volume(30);
   } else {
     Serial.println("DFPlayer Error");
   }
