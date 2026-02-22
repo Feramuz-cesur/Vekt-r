@@ -1,4 +1,4 @@
-#include <Arduino.h>
+﻿#include <Arduino.h>
 #include <WiFi.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
@@ -48,15 +48,21 @@ Adafruit_NeoPixel pixels(NUMPIXELS, RGB_PIN, NEO_GRB + NEO_KHZ800);
 const char *ssid = "FiberHGW_TPB9C0";
 const char *password = "NVArVrUNL3Ap";
 
-
+volatile bool displayLocked = false; // Ekran kilitli mi?
 
 // Görevler arasında veri paylaşımı
 volatile int danceTrigger = 0; 
 volatile bool touchTrigger = false;
+volatile unsigned long ipDisplayUntil = 0;
 unsigned long lastMillis = 0;
+unsigned long touchPressStartMillis = 0;
 int long interval = 18000;
 bool isMoodActive = false;
 bool randORdefault = false;
+bool ipShownForCurrentPress = false;
+
+const unsigned long IP_SHOW_DURATION_MS = 3000;
+const unsigned long TOUCH_HOLD_DURATION_MS = 4000;
 
 // RGB Durum Değişkenleri
 String lightMode = "OFF"; // OFF, STATIC, RAINBOW, PULSE, POLICE
@@ -91,27 +97,44 @@ void dur() {
 }
 
 // --- SERVO FONKSİYONU ---
-void servoGit(Servo &s, int hedefAci, int hiz) {
-  if (hiz <= 0) {
-    s.write(hedefAci);
-    return;
-  }
-  int bekleme = map(hiz, 1, 10, 40, 1); 
+
+/**
+ * @brief Servo motor kontrol fonksiyonu.
+ *
+ * @param s          Servo referansı
+ * @param hedefAci   [0..180] derece
+ * @param hiz        [0..10]
+ *                   1 = minimum hız , 
+ *                   10 = maksimum hız
+ */
+void servoGit(Servo &s, int hedefAci, int hiz)
+{
+  hedefAci = constrain(hedefAci, 0, 180);
+  hiz = constrain(hiz, 1, 10);
+
   int baslangicAci = s.read();
-  
-  if (baslangicAci < hedefAci) {
-    for (int i = baslangicAci; i <= hedefAci; i++) {
+
+  int step = map(hiz, 1, 10, 1, 5);   // hız arttıkça adım büyür
+  int bekleme = 10;                  // sabit gecikme
+
+  if (baslangicAci < hedefAci)
+  {
+    for (int i = baslangicAci; i <= hedefAci; i += step)
+    {
       s.write(i);
-       vTaskDelay(bekleme / portTICK_PERIOD_MS); 
+      vTaskDelay(bekleme / portTICK_PERIOD_MS);
     }
-  } 
-  else {
-    for (int i = baslangicAci; i >= hedefAci; i--) {
+  }
+  else
+  {
+    for (int i = baslangicAci; i >= hedefAci; i -= step)
+    {
       s.write(i);
-       vTaskDelay(bekleme / portTICK_PERIOD_MS); 
+      vTaskDelay(bekleme / portTICK_PERIOD_MS);
     }
   }
 }
+
 
 // --- RGB LED YÖNETİMİ ---
 void updateLEDs() {
@@ -129,15 +152,22 @@ void updateLEDs() {
     pixels.show();
   }
   else if (lightMode == "RAINBOW") {
-    if (currentMillis - pixelPreviousMillis >= 20) {
+    // 20ms yerine 50ms veya 100ms yaparak geçişi daha da yavaşlatabilirsin
+    if (currentMillis - pixelPreviousMillis >= 40) { 
       pixelPreviousMillis = currentMillis;
+      
+      // pixelCycle'ı daha büyük adımlarla döndürmek için 65536 üzerinden hesaplayalım
+      // pixelCycle burada 0-65535 arası bir değer tutacak şekilde modifiye edilebilir
+      // veya mevcut pixelCycle'ı (0-255) kullanıp map edebiliriz.
+      
       pixelCycle++;
       if(pixelCycle > 255) pixelCycle = 0;
       
+      // Tüm LED'ler için TEK BİR renk hesaplıyoruz (i kullanılmıyor)
+      uint32_t unitColor = pixels.gamma32(pixels.ColorHSV(pixelCycle * 256));
+      
       for(int i=0; i<pixels.numPixels(); i++) {
-        // Gökkuşağı algoritması
-        int pixelHue = pixelCycle + (i * 65536L / pixels.numPixels());
-        pixels.setPixelColor(i, pixels.gamma32(pixels.ColorHSV(pixelHue)));
+        pixels.setPixelColor(i, unitColor);
       }
       pixels.show();
     }
@@ -203,6 +233,11 @@ void ekranaYaz(String satir1, String satir2) {
   display.display(); 
 }
 
+void showIpAddressFor3Seconds() {
+  ekranaYaz("IP Adresi:", WiFi.localIP().toString());
+  ipDisplayUntil = millis() + IP_SHOW_DURATION_MS;
+}
+
 // --- DANS FONKSİYONLARI ---
 void dance_1() {
   Serial.println("Dans Basladi...");
@@ -229,16 +264,80 @@ void dance_1() {
   servoGit(servo2, 40, 9);
   servoGit(servo2, 0, 9);
   servoGit(servo2, 40, 9);
-  servoGit(servo2, 0, 9);
+  servoGit(servo2, 20, 9);
 
   Serial.println("Dans Bitti.");
   danceTrigger = 0; 
   lightMode = oldMode; // Eski moda dön
 }
 
-void dance_2() { danceTrigger = 0; }
-void dance_3() { danceTrigger = 0; }
-void dance_4() { danceTrigger = 0; }
+void dance_2() { 
+  servoGit(servo2, 40, 10);
+  servoGit(servo2, 0, 10);
+  servoGit(servo2, 40, 10);
+  servoGit(servo2, 0, 10);
+  servoGit(servo2, 40, 10);
+  servoGit(servo2, 0, 10);
+  servoGit(servo2, 20, 10);
+
+  danceTrigger = 0; 
+}
+
+void dance_3() { 
+  
+  servoGit(servo2, 40, 7);
+  servoGit(servo2, 0, 7);
+  servoGit(servo2, 40, 7);
+  servoGit(servo2, 0, 7);
+  servoGit(servo2, 40, 7);
+  servoGit(servo2, 0, 7);
+  servoGit(servo2, 20, 7);
+  
+  
+  danceTrigger = 0; }
+
+void dance_4() {
+
+
+  myDFPlayer.play(7);
+  
+  eyes.setMood(ANGRY);
+
+  //vTaskDelay(1000 / portTICK_PERIOD_MS);
+  
+  servoGit(servo1, 50, 8);
+  servoGit(servo1, 10, 8);
+
+  servoGit(servo2, 40, 7);
+  servoGit(servo2, 0, 7);
+  servoGit(servo2, 40, 7);
+  servoGit(servo2, 0, 7);
+  servoGit(servo2, 20, 7);
+
+    vTaskDelay(500 / portTICK_PERIOD_MS);
+  
+  servoGit(servo1, 50, 8);
+  servoGit(servo1, 10, 8);
+
+  servoGit(servo2, 40, 7);
+  servoGit(servo2, 0, 7);
+  servoGit(servo2, 40, 7);
+  servoGit(servo2, 0, 7);
+  servoGit(servo2, 20, 7);
+
+      vTaskDelay(500 / portTICK_PERIOD_MS);
+  
+  servoGit(servo1, 50, 8);
+  servoGit(servo1, 10, 8);
+
+  servoGit(servo2, 40, 7);
+  servoGit(servo2, 0, 7);
+  servoGit(servo2, 40, 7);
+  servoGit(servo2, 0, 7);
+  servoGit(servo2, 20, 7);
+
+   danceTrigger = 0; 
+  }
 void dance_5() { danceTrigger = 0; }
 void dance_6() { danceTrigger = 0; }
 void dance_7() { danceTrigger = 0; }
@@ -321,6 +420,13 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
 // =========================================================================
 void Task_Gozler(void * parameter) {
   for(;;) {
+    // EĞER EKRAN KİLİTLİYSE (IP YAZIYORSA) BURADA BEKLE VE ÇİZİM YAPMA
+    if (displayLocked) {
+      vTaskDelay(100 / portTICK_PERIOD_MS);
+      continue;
+    }
+
+    // Normal çizim döngüsü
     eyes.update(); 
     vTaskDelay(1 / portTICK_PERIOD_MS); 
   }
@@ -340,20 +446,47 @@ void Task_Mantik(void * parameter) {
 
     // 1. Dokunmatik
     if (digitalRead(THC_PIN)) {
+      if (touchPressStartMillis == 0) {
+        touchPressStartMillis = currentMillis;
+        ipShownForCurrentPress = false;
+      }
+
       if(!touchTrigger) { 
         Serial.println("Touch Triggered!");
         eyes.setMood(HAPPY);
         eyes.anim_laugh();
         touchTrigger = true;
+        
         // Dokununca yeşil yansın
         String oldMode = lightMode;
         lightMode = "STATIC";
         selectedColor = pixels.Color(0, 255, 0);
-        vTaskDelay(1000 / portTICK_PERIOD_MS); // 1 sn bekle (bu task'i dondurur sadece)
+        vTaskDelay(1000 / portTICK_PERIOD_MS); 
         lightMode = oldMode;
       }
+
+      // 3 Saniye (3000ms) basılı tutulursa
+      if (!ipShownForCurrentPress && (currentMillis - touchPressStartMillis >= 3000)) {
+        Serial.println("Touch hold 5s -> IP gosteriliyor.");
+        
+        displayLocked = true; // 1. Göz Görevini Kilitle (Durulsun)
+        vTaskDelay(100 / portTICK_PERIOD_MS); // 2. Gözlerin son karesinin bitmesi için minik bekleme
+        
+        // 3. Ekranı temizle ve IP'yi yaz
+        ekranaYaz("IP Adresi:", WiFi.localIP().toString());
+        
+        // 4. IP'nin okunabilmesi için 4 saniye burada beklet (Task_Mantik durur ama sorun olmaz)
+        vTaskDelay(4000 / portTICK_PERIOD_MS); 
+        
+        displayLocked = false; // 5. Kilidi aç, gözler geri gelsin
+        ipShownForCurrentPress = true; // 6. Elini çekene kadar tekrar gösterme
+      }
+      // --------------------------
+
     } else {
       touchTrigger = false;
+      touchPressStartMillis = 0;
+      ipShownForCurrentPress = false;
     }
 
     // 2. Dans İsteği
@@ -449,8 +582,8 @@ void setup() {
 
   Serial.println("");
   Serial.println(WiFi.localIP());
-  ekranaYaz("BAGLANDI!", WiFi.localIP().toString());
-  delay(3000); 
+  showIpAddressFor3Seconds();
+  delay(IP_SHOW_DURATION_MS); 
 
   ws.onEvent(onEvent);
   server.addHandler(&ws);
