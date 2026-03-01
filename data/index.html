@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="tr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -9,9 +10,11 @@
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
-    
-    
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;700&display=swap"
+        rel="stylesheet">
+
+
     <script>
         tailwind.config = {
             theme: {
@@ -50,15 +53,15 @@
             appearance: none;
             background: transparent;
         }
-        
+
         input[type=range]::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
-            height: 5vh; 
-            width: 5vh; 
+            height: 5vh;
+            width: 5vh;
             border-radius: 50%;
             cursor: pointer;
-            margin-top: -1.75vh; 
+            margin-top: -1.75vh;
             box-shadow: 0 0 10px currentColor;
             background: white;
             border: 0.5vh solid currentColor;
@@ -66,25 +69,33 @@
 
         input[type=range]::-webkit-slider-runnable-track {
             width: 100%;
-            height: 1.5vh; 
+            height: 1.5vh;
             cursor: pointer;
             background: #333;
             border-radius: 1vh;
-            box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
+            box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5);
         }
 
-        #armSlider::-webkit-slider-thumb { color: #bc13fe; }
-        #headSlider::-webkit-slider-thumb { color: #ff9100; }
-        #speedSlider::-webkit-slider-thumb { color: #00f3ff; }
+        #armSlider::-webkit-slider-thumb {
+            color: #bc13fe;
+        }
+
+        #headSlider::-webkit-slider-thumb {
+            color: #ff9100;
+        }
+
+        #speedSlider::-webkit-slider-thumb {
+            color: #00f3ff;
+        }
 
         /* --- Dikey Slider --- */
         .vertical-slider-container {
-            position: relative; 
+            position: relative;
             display: flex;
             align-items: center;
             justify-content: center;
-            height: 50vh; 
-            width: 8vh;   
+            height: 50vh;
+            width: 8vh;
         }
 
         .vertical-slider {
@@ -92,7 +103,7 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%) rotate(-90deg);
-            width: 43vh; 
+            width: 43vh;
             margin: 0;
             transform-origin: center;
         }
@@ -101,9 +112,11 @@
         .neon-btn {
             transition: all 0.1s;
         }
-        .neon-btn:active, .neon-btn.active {
+
+        .neon-btn:active,
+        .neon-btn.active {
             transform: scale(0.95);
-            box-shadow: 0 0 2vh currentColor; 
+            box-shadow: 0 0 2vh currentColor;
             background-color: currentColor;
             color: black !important;
         }
@@ -120,36 +133,51 @@
             padding: 0;
             background: none;
         }
+
         input[type="color"]::-webkit-color-swatch-wrapper {
-            padding: 0; 
+            padding: 0;
         }
+
         input[type="color"]::-webkit-color-swatch {
             border: 2px solid #fff;
             border-radius: 50%;
         }
 
         /* Landscape Uyarısı */
-        #rotate-message { display: none; }
+        #rotate-message {
+            display: none;
+        }
+
         @media only screen and (orientation: portrait) {
-            #main-interface { display: none; }
-            #rotate-message { display: flex; }
+            #main-interface {
+                display: none;
+            }
+
+            #rotate-message {
+                display: flex;
+            }
         }
     </style>
 </head>
+
 <body class="h-screen w-screen font-body select-none flex flex-col">
 
     <!-- Oryantasyon Uyarısı -->
-    <div id="rotate-message" class="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center text-center p-5">
+    <div id="rotate-message"
+        class="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center text-center p-5">
         <i class="fa-solid fa-mobile-screen-button fa-rotate-270 text-6xl text-neon-blue mb-4 animate-pulse"></i>
         <h1 class="text-2xl font-tech text-neon-blue">Yatay Çeviriniz</h1>
     </div>
 
     <!-- RGB MODAL (POPUP PENCERE) -->
-    <div id="rgb-modal" class="hidden fixed inset-0 z-50 bg-black/90 flex items-center justify-center backdrop-blur-sm transition-opacity duration-300">
-        <div class="bg-gray-900 border-2 border-neon-blue rounded-2xl p-[3vh] w-[70vh] flex flex-col items-center shadow-[0_0_50px_rgba(0,243,255,0.2)] relative">
-            
+    <div id="rgb-modal"
+        class="hidden fixed inset-0 z-50 bg-black/90 flex items-center justify-center backdrop-blur-sm transition-opacity duration-300">
+        <div
+            class="bg-gray-900 border-2 border-neon-blue rounded-2xl p-[3vh] w-[70vh] flex flex-col items-center shadow-[0_0_50px_rgba(0,243,255,0.2)] relative">
+
             <!-- Kapatma Butonu (X) -->
-            <button onclick="toggleRGBModal()" class="absolute top-[2vh] right-[2vh] text-gray-400 hover:text-white text-[4vh] w-[6vh] h-[6vh] flex items-center justify-center rounded-full hover:bg-gray-800 transition-colors">
+            <button onclick="toggleRGBModal()"
+                class="absolute top-[2vh] right-[2vh] text-gray-400 hover:text-white text-[4vh] w-[6vh] h-[6vh] flex items-center justify-center rounded-full hover:bg-gray-800 transition-colors">
                 <i class="fa-solid fa-xmark"></i>
             </button>
 
@@ -161,24 +189,31 @@
                 <!-- Sol Taraf: Renk Seçici -->
                 <div class="flex flex-col items-center justify-center w-1/3 border-r border-gray-700 pr-[2vh]">
                     <div class="relative group">
-                        <div class="absolute inset-0 bg-white/20 rounded-full blur opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                        <input type="color" id="colorPicker" value="#00f3ff" onchange="updateLight('STATIC')" class="relative z-10 shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-105 transition-transform">
+                        <div
+                            class="absolute inset-0 bg-white/20 rounded-full blur opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                        </div>
+                        <input type="color" id="colorPicker" value="#00f3ff" onchange="updateLight('STATIC')"
+                            class="relative z-10 shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-105 transition-transform">
                     </div>
                     <span class="text-gray-400 text-[2vh] mt-[2vh] font-tech tracking-widest">RENK SEÇ</span>
                 </div>
 
                 <!-- Sağ Taraf: Efekt Butonları -->
                 <div class="grid grid-cols-2 gap-[2vh] w-2/3">
-                    <button onclick="updateLight('STATIC')" class="bg-gray-800 border border-gray-600 hover:bg-gray-700 text-white py-[2vh] rounded-xl font-bold text-[2vh] transition-all active:scale-95 shadow-lg flex flex-col items-center gap-[0.5vh]">
+                    <button onclick="updateLight('STATIC')"
+                        class="bg-gray-800 border border-gray-600 hover:bg-gray-700 text-white py-[2vh] rounded-xl font-bold text-[2vh] transition-all active:scale-95 shadow-lg flex flex-col items-center gap-[0.5vh]">
                         <i class="fa-solid fa-fill-drip text-neon-blue"></i> SABİT RENK
                     </button>
-                    <button onclick="updateLight('PULSE')" class="bg-gray-800 border border-neon-purple text-neon-purple hover:bg-neon-purple/20 py-[2vh] rounded-xl font-bold text-[2vh] transition-all active:scale-95 shadow-[0_0_10px_#bc13fe_inset] flex flex-col items-center gap-[0.5vh]">
+                    <button onclick="updateLight('PULSE')"
+                        class="bg-gray-800 border border-neon-purple text-neon-purple hover:bg-neon-purple/20 py-[2vh] rounded-xl font-bold text-[2vh] transition-all active:scale-95 shadow-[0_0_10px_#bc13fe_inset] flex flex-col items-center gap-[0.5vh]">
                         <i class="fa-solid fa-heart-pulse"></i> NEFES
                     </button>
-                    <button onclick="updateLight('RAINBOW')" class="col-span-2 bg-gradient-to-r from-red-500 via-green-500 to-blue-500 text-white py-[2vh] rounded-xl font-bold text-[2vh] transition-all active:scale-95 opacity-90 hover:opacity-100 shadow-[0_0_15px_rgba(255,255,255,0.3)] flex items-center justify-center gap-[1.5vh]">
+                    <button onclick="updateLight('RAINBOW')"
+                        class="col-span-2 bg-gradient-to-r from-red-500 via-green-500 to-blue-500 text-white py-[2vh] rounded-xl font-bold text-[2vh] transition-all active:scale-95 opacity-90 hover:opacity-100 shadow-[0_0_15px_rgba(255,255,255,0.3)] flex items-center justify-center gap-[1.5vh]">
                         <i class="fa-solid fa-rainbow"></i> GÖKKUŞAĞI MODU
                     </button>
-                    <button onclick="updateLight('POLICE')" class="col-span-2 bg-gray-900 border border-red-500 text-red-500 hover:bg-red-900/30 py-[2vh] rounded-xl font-bold text-[2vh] transition-all active:scale-95 flex items-center justify-center gap-[1.5vh]">
+                    <button onclick="updateLight('POLICE')"
+                        class="col-span-2 bg-gray-900 border border-red-500 text-red-500 hover:bg-red-900/30 py-[2vh] rounded-xl font-bold text-[2vh] transition-all active:scale-95 flex items-center justify-center gap-[1.5vh]">
                         <i class="fa-solid fa-taxi"></i> POLİS ÇAKARI
                     </button>
                 </div>
@@ -186,7 +221,8 @@
 
             <!-- Alt Kısım: Kapatma -->
             <div class="w-full mt-[4vh] border-t border-gray-700 pt-[3vh]">
-                <button id="btn-light-power" onclick="toggleLightPower()" class="w-full bg-green-900/40 border border-green-600 text-green-200 py-[2vh] rounded-xl font-bold text-[2.2vh] hover:bg-green-600 hover:text-white transition-all active:scale-95 flex items-center justify-center gap-[1vh]">
+                <button id="btn-light-power" onclick="toggleLightPower()"
+                    class="w-full bg-green-900/40 border border-green-600 text-green-200 py-[2vh] rounded-xl font-bold text-[2.2vh] hover:bg-green-600 hover:text-white transition-all active:scale-95 flex items-center justify-center gap-[1vh]">
                     <i class="fa-solid fa-power-off"></i> <span id="light-power-label">IŞIKLARI AÇ</span>
                 </button>
             </div>
@@ -194,11 +230,14 @@
     </div>
 
     <!-- VOLUME MODAL (POPUP PENCERE) -->
-    <div id="volume-modal" class="hidden fixed inset-0 z-50 bg-black/90 flex items-center justify-center backdrop-blur-sm transition-opacity duration-300">
-        <div class="bg-gray-900 border-2 border-neon-blue rounded-2xl p-[3vh] w-[70vh] flex flex-col items-center shadow-[0_0_50px_rgba(0,243,255,0.2)] relative">
-            
+    <div id="volume-modal"
+        class="hidden fixed inset-0 z-50 bg-black/90 flex items-center justify-center backdrop-blur-sm transition-opacity duration-300">
+        <div
+            class="bg-gray-900 border-2 border-neon-blue rounded-2xl p-[3vh] w-[70vh] flex flex-col items-center shadow-[0_0_50px_rgba(0,243,255,0.2)] relative">
+
             <!-- Kapatma Butonu (X) -->
-            <button onclick="toggleVolumeModal()" class="absolute top-[2vh] right-[2vh] text-gray-400 hover:text-white text-[4vh] w-[6vh] h-[6vh] flex items-center justify-center rounded-full hover:bg-gray-800 transition-colors">
+            <button onclick="toggleVolumeModal()"
+                class="absolute top-[2vh] right-[2vh] text-gray-400 hover:text-white text-[4vh] w-[6vh] h-[6vh] flex items-center justify-center rounded-full hover:bg-gray-800 transition-colors">
                 <i class="fa-solid fa-xmark"></i>
             </button>
 
@@ -208,53 +247,73 @@
 
             <!-- Slider ve Değer Göstergesi -->
             <div class="flex flex-col w-full items-center mt-[4vh] mb-[2vh]">
-                <div class="w-[80%] bg-gray-900/50 p-[2vh] rounded-xl border border-gray-700 flex flex-col items-center">
+                <div
+                    class="w-[80%] bg-gray-900/50 p-[2vh] rounded-xl border border-gray-700 flex flex-col items-center">
                     <span id="disp-volume" class="text-[5vh] font-tech text-neon-blue font-bold mb-[2vh]">30</span>
-                    <input id="volumeSlider" type="range" class="w-full" min="0" max="30" step="1" value="30" oninput="sendVolume()">
+                    <input id="volumeSlider" type="range" class="w-full" min="0" max="30" step="1" value="30"
+                        oninput="sendVolume()">
                 </div>
-                <span class="text-gray-500 text-[1.8vh] font-tech mt-[2vh] tracking-widest text-center">ROBOTUN SES SEVİYESİNİ AYARLAYIN (0-30)</span>
+                <span class="text-gray-500 text-[1.8vh] font-tech mt-[2vh] tracking-widest text-center">ROBOTUN SES
+                    SEVİYESİNİ AYARLAYIN (0-30)</span>
             </div>
-            
+
         </div>
     </div>
 
     <!-- Ana Arayüz -->
     <div id="main-interface" class="flex-1 w-full flex flex-col p-[1vh] relative overflow-hidden">
-        
+
         <!-- Üst Bar (Header) -->
-        <header class="flex justify-between items-center bg-panel-bg border-b border-gray-700 px-[2vh] rounded-t-lg shrink-0 h-[9vh] gap-4">
+        <header
+            class="flex justify-between items-center bg-panel-bg border-b border-gray-700 px-[2vh] rounded-t-lg shrink-0 h-[9vh] gap-4">
             <!-- Sol: Logo ve Durum -->
             <div class="flex items-center gap-[2vh]">
                 <div class="flex items-center gap-[1vh] text-neon-blue font-tech">
                     <i class="fa-solid fa-robot text-[4vh]"></i>
                     <span class="text-[3vh] tracking-wider hidden sm:inline">VECTOR V2</span>
                 </div>
-                <div id="connection-status" class="text-[1.8vh] px-[1vh] py-[0.5vh] rounded border border-red-500 text-red-300 bg-red-900/50">
+                <div id="connection-status"
+                    class="text-[1.8vh] px-[1vh] py-[0.5vh] rounded border border-red-500 text-red-300 bg-red-900/50">
                     BAĞLANTI YOK
                 </div>
             </div>
 
             <!-- Sağ: Modlar ve Tam Ekran -->
             <div class="flex items-center gap-[1vh]">
-                
+
+                <!-- *** YENİ SAAT BUTONU *** -->
+                <button onclick="requestClockShow()"
+                    class="bg-gray-800 border border-green-500 text-green-400 hover:text-white hover:bg-green-600/50 w-[6vh] h-[5vh] rounded text-[2vh] flex items-center justify-center transition-all shadow-[0_0_10px_#22c55e] mr-[1vh] active:scale-90"
+                    title="Saati Göster">
+                    <i class="fa-solid fa-clock text-[2.5vh]"></i>
+                </button>
+
                 <!-- *** YENİ SES BUTONU *** -->
-                <button onclick="toggleVolumeModal()" class="bg-gray-800 border border-neon-blue text-neon-blue hover:text-white hover:bg-neon-blue/50 w-[6vh] h-[5vh] rounded text-[2vh] flex items-center justify-center transition-all shadow-[0_0_10px_#00f3ff] mr-[1vh] active:scale-90" title="Ses Kontrolü">
+                <button onclick="toggleVolumeModal()"
+                    class="bg-gray-800 border border-neon-blue text-neon-blue hover:text-white hover:bg-neon-blue/50 w-[6vh] h-[5vh] rounded text-[2vh] flex items-center justify-center transition-all shadow-[0_0_10px_#00f3ff] mr-[1vh] active:scale-90"
+                    title="Ses Kontrolü">
                     <i class="fa-solid fa-volume-high text-[2.5vh]"></i>
                 </button>
 
                 <!-- *** YENİ RGB BUTONU *** -->
-                <button onclick="toggleRGBModal()" class="bg-gray-800 border border-yellow-500 text-yellow-400 hover:text-white hover:bg-yellow-600/50 w-[6vh] h-[5vh] rounded text-[2vh] flex items-center justify-center transition-all shadow-[0_0_10px_#eab308] mr-[1vh] active:scale-90" title="Işık Kontrolü">
+                <button onclick="toggleRGBModal()"
+                    class="bg-gray-800 border border-yellow-500 text-yellow-400 hover:text-white hover:bg-yellow-600/50 w-[6vh] h-[5vh] rounded text-[2vh] flex items-center justify-center transition-all shadow-[0_0_10px_#eab308] mr-[1vh] active:scale-90"
+                    title="Işık Kontrolü">
                     <i class="fa-solid fa-lightbulb text-[2.5vh]"></i>
                 </button>
 
                 <!-- Mod Seçici -->
                 <div class="flex bg-gray-900 rounded-lg p-[0.5vh] gap-[0.5vh]">
-                    <button onclick="setUIMode('manual')" id="btn-manual" class="px-[3vh] py-[1vh] rounded text-[2vh] font-bold transition-all bg-neon-blue text-black shadow-[0_0_10px_#00f3ff]">MANUEL</button>
-                    <button onclick="setUIMode('auto')" id="btn-auto" class="px-[3vh] py-[1vh] rounded text-[2vh] font-bold transition-all text-gray-400 hover:text-white">AUTO</button>
+                    <button onclick="setUIMode('manual')" id="btn-manual"
+                        class="px-[3vh] py-[1vh] rounded text-[2vh] font-bold transition-all bg-neon-blue text-black shadow-[0_0_10px_#00f3ff]">MANUEL</button>
+                    <button onclick="setUIMode('auto')" id="btn-auto"
+                        class="px-[3vh] py-[1vh] rounded text-[2vh] font-bold transition-all text-gray-400 hover:text-white">AUTO</button>
                 </div>
 
                 <!-- Tam Ekran Butonu -->
-                <button onclick="toggleFullScreen()" id="btn-fullscreen" class="bg-gray-800 border border-gray-600 text-gray-300 hover:text-white hover:border-white w-[5vh] h-[5vh] rounded text-[2vh] flex items-center justify-center transition-all ml-[1vh]" title="Tam Ekran">
+                <button onclick="toggleFullScreen()" id="btn-fullscreen"
+                    class="bg-gray-800 border border-gray-600 text-gray-300 hover:text-white hover:border-white w-[5vh] h-[5vh] rounded text-[2vh] flex items-center justify-center transition-all ml-[1vh]"
+                    title="Tam Ekran">
                     <i class="fa-solid fa-expand"></i>
                 </button>
             </div>
@@ -262,61 +321,66 @@
 
         <!-- İçerik Alanı (Main) -->
         <main class="flex-1 relative mt-[1vh] overflow-hidden flex gap-[1vh]">
-            
+
             <!-- 1. MANUEL PANEL -->
             <div id="mode-manual" class="w-full h-full flex gap-[2vh]">
                 <!-- Sol: Joystick -->
-                <div class="w-1/2 bg-panel-bg rounded-lg border border-gray-800 flex items-center justify-center relative p-[2vh]">
+                <div
+                    class="w-1/2 bg-panel-bg rounded-lg border border-gray-800 flex items-center justify-center relative p-[2vh]">
                     <span class="absolute top-[1vh] left-[2vh] text-[2vh] text-gray-500 font-tech">HAREKET</span>
                     <div class="grid grid-cols-3 gap-[2vh] p-[2vh] bg-gray-900/50 rounded-full border border-gray-700">
                         <div></div>
-                        <button id="btn-forward" 
+                        <button id="btn-forward"
                             class="w-[18vh] h-[18vh] bg-gray-800 rounded-xl border-2 border-neon-blue text-neon-blue neon-btn flex items-center justify-center text-[6vh]"
-                            onmousedown="updateDirection('FORWARD')" onmouseup="updateDirection('STOP')" 
+                            onmousedown="updateDirection('FORWARD')" onmouseup="updateDirection('STOP')"
                             ontouchstart="updateDirection('FORWARD')" ontouchend="updateDirection('STOP')">
                             <i class="fa-solid fa-arrow-up"></i>
                         </button>
                         <div></div>
-                        <button id="btn-left" 
+                        <button id="btn-left"
                             class="w-[18vh] h-[18vh] bg-gray-800 rounded-xl border-2 border-neon-blue text-neon-blue neon-btn flex items-center justify-center text-[6vh]"
-                            onmousedown="updateDirection('LEFT')" onmouseup="updateDirection('STOP')" 
+                            onmousedown="updateDirection('LEFT')" onmouseup="updateDirection('STOP')"
                             ontouchstart="updateDirection('LEFT')" ontouchend="updateDirection('STOP')">
                             <i class="fa-solid fa-arrow-left"></i>
                         </button>
-                        <div class="w-[18vh] h-[18vh] bg-black rounded-full flex items-center justify-center border border-gray-700">
+                        <div
+                            class="w-[18vh] h-[18vh] bg-black rounded-full flex items-center justify-center border border-gray-700">
                             <i class="fa-solid fa-crosshairs text-gray-600 text-[5vh]"></i>
                         </div>
-                        <button id="btn-right" 
+                        <button id="btn-right"
                             class="w-[18vh] h-[18vh] bg-gray-800 rounded-xl border-2 border-neon-blue text-neon-blue neon-btn flex items-center justify-center text-[6vh]"
-                            onmousedown="updateDirection('RIGHT')" onmouseup="updateDirection('STOP')" 
+                            onmousedown="updateDirection('RIGHT')" onmouseup="updateDirection('STOP')"
                             ontouchstart="updateDirection('RIGHT')" ontouchend="updateDirection('STOP')">
                             <i class="fa-solid fa-arrow-right"></i>
                         </button>
                         <div></div>
-                        <button id="btn-backward" 
+                        <button id="btn-backward"
                             class="w-[18vh] h-[18vh] bg-gray-800 rounded-xl border-2 border-neon-blue text-neon-blue neon-btn flex items-center justify-center text-[6vh]"
-                            onmousedown="updateDirection('BACKWARD')" onmouseup="updateDirection('STOP')" 
+                            onmousedown="updateDirection('BACKWARD')" onmouseup="updateDirection('STOP')"
                             ontouchstart="updateDirection('BACKWARD')" ontouchend="updateDirection('STOP')">
                             <i class="fa-solid fa-arrow-down"></i>
                         </button>
                         <div></div>
                     </div>
                 </div>
-                
+
                 <!-- Sağ: Mekanik Kontroller -->
-                <div class="w-1/2 bg-panel-bg rounded-lg border border-gray-800 p-[2vh] flex flex-col justify-between relative">
+                <div
+                    class="w-1/2 bg-panel-bg rounded-lg border border-gray-800 p-[2vh] flex flex-col justify-between relative">
                     <span class="absolute top-[1vh] left-[2vh] text-[2vh] text-gray-500 font-tech">MEKANİK & HIZ</span>
                     <div class="flex flex-1 items-center justify-around w-full mt-[3vh]">
                         <div class="flex flex-col items-center">
                             <div class="vertical-slider-container  bg-gray-900 rounded-full border border-gray-700">
-                                <input id="headSlider" class="vertical-slider" type="range" min="0" max="60" step="1" value="30" oninput="sendData()">
+                                <input id="headSlider" class="vertical-slider" type="range" min="0" max="60" step="1"
+                                    value="30" oninput="sendData()">
                             </div>
                             <span class="mt-[1.5vh] text-[2vh] font-bold text-neon-orange font-tech">KAFA</span>
                             <span id="disp-head" class="text-[1.8vh] text-gray-400">30</span>
                         </div>
                         <div class="flex flex-col items-center">
                             <div class="vertical-slider-container bg-gray-900 rounded-full border border-gray-700">
-                                <input id="armSlider" class="vertical-slider" type="range" min="0" max="70" step="1" value="0" oninput="sendData()">
+                                <input id="armSlider" class="vertical-slider" type="range" min="0" max="70" step="1"
+                                    value="0" oninput="sendData()">
                             </div>
                             <span class="mt-[1.5vh] text-[2vh] font-bold text-neon-purple font-tech">KOL</span>
                             <span id="disp-arm" class="text-[1.8vh] text-gray-400">0</span>
@@ -327,39 +391,82 @@
                             <span class="text-[1.8vh] text-neon-blue font-bold">MOTOR HIZI</span>
                             <span id="disp-speed" class="text-[1.8vh] text-white">0</span>
                         </div>
-                        <input id="speedSlider" type="range" class="w-full" min="0" max="254" step="1" value="70" oninput="sendData()">
+                        <input id="speedSlider" type="range" class="w-full" min="0" max="254" step="1" value="70"
+                            oninput="sendData()">
                     </div>
                 </div>
             </div>
 
             <!-- 2. AUTO MOD (DANS PANELI) -->
-            <div id="mode-auto" class="w-full h-full hidden bg-panel-bg rounded-lg border border-gray-800 p-[2vh] flex flex-col relative">
-                <span class="absolute top-[1vh] left-[2vh] text-[1.8vh] text-gray-500 font-tech">OTONOM DANSLAR & MODLAR</span>
+            <div id="mode-auto"
+                class="w-full h-full hidden bg-panel-bg rounded-lg border border-gray-800 p-[2vh] flex flex-col relative">
+                <span class="absolute top-[1vh] left-[2vh] text-[1.8vh] text-gray-500 font-tech">OTONOM DANSLAR &
+                    MODLAR</span>
                 <div class="flex gap-[1.2vh] w-full h-full pt-[4vh]">
                     <div class="grid grid-cols-4 grid-rows-2 gap-[1.2vh] flex-1">
-                        <button onclick="updateMood('DANCE_1')" class="flex flex-col items-center justify-center bg-gray-900 border border-neon-blue/30 rounded-xl hover:bg-neon-blue/20 active:scale-95 transition-all p-[0.8vh] group shadow-[0_0_5px_rgba(0,243,255,0.1)]"><i class="fa-solid fa-music text-[3.2vh] text-neon-blue mb-[0.6vh] group-hover:scale-110 transition-transform"></i><span class="font-tech text-[1.2vh] text-neon-blue">DANCE 1</span></button>
-                        <button onclick="updateMood('DANCE_2')" class="flex flex-col items-center justify-center bg-gray-900 border border-neon-blue/30 rounded-xl hover:bg-neon-blue/20 active:scale-95 transition-all p-[0.8vh] group shadow-[0_0_5px_rgba(0,243,255,0.1)]"><i class="fa-solid fa-robot text-[3.2vh] text-neon-blue mb-[0.6vh] group-hover:scale-110 transition-transform"></i><span class="font-tech text-[1.2vh] text-neon-blue">DANCE 2</span></button>
-                        <button onclick="updateMood('DANCE_3')" class="flex flex-col items-center justify-center bg-gray-900 border border-neon-blue/30 rounded-xl hover:bg-neon-blue/20 active:scale-95 transition-all p-[0.8vh] group shadow-[0_0_5px_rgba(0,243,255,0.1)]"><i class="fa-solid fa-bolt text-[3.2vh] text-neon-blue mb-[0.6vh] group-hover:scale-110 transition-transform"></i><span class="font-tech text-[1.2vh] text-neon-blue">DANCE 3</span></button>
-                        <button onclick="updateMood('DANCE_4')" class="flex flex-col items-center justify-center bg-gray-900 border border-neon-blue/30 rounded-xl hover:bg-neon-blue/20 active:scale-95 transition-all p-[0.8vh] group shadow-[0_0_5px_rgba(0,243,255,0.1)]"><i class="fa-solid fa-wand-magic-sparkles text-[3.2vh] text-neon-blue mb-[0.6vh] group-hover:scale-110 transition-transform"></i><span class="font-tech text-[1.2vh] text-neon-blue">DANCE 4</span></button>
-                        <button onclick="updateMood('DANCE_5')" class="flex flex-col items-center justify-center bg-gray-900 border border-neon-blue/30 rounded-xl hover:bg-neon-blue/20 active:scale-95 transition-all p-[0.8vh] group shadow-[0_0_5px_rgba(0,243,255,0.1)]"><i class="fa-solid fa-compact-disc text-[3.2vh] text-neon-blue mb-[0.6vh] group-hover:scale-110 transition-transform animate-spin-slow"></i><span class="font-tech text-[1.2vh] text-neon-blue">DANCE 5</span></button>
-                        <button onclick="updateMood('DANCE_6')" class="flex flex-col items-center justify-center bg-gray-900 border border-neon-blue/30 rounded-xl hover:bg-neon-blue/20 active:scale-95 transition-all p-[0.8vh] group shadow-[0_0_5px_rgba(0,243,255,0.1)]"><i class="fa-solid fa-drum text-[3.2vh] text-neon-blue mb-[0.6vh] group-hover:scale-110 transition-transform"></i><span class="font-tech text-[1.2vh] text-neon-blue">DANCE 6</span></button>
-                        <button onclick="updateMood('DANCE_7')" class="flex flex-col items-center justify-center bg-gray-900 border border-neon-blue/30 rounded-xl hover:bg-neon-blue/20 active:scale-95 transition-all p-[0.8vh] group shadow-[0_0_5px_rgba(0,243,255,0.1)]"><i class="fa-solid fa-guitar text-[3.2vh] text-neon-blue mb-[0.6vh] group-hover:scale-110 transition-transform"></i><span class="font-tech text-[1.2vh] text-neon-blue">DANCE 7</span></button>
-                        <button onclick="updateMood('RANDOM')" class="flex flex-col items-center justify-center bg-gray-900 border border-neon-purple rounded-xl hover:bg-neon-purple hover:text-black active:scale-95 transition-all p-[0.8vh] group shadow-[0_0_15px_#bc13fe]"><i class="fa-solid fa-shuffle text-[3.2vh] text-neon-purple group-hover:text-black mb-[0.6vh] group-hover:rotate-180 transition-all duration-500"></i><span class="font-tech text-[1.2vh] text-neon-purple group-hover:text-black font-bold">RANDOM</span></button>
+                        <button onclick="updateMood('DANCE_1')"
+                            class="flex flex-col items-center justify-center bg-gray-900 border border-neon-blue/30 rounded-xl hover:bg-neon-blue/20 active:scale-95 transition-all p-[0.8vh] group shadow-[0_0_5px_rgba(0,243,255,0.1)]"><i
+                                class="fa-solid fa-music text-[3.2vh] text-neon-blue mb-[0.6vh] group-hover:scale-110 transition-transform"></i><span
+                                class="font-tech text-[1.2vh] text-neon-blue">DANCE 1</span></button>
+                        <button onclick="updateMood('DANCE_2')"
+                            class="flex flex-col items-center justify-center bg-gray-900 border border-neon-blue/30 rounded-xl hover:bg-neon-blue/20 active:scale-95 transition-all p-[0.8vh] group shadow-[0_0_5px_rgba(0,243,255,0.1)]"><i
+                                class="fa-solid fa-robot text-[3.2vh] text-neon-blue mb-[0.6vh] group-hover:scale-110 transition-transform"></i><span
+                                class="font-tech text-[1.2vh] text-neon-blue">DANCE 2</span></button>
+                        <button onclick="updateMood('DANCE_3')"
+                            class="flex flex-col items-center justify-center bg-gray-900 border border-neon-blue/30 rounded-xl hover:bg-neon-blue/20 active:scale-95 transition-all p-[0.8vh] group shadow-[0_0_5px_rgba(0,243,255,0.1)]"><i
+                                class="fa-solid fa-bolt text-[3.2vh] text-neon-blue mb-[0.6vh] group-hover:scale-110 transition-transform"></i><span
+                                class="font-tech text-[1.2vh] text-neon-blue">DANCE 3</span></button>
+                        <button onclick="updateMood('DANCE_4')"
+                            class="flex flex-col items-center justify-center bg-gray-900 border border-neon-blue/30 rounded-xl hover:bg-neon-blue/20 active:scale-95 transition-all p-[0.8vh] group shadow-[0_0_5px_rgba(0,243,255,0.1)]"><i
+                                class="fa-solid fa-wand-magic-sparkles text-[3.2vh] text-neon-blue mb-[0.6vh] group-hover:scale-110 transition-transform"></i><span
+                                class="font-tech text-[1.2vh] text-neon-blue">DANCE 4</span></button>
+                        <button onclick="updateMood('DANCE_5')"
+                            class="flex flex-col items-center justify-center bg-gray-900 border border-neon-blue/30 rounded-xl hover:bg-neon-blue/20 active:scale-95 transition-all p-[0.8vh] group shadow-[0_0_5px_rgba(0,243,255,0.1)]"><i
+                                class="fa-solid fa-compact-disc text-[3.2vh] text-neon-blue mb-[0.6vh] group-hover:scale-110 transition-transform animate-spin-slow"></i><span
+                                class="font-tech text-[1.2vh] text-neon-blue">DANCE 5</span></button>
+                        <button onclick="updateMood('DANCE_6')"
+                            class="flex flex-col items-center justify-center bg-gray-900 border border-neon-blue/30 rounded-xl hover:bg-neon-blue/20 active:scale-95 transition-all p-[0.8vh] group shadow-[0_0_5px_rgba(0,243,255,0.1)]"><i
+                                class="fa-solid fa-drum text-[3.2vh] text-neon-blue mb-[0.6vh] group-hover:scale-110 transition-transform"></i><span
+                                class="font-tech text-[1.2vh] text-neon-blue">DANCE 6</span></button>
+                        <button onclick="updateMood('DANCE_7')"
+                            class="flex flex-col items-center justify-center bg-gray-900 border border-neon-blue/30 rounded-xl hover:bg-neon-blue/20 active:scale-95 transition-all p-[0.8vh] group shadow-[0_0_5px_rgba(0,243,255,0.1)]"><i
+                                class="fa-solid fa-guitar text-[3.2vh] text-neon-blue mb-[0.6vh] group-hover:scale-110 transition-transform"></i><span
+                                class="font-tech text-[1.2vh] text-neon-blue">DANCE 7</span></button>
+                        <button onclick="updateMood('RANDOM')"
+                            class="flex flex-col items-center justify-center bg-gray-900 border border-neon-purple rounded-xl hover:bg-neon-purple hover:text-black active:scale-95 transition-all p-[0.8vh] group shadow-[0_0_15px_#bc13fe]"><i
+                                class="fa-solid fa-shuffle text-[3.2vh] text-neon-purple group-hover:text-black mb-[0.6vh] group-hover:rotate-180 transition-all duration-500"></i><span
+                                class="font-tech text-[1.2vh] text-neon-purple group-hover:text-black font-bold">RANDOM</span></button>
                     </div>
                     <div class="w-[16vh] grid grid-rows-5 gap-[1vh]">
-                        <button onclick="updateMood('HAPPY')" class="mood-btn bg-gray-900 border border-green-500/40 rounded-xl hover:bg-green-900/20 active:scale-95 transition-all p-[0.6vh] flex flex-col items-center justify-center"><i class="fa-solid fa-face-grin-beam text-[2.6vh] text-green-400"></i><span class="font-tech text-[1.1vh] text-green-400">MUTLU</span></button>
-                        <button onclick="updateMood('ANGRY')" class="mood-btn bg-gray-900 border border-red-500/40 rounded-xl hover:bg-red-900/20 active:scale-95 transition-all p-[0.6vh] flex flex-col items-center justify-center"><i class="fa-solid fa-face-angry text-[2.6vh] text-red-500"></i><span class="font-tech text-[1.1vh] text-red-500">KIZGIN</span></button>
-                        <button onclick="updateMood('TIRED')" class="mood-btn bg-gray-900 border border-blue-500/40 rounded-xl hover:bg-blue-900/20 active:scale-95 transition-all p-[0.6vh] flex flex-col items-center justify-center"><i class="fa-solid fa-face-sad-tear text-[2.6vh] text-blue-400"></i><span class="font-tech text-[1.1vh] text-blue-400">YORGUN</span></button>
-                        <button onclick="updateMood('CONFUSED')" class="mood-btn bg-gray-900 border border-yellow-500/40 rounded-xl hover:bg-yellow-900/20 active:scale-95 transition-all p-[0.6vh] flex flex-col items-center justify-center"><i class="fa-solid fa-face-dizzy text-[2.6vh] text-yellow-400"></i><span class="font-tech text-[1.1vh] text-yellow-400">ŞAŞKIN</span></button>
-                        <button onclick="updateMood('DEFAULT')" class="mood-btn bg-gray-900 border border-gray-500/40 rounded-xl hover:bg-gray-800 active:scale-95 transition-all p-[0.6vh] flex flex-col items-center justify-center"><i class="fa-solid fa-face-smile text-[2.6vh] text-gray-300"></i><span class="font-tech text-[1.1vh] text-gray-300">NORMAL</span></button>
+                        <button onclick="updateMood('HAPPY')"
+                            class="mood-btn bg-gray-900 border border-green-500/40 rounded-xl hover:bg-green-900/20 active:scale-95 transition-all p-[0.6vh] flex flex-col items-center justify-center"><i
+                                class="fa-solid fa-face-grin-beam text-[2.6vh] text-green-400"></i><span
+                                class="font-tech text-[1.1vh] text-green-400">MUTLU</span></button>
+                        <button onclick="updateMood('ANGRY')"
+                            class="mood-btn bg-gray-900 border border-red-500/40 rounded-xl hover:bg-red-900/20 active:scale-95 transition-all p-[0.6vh] flex flex-col items-center justify-center"><i
+                                class="fa-solid fa-face-angry text-[2.6vh] text-red-500"></i><span
+                                class="font-tech text-[1.1vh] text-red-500">KIZGIN</span></button>
+                        <button onclick="updateMood('TIRED')"
+                            class="mood-btn bg-gray-900 border border-blue-500/40 rounded-xl hover:bg-blue-900/20 active:scale-95 transition-all p-[0.6vh] flex flex-col items-center justify-center"><i
+                                class="fa-solid fa-face-sad-tear text-[2.6vh] text-blue-400"></i><span
+                                class="font-tech text-[1.1vh] text-blue-400">YORGUN</span></button>
+                        <button onclick="updateMood('CONFUSED')"
+                            class="mood-btn bg-gray-900 border border-yellow-500/40 rounded-xl hover:bg-yellow-900/20 active:scale-95 transition-all p-[0.6vh] flex flex-col items-center justify-center"><i
+                                class="fa-solid fa-face-dizzy text-[2.6vh] text-yellow-400"></i><span
+                                class="font-tech text-[1.1vh] text-yellow-400">ŞAŞKIN</span></button>
+                        <button onclick="updateMood('DEFAULT')"
+                            class="mood-btn bg-gray-900 border border-gray-500/40 rounded-xl hover:bg-gray-800 active:scale-95 transition-all p-[0.6vh] flex flex-col items-center justify-center"><i
+                                class="fa-solid fa-face-smile text-[2.6vh] text-gray-300"></i><span
+                                class="font-tech text-[1.1vh] text-gray-300">NORMAL</span></button>
                     </div>
                 </div>
             </div>
 
         </main>
-        
+
         <!-- Alt Bilgi (Footer) -->
-        <footer class="h-[5vh] mt-[0.5vh] flex items-center text-[1.5vh] font-mono text-gray-500 px-[2vh] bg-black border-t border-gray-800 shrink-0">
+        <footer
+            class="h-[5vh] mt-[0.5vh] flex items-center text-[1.5vh] font-mono text-gray-500 px-[2vh] bg-black border-t border-gray-800 shrink-0">
             <span class="text-green-500 mr-[1vh]">></span> <span id="system-log">Sistem Hazır.</span>
         </footer>
 
@@ -369,10 +476,10 @@
     <script>
         var gateway = `ws://${window.location.hostname}/ws`;
         var websocket;
-        var currentMood = "DEFAULT"; 
+        var currentMood = "DEFAULT";
         var direction = "STOP";
         var currentLightMode = "OFF";
-        
+
         // Mevcut durumu sakla (Sayfa yenilenince veya modal açılınca sıfırlanmasın)
         var currentArm = 0;
         var currentHead = 30;
@@ -447,7 +554,7 @@
             var requestFullScreen = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullScreen || docEl.msRequestFullscreen;
             var cancelFullScreen = doc.exitFullscreen || doc.mozCancelFullScreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
 
-            if(!doc.fullscreenElement && !doc.mozFullScreenElement && !doc.webkitFullscreenElement && !doc.msFullscreenElement) {
+            if (!doc.fullscreenElement && !doc.mozFullScreenElement && !doc.webkitFullscreenElement && !doc.msFullscreenElement) {
                 requestFullScreen.call(docEl);
                 document.querySelector('#btn-fullscreen i').classList.remove('fa-expand');
                 document.querySelector('#btn-fullscreen i').classList.add('fa-compress');
@@ -504,7 +611,7 @@
             const color = document.getElementById('colorPicker').value;
             currentLightMode = mode;
             refreshLightPowerButton();
-            
+
             // Sadece ışık bilgisini gönderelim
             // C++ kodu eksik parametre gelirse diğerlerini değiştirmiyor
             var data = {
@@ -513,7 +620,7 @@
                 // Yine de motor durmasın diye mevcut hızı ve yönü ekleyebiliriz ama
                 // C++ tarafında 'direction' yoksa işlem yapmıyor, bu yüzden güvenli.
             };
-            
+
             if (websocket && websocket.readyState === WebSocket.OPEN) {
                 websocket.send(JSON.stringify(data));
             }
@@ -534,11 +641,22 @@
             }
         }
 
+        // Saati ESP32'de ekrana ver
+        function requestClockShow() {
+            var data = {
+                command: "showClock"
+            };
+            if (websocket && websocket.readyState === WebSocket.OPEN) {
+                websocket.send(JSON.stringify(data));
+            }
+            log("Komut: Saat Istendi");
+        }
+
         // Normal Slider ve Hareket Fonksiyonu
         function sendData() {
             updateSliderVariables(); // Değerleri güncelle
             updateSliderDisplays();  // Ekrana yaz
-            
+
             var data = {
                 arm: currentArm,
                 head: currentHead,
@@ -552,14 +670,14 @@
             if (currentMood == "CONFUSED") {
                 setTimeout(() => {
                     currentMood = "DEFAULT";
-                }, 1000); 
+                }, 1000);
             }
         }
 
         function updateDirection(dir) {
             direction = dir;
             sendData();
-            if(dir !== 'STOP') log(`Yön: ${dir}`);
+            if (dir !== 'STOP') log(`Yön: ${dir}`);
         }
 
         function updateMood(mood) {
@@ -579,7 +697,7 @@
             const activeView = document.getElementById(`mode-${modeName}`);
             activeView.classList.remove('hidden');
             activeView.classList.add('flex');
-            
+
             if (modeName === 'auto') {
                 log("Mod: OTO SEÇİMİ");
             } else {
@@ -603,4 +721,5 @@
         }
     </script>
 </body>
+
 </html>

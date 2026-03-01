@@ -1,5 +1,6 @@
 ﻿#include "DFRobotDFPlayerMini.h"
 #include "SPIFFS.h"
+#include "time.h"
 #include <Adafruit_GFX.h>
 #include <Adafruit_SH110X.h>
 #include <Arduino.h>
@@ -56,6 +57,8 @@ volatile bool displayLocked = false; // Ekran kilitli mi?
 volatile int danceTrigger = 0;
 volatile bool touchTrigger = false;
 volatile unsigned long ipDisplayUntil = 0;
+volatile bool isClockModeActive = false; // Saat modu sürekli açık mı?
+volatile bool pendingClockDraw = false;  // Websocket'ten gelen çizim isteği
 unsigned long lastMillis = 0;
 unsigned long touchPressStartMillis = 0;
 int long interval = 18000;
@@ -244,6 +247,19 @@ void showIpAddressFor3Seconds() {
   ipDisplayUntil = millis() + IP_SHOW_DURATION_MS;
 }
 
+// Saat çizim isteği WebSocket üzerinden tetiklenir
+void enableClockMode() {
+  isClockModeActive = true;
+  pendingClockDraw = true;
+}
+
+// Saat modundan çıkıp gözlere dön
+void disableClockMode() {
+  isClockModeActive = false;
+  pendingClockDraw = false;
+  displayLocked = false;
+}
+
 // --- DANS FONKSİYONLARI ---
 void dance_1() {
   Serial.println("Dans Basladi...");
@@ -359,10 +375,12 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
 
     // Gelen veri kontrolü (Veri eksikse çökmesin diye kontrol ekliyoruz)
     if (myObj.hasOwnProperty("arm")) {
+      disableClockMode(); // Saat modunu boz
       int arm = atoi((const char *)myObj["arm"]);
       servo1.write(arm);
     }
     if (myObj.hasOwnProperty("head")) {
+      disableClockMode(); // Saat modunu boz
       int head = atoi((const char *)myObj["head"]);
       servo2.write(map(head, 0, 60, 60, 0));
     }
@@ -371,6 +389,9 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
     if (myObj.hasOwnProperty("direction") && myObj.hasOwnProperty("speed")) {
       String direction = (const char *)myObj["direction"];
       int speed = atoi((const char *)myObj["speed"]);
+      if (direction != "STOP")
+        disableClockMode(); // Sadece yön değiştiğinde boz
+
       if (direction == "FORWARD")
         ileri(speed);
       else if (direction == "BACKWARD")
@@ -385,6 +406,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
 
     // Ses Kontrolü
     if (myObj.hasOwnProperty("volume")) {
+      disableClockMode(); // Saat modunu boz
       int vol = atoi((const char *)myObj["volume"]);
       if (vol >= 0 && vol <= 30) {
         myDFPlayer.volume(vol);
@@ -396,6 +418,10 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
     // Mood Kontrolü
     if (myObj.hasOwnProperty("mood")) {
       String mood = (const char *)myObj["mood"];
+      if (mood != "DEFAULT")
+        disableClockMode(); // Normal poza dönünce değil, animasyona geçince
+                            // saati boz
+
       if (mood == "RANDOM")
         randORdefault = true;
       else {
@@ -443,6 +469,14 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       Serial.print("LED Mode: ");
       Serial.println(lightMode);
     }
+
+    // *** WEB ARAYÜZÜ KOMUTLARI ***
+    if (myObj.hasOwnProperty("command")) {
+      String cmd = (const char *)myObj["command"];
+      if (cmd == "showClock") {
+        enableClockMode();
+      }
+    }
   }
 }
 
@@ -457,7 +491,7 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
 // =========================================================================
 void Task_Gozler(void *parameter) {
   for (;;) {
-    // EĞER EKRAN KİLİTLİYSE (IP YAZIYORSA) BURADA BEKLE VE ÇİZİM YAPMA
+    // EĞER EKRAN KİLİTLİYSE (IPveya Saat YAZIYORSA) BURADA BEKLE VE ÇİZİM YAPMA
     if (displayLocked) {
       vTaskDelay(100 / portTICK_PERIOD_MS);
       continue;
@@ -579,6 +613,36 @@ void Task_Mantik(void *parameter) {
       interval = random(4000, 20000);
     }
 
+    // *** SAAT ÇİZİMİ (SÜREKLİ GÜNCELLEME + I2C GÜVENLİĞİ) ***
+    static unsigned long lastClockUpdate = 0;
+    if (isClockModeActive) {
+      if (pendingClockDraw || (currentMillis - lastClockUpdate >= 1000)) {
+        pendingClockDraw = false;
+        lastClockUpdate = currentMillis;
+
+        displayLocked = true; // Gözleri kilitle
+        vTaskDelay(
+            100 /
+            portTICK_PERIOD_MS); // Mevcut göz kare çiziminin bitmesini bekle
+
+        struct tm timeinfo;
+        if (!getLocalTime(&timeinfo)) {
+          Serial.println("Saati alirken hata olustu");
+          ekranaYaz("Saat Hatasi", "Baglanti Yok");
+        } else {
+          char timeStringBuff[10]; // 14:30
+          strftime(timeStringBuff, sizeof(timeStringBuff), "%H:%M", &timeinfo);
+
+          display.clearDisplay();
+          display.setTextSize(4);
+          display.setTextColor(SH110X_WHITE);
+          display.setCursor(4, 16);
+          display.println(timeStringBuff);
+          display.display();
+        }
+      }
+    }
+
     // *** 4. LED GÜNCELLEME ***
     updateLEDs();
 
@@ -645,6 +709,13 @@ void setup() {
 
   Serial.println("");
   Serial.println(WiFi.localIP());
+
+  // --- NTP SAAT AYARI ---
+  // GMT_OFFSET = 10800 (Türkiye için 3 saat x 3600 sn)
+  // DAYLIGHT_OFFSET = 0 (Türkiye'de yaz saati ukygulaması sabit)
+  configTime(10800, 0, "pool.ntp.org", "time.nist.gov");
+  Serial.println("NTP Saati ayarlandi.");
+
   showIpAddressFor3Seconds();
   delay(IP_SHOW_DURATION_MS);
 
