@@ -193,6 +193,30 @@
         </div>
     </div>
 
+    <!-- VOLUME MODAL (POPUP PENCERE) -->
+    <div id="volume-modal" class="hidden fixed inset-0 z-50 bg-black/90 flex items-center justify-center backdrop-blur-sm transition-opacity duration-300">
+        <div class="bg-gray-900 border-2 border-neon-blue rounded-2xl p-[3vh] w-[70vh] flex flex-col items-center shadow-[0_0_50px_rgba(0,243,255,0.2)] relative">
+            
+            <!-- Kapatma Butonu (X) -->
+            <button onclick="toggleVolumeModal()" class="absolute top-[2vh] right-[2vh] text-gray-400 hover:text-white text-[4vh] w-[6vh] h-[6vh] flex items-center justify-center rounded-full hover:bg-gray-800 transition-colors">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <h2 class="text-[3.5vh] font-tech text-neon-blue mb-[1vh] flex items-center gap-[1.5vh]">
+                <i class="fa-solid fa-volume-high"></i> SES KONTROLÜ
+            </h2>
+
+            <!-- Slider ve Değer Göstergesi -->
+            <div class="flex flex-col w-full items-center mt-[4vh] mb-[2vh]">
+                <div class="w-[80%] bg-gray-900/50 p-[2vh] rounded-xl border border-gray-700 flex flex-col items-center">
+                    <span id="disp-volume" class="text-[5vh] font-tech text-neon-blue font-bold mb-[2vh]">30</span>
+                    <input id="volumeSlider" type="range" class="w-full" min="0" max="30" step="1" value="30" oninput="sendVolume()">
+                </div>
+                <span class="text-gray-500 text-[1.8vh] font-tech mt-[2vh] tracking-widest text-center">ROBOTUN SES SEVİYESİNİ AYARLAYIN (0-30)</span>
+            </div>
+            
+        </div>
+    </div>
 
     <!-- Ana Arayüz -->
     <div id="main-interface" class="flex-1 w-full flex flex-col p-[1vh] relative overflow-hidden">
@@ -213,6 +237,11 @@
             <!-- Sağ: Modlar ve Tam Ekran -->
             <div class="flex items-center gap-[1vh]">
                 
+                <!-- *** YENİ SES BUTONU *** -->
+                <button onclick="toggleVolumeModal()" class="bg-gray-800 border border-neon-blue text-neon-blue hover:text-white hover:bg-neon-blue/50 w-[6vh] h-[5vh] rounded text-[2vh] flex items-center justify-center transition-all shadow-[0_0_10px_#00f3ff] mr-[1vh] active:scale-90" title="Ses Kontrolü">
+                    <i class="fa-solid fa-volume-high text-[2.5vh]"></i>
+                </button>
+
                 <!-- *** YENİ RGB BUTONU *** -->
                 <button onclick="toggleRGBModal()" class="bg-gray-800 border border-yellow-500 text-yellow-400 hover:text-white hover:bg-yellow-600/50 w-[6vh] h-[5vh] rounded text-[2vh] flex items-center justify-center transition-all shadow-[0_0_10px_#eab308] mr-[1vh] active:scale-90" title="Işık Kontrolü">
                     <i class="fa-solid fa-lightbulb text-[2.5vh]"></i>
@@ -348,6 +377,7 @@
         var currentArm = 0;
         var currentHead = 30;
         var currentSpeed = 70;
+        var currentVolume = 30;
 
         window.addEventListener('load', onLoad);
 
@@ -364,6 +394,7 @@
             currentHead = document.getElementById('headSlider').value;
             currentArm = document.getElementById('armSlider').value;
             currentSpeed = document.getElementById('speedSlider').value;
+            currentVolume = document.getElementById('volumeSlider').value;
         }
 
         // Ekrana değerleri yazdır
@@ -371,6 +402,7 @@
             document.getElementById('disp-head').innerText = currentHead;
             document.getElementById('disp-arm').innerText = currentArm;
             document.getElementById('disp-speed').innerText = currentSpeed;
+            document.getElementById('disp-volume').innerText = currentVolume;
         }
 
         function initWebSocket() {
@@ -436,6 +468,16 @@
             }
         }
 
+        // *** VOLUME MODAL FONKSİYONLARI ***
+        function toggleVolumeModal() {
+            const modal = document.getElementById('volume-modal');
+            if (modal.classList.contains('hidden')) {
+                modal.classList.remove('hidden');
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
         function toggleLightPower() {
             if (currentLightMode === 'OFF') {
                 updateLight('STATIC');
@@ -476,6 +518,20 @@
                 websocket.send(JSON.stringify(data));
             }
             log("Işık: " + mode);
+        }
+
+        // Ses seviyesi gönder
+        function sendVolume() {
+            updateSliderVariables();
+            updateSliderDisplays();
+
+            var data = {
+                volume: currentVolume
+            };
+
+            if (websocket && websocket.readyState === WebSocket.OPEN) {
+                websocket.send(JSON.stringify(data));
+            }
         }
 
         // Normal Slider ve Hareket Fonksiyonu
