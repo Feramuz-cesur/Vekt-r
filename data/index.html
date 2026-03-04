@@ -13,6 +13,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;700&display=swap"
         rel="stylesheet">
+    <link rel="icon" href="data:,">
 
 
     <script>
@@ -621,6 +622,7 @@
                 // C++ tarafında 'direction' yoksa işlem yapmıyor, bu yüzden güvenli.
             };
 
+            console.log("ESP'ye Giden Veri (Işık):", data);
             if (websocket && websocket.readyState === WebSocket.OPEN) {
                 websocket.send(JSON.stringify(data));
             }
@@ -636,6 +638,7 @@
                 volume: currentVolume
             };
 
+            console.log("ESP'ye Giden Veri (Ses):", data);
             if (websocket && websocket.readyState === WebSocket.OPEN) {
                 websocket.send(JSON.stringify(data));
             }
@@ -646,6 +649,7 @@
             var data = {
                 command: "showClock"
             };
+            console.log("ESP'ye Giden Veri (Saat):", data);
             if (websocket && websocket.readyState === WebSocket.OPEN) {
                 websocket.send(JSON.stringify(data));
             }
@@ -664,6 +668,7 @@
                 mood: currentMood,
                 direction: direction,
             };
+            console.log("ESP'ye Giden Veri (Hareket/Mod):", data);
             if (websocket && websocket.readyState === WebSocket.OPEN) {
                 websocket.send(JSON.stringify(data));
             }
