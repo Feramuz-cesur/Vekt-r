@@ -122,6 +122,47 @@
             color: black !important;
         }
 
+        /* --- Kayıt Efektleri --- */
+        @keyframes pulse-red {
+            0% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+            }
+
+            70% {
+                box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+            }
+        }
+
+        .recording-active {
+            animation: pulse-red 2s infinite;
+            border-color: #ef4444 !important;
+            color: #ef4444 !important;
+        }
+
+        @keyframes pulse-green {
+            0% {
+                box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+            }
+
+            70% {
+                box-shadow: 0 0 0 10px rgba(34, 197, 94, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+            }
+        }
+
+        .playing-active {
+            animation: pulse-green 2s infinite;
+            border-color: #22c55e !important;
+            color: #22c55e !important;
+        }
+
         /* --- Renk Seçici (Color Input) --- */
         input[type="color"] {
             -webkit-appearance: none;
@@ -266,7 +307,7 @@
 
         <!-- Üst Bar (Header) -->
         <header
-            class="flex justify-between items-center bg-panel-bg border-b border-gray-700 px-[2vh] rounded-t-lg shrink-0 h-[9vh] gap-4">
+            class="flex justify-between items-center bg-panel-bg border-b border-gray-700 px-[2vh] rounded-t-lg shrink-0 h-[9vh] gap-4 relative">
             <!-- Sol: Logo ve Durum -->
             <div class="flex items-center gap-[2vh]">
                 <div class="flex items-center gap-[1vh] text-neon-blue font-tech">
@@ -277,6 +318,31 @@
                     class="text-[1.8vh] px-[1vh] py-[0.5vh] rounded border border-red-500 text-red-300 bg-red-900/50">
                     BAĞLANTI YOK
                 </div>
+            </div>
+
+            <!-- Orta: Kayıt ve Oynatma Butonları (Mutlak Merkezleme ve Büyütülmüş Fontlar) -->
+            <div id="record-controls"
+                class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 flex items-center gap-[1.5vh] bg-gray-900 rounded-lg p-[0.8vh] border border-gray-700 shadow-lg z-10">
+                <button id="btn-record" onclick="toggleRecording()"
+                    class="bg-gray-800 text-gray-400 hover:text-white px-[2.5vh] py-[1.2vh] rounded text-[2vh] font-bold transition-all shadow-md flex items-center gap-[1.2vh] active:scale-95"
+                    title="Hareketi Kaydet">
+                    <i id="icon-record" class="fa-solid fa-circle text-red-500 text-[2.2vh]"></i>
+                    <span id="text-record" class="hidden sm:inline">KAYDET</span>
+                </button>
+
+                <div id="recording-timer"
+                    class="hidden text-red-500 font-tech text-[2.2vh] w-[9vh] text-center font-bold tracking-widest bg-red-900/40 rounded px-[0.5vh] py-[0.5vh] border border-red-500/50">
+                    00:00
+                </div>
+
+                <div class="w-[2px] h-[3.5vh] bg-gray-700 mx-[0.5vh]"></div>
+
+                <button id="btn-play" onclick="togglePlayback()"
+                    class="bg-gray-800 text-gray-400 hover:text-white px-[2.5vh] py-[1.2vh] rounded text-[2vh] font-bold transition-all shadow-md flex items-center gap-[1.2vh] active:scale-95 opacity-50 cursor-not-allowed"
+                    title="Kaydı Oynat" disabled>
+                    <i id="icon-play" class="fa-solid fa-play text-green-500 text-[2.2vh]"></i>
+                    <span id="text-play" class="hidden sm:inline">OYNAT</span>
+                </button>
             </div>
 
             <!-- Sağ: Modlar ve Tam Ekran -->
@@ -470,6 +536,17 @@
             class="h-[5vh] mt-[0.5vh] flex items-center text-[1.5vh] font-mono text-gray-500 px-[2vh] bg-black border-t border-gray-800 shrink-0">
             <span class="text-green-500 mr-[1vh]">></span> <span id="system-log">Sistem Hazır.</span>
         </footer>
+
+        <!-- Oynatma Sırasında Kontrol Kilidi (Overlay) -->
+        <div id="playback-overlay"
+            class="hidden absolute top-[9vh] inset-x-0 bottom-[5.5vh] z-40 bg-black/60 backdrop-blur-[1px] flex flex-col items-center justify-center pointer-events-auto">
+            <div
+                class="bg-gray-900 border-2 border-green-500 rounded-2xl p-[3vh] flex flex-col items-center shadow-[0_0_30px_rgba(34,197,94,0.3)] animate-pulse">
+                <i class="fa-solid fa-robot text-[6vh] text-green-500 mb-[2vh]"></i>
+                <h2 class="text-[3vh] font-tech text-green-400 text-center">OTOMATİK OYNATMA<br>AKTİF</h2>
+                <p class="text-gray-400 mt-[1vh] font-tech text-[1.5vh]">Manuel kontroller geçici olarak kilitlendi.</p>
+            </div>
+        </div>
 
     </div>
 
@@ -668,6 +745,12 @@
                 mood: currentMood,
                 direction: direction,
             };
+
+            // EĞER KAYIT AÇIKSA, BU VERİ PAKETİNİ LİSTEYE EKLE
+            if (typeof recordDataPacket === "function") {
+                recordDataPacket(data);
+            }
+
             console.log("ESP'ye Giden Veri (Hareket/Mod):", data);
             if (websocket && websocket.readyState === WebSocket.OPEN) {
                 websocket.send(JSON.stringify(data));
@@ -724,6 +807,273 @@
             void el.offsetWidth;
             el.classList.add('animate-pulse');
         }
+
+        // ==========================================
+        // HAREKET KAYIT VE OYNATMA SİSTEMİ
+        // ==========================================
+
+        // Kayıt Durumu Değişkenleri
+        let isRecording = false;
+        let isPlaying = false;
+        let recordedData = [];          // Kaydedilen paketlerin listesi
+        let recordingStartTime = 0;     // Kaydın başladığı an (milisaniye)
+        let recordTimerInterval = null; // Ekrandaki sayacı güncelleyen interval
+        let playbackTimeouts = [];      // Oynatılırken ayarlanan timeout'ları iptal etmek için
+        const MAX_RECORDING_TIME_MS = 3 * 60 * 1000; // 3 Dakika (180,000 ms)
+
+        // 1. Arayüz Güncellemeleri
+        function updateRecordingUI() {
+            const btnRecord = document.getElementById('btn-record');
+            const iconRecord = document.getElementById('icon-record');
+            const textRecord = document.getElementById('text-record');
+            const timerDisplay = document.getElementById('recording-timer');
+            const btnPlay = document.getElementById('btn-play');
+
+            if (isRecording) {
+                // Kayıt Devam Ediyor
+                btnRecord.classList.add('recording-active');
+                iconRecord.className = "fa-solid fa-square text-red-500";
+                textRecord.innerText = "DURDUR";
+                timerDisplay.classList.remove('hidden');
+
+                // Oynat butonunu tamamen deaktif et
+                btnPlay.disabled = true;
+                btnPlay.classList.add('opacity-50', 'cursor-not-allowed');
+                btnPlay.classList.remove('hover:text-white');
+            } else {
+                // Kayıt Durdu
+                btnRecord.classList.remove('recording-active');
+                iconRecord.className = "fa-solid fa-circle text-red-500";
+                textRecord.innerText = "KAYDET";
+                timerDisplay.classList.add('hidden');
+                clearInterval(recordTimerInterval);
+                timerDisplay.innerText = "00:00"; // Sıfırla
+
+                // Eğer elinde kaydedilmiş veri varsa, oynat butonunu aktif et
+                if (recordedData.length > 0) {
+                    btnPlay.disabled = false;
+                    btnPlay.classList.remove('opacity-50', 'cursor-not-allowed');
+                    btnPlay.classList.add('hover:text-white');
+                }
+            }
+        }
+
+        function updatePlaybackUI() {
+            const btnPlay = document.getElementById('btn-play');
+            const iconPlay = document.getElementById('icon-play');
+            const textPlay = document.getElementById('text-play');
+            const btnRecord = document.getElementById('btn-record');
+            const playbackOverlay = document.getElementById('playback-overlay');
+
+            if (isPlaying) {
+                // Oynatma Başladı
+                btnPlay.classList.add('playing-active');
+                iconPlay.className = "fa-solid fa-square border border-green-500 rounded-sm w-[1.5vh] h-[1.5vh] bg-green-500"; // Kare ikon
+                textPlay.innerText = "DURDUR";
+
+                // Kayıt butonunu deaktif et
+                btnRecord.disabled = true;
+                btnRecord.classList.add('opacity-50', 'cursor-not-allowed');
+
+                // Ekrandaki tüm kontrolleri kilitleyen siyah tam ekran filtreyi aktif et
+                if (playbackOverlay) playbackOverlay.classList.remove('hidden');
+            } else {
+                // Oynatma Bitti / Durduruldu
+                btnPlay.classList.remove('playing-active');
+                iconPlay.className = "fa-solid fa-play text-green-500 text-[2.2vh]";
+                textPlay.innerText = "OYNAT";
+
+                // Kayıt butonunu tekrar aktif et
+                btnRecord.disabled = false;
+                btnRecord.classList.remove('opacity-50', 'cursor-not-allowed');
+
+                // Kontrol kilidini aç
+                if (playbackOverlay) playbackOverlay.classList.add('hidden');
+            }
+        }
+
+        // 2. Zaman Sayacı (00:00 Formatı)
+        function startRecordingTimer() {
+            const timerDisplay = document.getElementById('recording-timer');
+            recordingStartTime = Date.now();
+
+            recordTimerInterval = setInterval(() => {
+                let elapsedMs = Date.now() - recordingStartTime;
+
+                // Eğer Max Sınırı (3 DK) geçerse, kaydı otomatik durdur
+                if (elapsedMs >= MAX_RECORDING_TIME_MS) {
+                    log("Maksimum Kayıt Süresine Ulaşıldı (3 Dk).");
+                    toggleRecording(); // Durdur
+                    return;
+                }
+
+                // Formatlama: 02:15 gibi
+                let totalSeconds = Math.floor(elapsedMs / 1000);
+                let minutes = Math.floor(totalSeconds / 60);
+                let seconds = totalSeconds % 60;
+
+                let strMin = minutes < 10 ? "0" + minutes : minutes;
+                let strSec = seconds < 10 ? "0" + seconds : seconds;
+
+                timerDisplay.innerText = `${strMin}:${strSec}`;
+            }, 1000); // Saniyede bir güncelle
+        }
+
+        // 3. Buton Tıklama İşlemleri
+        function toggleRecording() {
+            if (isPlaying) {
+                log("Önce oynatmayı durdurmalısınız.");
+                return;
+            }
+
+            if (!isRecording) {
+                // KAYDA BAŞLA
+                recordedData = []; // Eski kaydı sil
+                isRecording = true;
+                startRecordingTimer();
+                log("Kayıt Başladı...");
+
+                // İlk boş referans noktasını ekleyebiliriz (opsiyonel)
+                // Bu, sonradan gelen değişimlerin ne zaman başladığını belirler.
+                let initialData = {
+                    arm: currentArm,
+                    head: currentHead,
+                    speed: currentSpeed,
+                    mood: currentMood,
+                    direction: direction
+                };
+                recordDataPacket(initialData);
+
+            } else {
+                // KAYDI DURDUR
+                isRecording = false;
+                log(`Kayıt Durduruldu. ${recordedData.length} Emir Kaydedildi.`);
+            }
+
+            updateRecordingUI();
+        }
+
+        function togglePlayback() {
+            if (isRecording) {
+                log("Önce kaydı durdurmalısınız.");
+                return;
+            }
+
+            if (recordedData.length === 0) {
+                log("Oynatılacak kaydedilmiş hareket bulunamadı.");
+                return;
+            }
+
+            if (!isPlaying) {
+                // OYNATMAYA BAŞLA
+                isPlaying = true;
+                log("Kayıt Oynatılıyor...");
+                updatePlaybackUI();
+                startPlayback();
+            } else {
+                // OYNATMAYI DURDUR
+                stopPlayback();
+            }
+        }
+
+        // 4. Veri Kaydetme Fonksiyonu
+        // Bu fonksiyon, ESP'ye veri yollanan ana `sendData()` fonksiyonuna ENTEGRE EDİLMELİDİR.
+        function recordDataPacket(dataPacket) {
+            if (!isRecording) return;
+
+            let currentOffset = Date.now() - recordingStartTime;
+
+            // Eğer paket 3 dakikayı geçmişse ama interval henüz yakalamamışsa kaydetme
+            if (currentOffset > MAX_RECORDING_TIME_MS) return;
+
+            // Zaman bilgisini ekleyip kopyasını alıyoruz
+            let packetToSave = Object.assign({}, dataPacket);
+            packetToSave.timeOffset = currentOffset;
+
+            recordedData.push(packetToSave);
+        }
+
+        // 5. Oynatma Mantığı
+        function startPlayback() {
+            // Önce olası açık timeoutları temizle
+            playbackTimeouts.forEach(clearTimeout);
+            playbackTimeouts = [];
+
+            if (recordedData.length === 0) {
+                stopPlayback();
+                return;
+            }
+
+            // Oynatma başladığındaki anı "0" kabul ediyoruz.
+            // Fakat robotun pozisyonunun ilk baştaki gibi olmasına dikkat etmek gerekir.
+
+            let lastItemOffset = recordedData[recordedData.length - 1].timeOffset + 1000; // Son komuttan 1 saniye sonra tamamen dursun
+
+            recordedData.forEach((packet, index) => {
+                let timeoutId = setTimeout(() => {
+                    if (!isPlaying) return; // Oynatma durdurulmuşsa işleme
+
+                    // ESP'ye C++ Tarafının anladığı formatta veriyi bas:
+                    // timeOffset gibi parametreler gitmesin diye süzüyoruz
+                    let espData = {
+                        arm: packet.arm,
+                        head: packet.head,
+                        speed: packet.speed,
+                        mood: packet.mood,
+                        direction: packet.direction
+                    };
+
+                    // Konsola yaz ki oynatırken ne gönderdiğimizi görelim
+                    console.log("[OYNATILIYOR] ESP'ye Giden:", espData);
+
+                    if (websocket && websocket.readyState === WebSocket.OPEN) {
+                        websocket.send(JSON.stringify(espData));
+                    }
+
+                    // Arayüzdeki slider'ları da o komuta uygun olarak GÜNCELLE
+                    // ki sanki hayalet bir el kullanıyormuş gibi hissiyat versin:
+                    document.getElementById('armSlider').value = packet.arm;
+                    document.getElementById('headSlider').value = packet.head;
+                    document.getElementById('speedSlider').value = packet.speed;
+                    currentArm = packet.arm;
+                    currentHead = packet.head;
+                    currentSpeed = packet.speed;
+                    updateSliderDisplays();
+
+                }, packet.timeOffset);
+
+                playbackTimeouts.push(timeoutId);
+            });
+
+            // En son kaydın sonunda otomatik olarak "DUR" komutu bas ve oynatmayı bitir
+            let stopId = setTimeout(() => {
+                if (isPlaying) {
+                    log("Oynatma Tamamlandı.");
+
+                    // İş bitince motorları durdur (Güvenlik Önlemi)
+                    let stopData = { arm: currentArm, head: currentHead, speed: currentSpeed, mood: "DEFAULT", direction: "STOP" };
+                    if (websocket && websocket.readyState === WebSocket.OPEN) {
+                        websocket.send(JSON.stringify(stopData));
+                    }
+
+                    stopPlayback();
+                }
+            }, lastItemOffset);
+
+            playbackTimeouts.push(stopId);
+        }
+
+        function stopPlayback() {
+            isPlaying = false;
+            // Sıradaki tüm planlanmış emirleri iptal et
+            playbackTimeouts.forEach(clearTimeout);
+            playbackTimeouts = [];
+
+            // UI'ı normale döndür
+            updatePlaybackUI();
+            log("Oynatma İptal Edildi/Bitti.");
+        }
+
     </script>
 </body>
 
