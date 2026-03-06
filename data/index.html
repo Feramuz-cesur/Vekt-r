@@ -227,36 +227,58 @@
                 <i class="fa-solid fa-lightbulb"></i> IŞIK KONTROLÜ
             </h2>
 
-            <div class="flex w-full gap-[4vh]">
-                <!-- Sol Taraf: Renk Seçici -->
-                <div class="flex flex-col items-center justify-center w-1/3 border-r border-gray-700 pr-[2vh]">
-                    <div class="relative group">
-                        <div
-                            class="absolute inset-0 bg-white/20 rounded-full blur opacity-0 group-hover:opacity-100 transition-opacity duration-500">
-                        </div>
-                        <input type="color" id="colorPicker" value="#00f3ff" onchange="updateLight('STATIC')"
-                            class="relative z-10 shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-105 transition-transform">
+            <div class="flex flex-col w-full gap-[3vh]">
+                <!-- Üst Taraf: 10 Adet Sabit Renk Butonu -->
+                <div>
+                    <h3 class="text-gray-400 font-tech text-[1.5vh] mb-[1.5vh] text-center tracking-widest">SABİT RENK
+                        SEÇİMİ</h3>
+                    <div class="grid grid-cols-5 gap-[1.5vh]">
+                        <button onclick="updateLight('STATIC', '#ff0000')"
+                            class="w-full h-[6vh] rounded-full shadow-[0_0_15px_rgba(255,0,0,0.4)] border-2 border-transparent hover:border-white hover:scale-110 active:scale-95 transition-all"
+                            style="background-color: #ff0000;" title="Kırmızı"></button>
+                        <button onclick="updateLight('STATIC', '#ff7f00')"
+                            class="w-full h-[6vh] rounded-full shadow-[0_0_15px_rgba(255,127,0,0.4)] border-2 border-transparent hover:border-white hover:scale-110 active:scale-95 transition-all"
+                            style="background-color: #ff7f00;" title="Turuncu"></button>
+                        <button onclick="updateLight('STATIC', '#ffff00')"
+                            class="w-full h-[6vh] rounded-full shadow-[0_0_15px_rgba(255,255,0,0.4)] border-2 border-transparent hover:border-white hover:scale-110 active:scale-95 transition-all"
+                            style="background-color: #ffff00;" title="Sarı"></button>
+                        <button onclick="updateLight('STATIC', '#00ff00')"
+                            class="w-full h-[6vh] rounded-full shadow-[0_0_15px_rgba(0,255,0,0.4)] border-2 border-transparent hover:border-white hover:scale-110 active:scale-95 transition-all"
+                            style="background-color: #00ff00;" title="Yeşil"></button>
+                        <button onclick="updateLight('STATIC', '#00ffff')"
+                            class="w-full h-[6vh] rounded-full shadow-[0_0_15px_rgba(0,255,255,0.4)] border-2 border-transparent hover:border-white hover:scale-110 active:scale-95 transition-all"
+                            style="background-color: #00ffff;" title="Camgöbeği"></button>
+                        <button onclick="updateLight('STATIC', '#0000ff')"
+                            class="w-full h-[6vh] rounded-full shadow-[0_0_15px_rgba(0,0,255,0.4)] border-2 border-transparent hover:border-white hover:scale-110 active:scale-95 transition-all"
+                            style="background-color: #0000ff;" title="Mavi"></button>
+                        <button onclick="updateLight('STATIC', '#8b00ff')"
+                            class="w-full h-[6vh] rounded-full shadow-[0_0_15px_rgba(139,0,255,0.4)] border-2 border-transparent hover:border-white hover:scale-110 active:scale-95 transition-all"
+                            style="background-color: #8b00ff;" title="Mor"></button>
+                        <button onclick="updateLight('STATIC', '#ff00ff')"
+                            class="w-full h-[6vh] rounded-full shadow-[0_0_15px_rgba(255,0,255,0.4)] border-2 border-transparent hover:border-white hover:scale-110 active:scale-95 transition-all"
+                            style="background-color: #ff00ff;" title="Pembe"></button>
+                        <button onclick="updateLight('STATIC', '#ffffff')"
+                            class="w-full h-[6vh] rounded-full shadow-[0_0_15px_rgba(255,255,255,0.4)] border-2 border-transparent hover:border-white hover:scale-110 active:scale-95 transition-all"
+                            style="background-color: #ffffff;" title="Beyaz"></button>
+                        <button onclick="updateLight('STATIC', '#00f3ff')"
+                            class="w-full h-[6vh] rounded-full shadow-[0_0_15px_rgba(0,243,255,0.4)] border-2 border-transparent hover:border-white hover:scale-110 active:scale-95 transition-all"
+                            style="background-color: #00f3ff;" title="Neon Mavi"></button>
                     </div>
-                    <span class="text-gray-400 text-[2vh] mt-[2vh] font-tech tracking-widest">RENK SEÇ</span>
                 </div>
 
-                <!-- Sağ Taraf: Efekt Butonları -->
-                <div class="grid grid-cols-2 gap-[2vh] w-2/3">
-                    <button onclick="updateLight('STATIC')"
-                        class="bg-gray-800 border border-gray-600 hover:bg-gray-700 text-white py-[2vh] rounded-xl font-bold text-[2vh] transition-all active:scale-95 shadow-lg flex flex-col items-center gap-[0.5vh]">
-                        <i class="fa-solid fa-fill-drip text-neon-blue"></i> SABİT RENK
-                    </button>
+                <!-- Alt Taraf: Efekt Butonları -->
+                <div class="grid grid-cols-3 gap-[2vh] w-full border-t border-gray-700 pt-[3vh]">
                     <button onclick="updateLight('PULSE')"
                         class="bg-gray-800 border border-neon-purple text-neon-purple hover:bg-neon-purple/20 py-[2vh] rounded-xl font-bold text-[2vh] transition-all active:scale-95 shadow-[0_0_10px_#bc13fe_inset] flex flex-col items-center gap-[0.5vh]">
                         <i class="fa-solid fa-heart-pulse"></i> NEFES
                     </button>
                     <button onclick="updateLight('RAINBOW')"
-                        class="col-span-2 bg-gradient-to-r from-red-500 via-green-500 to-blue-500 text-white py-[2vh] rounded-xl font-bold text-[2vh] transition-all active:scale-95 opacity-90 hover:opacity-100 shadow-[0_0_15px_rgba(255,255,255,0.3)] flex items-center justify-center gap-[1.5vh]">
-                        <i class="fa-solid fa-rainbow"></i> GÖKKUŞAĞI MODU
+                        class="bg-gradient-to-r from-red-500 via-green-500 to-blue-500 text-white py-[2vh] rounded-xl font-bold text-[2vh] transition-all active:scale-95 opacity-90 hover:opacity-100 shadow-[0_0_15px_rgba(255,255,255,0.3)] flex flex-col items-center justify-center gap-[0.5vh]">
+                        <i class="fa-solid fa-rainbow"></i> GÖKKUŞAĞI
                     </button>
                     <button onclick="updateLight('POLICE')"
-                        class="col-span-2 bg-gray-900 border border-red-500 text-red-500 hover:bg-red-900/30 py-[2vh] rounded-xl font-bold text-[2vh] transition-all active:scale-95 flex items-center justify-center gap-[1.5vh]">
-                        <i class="fa-solid fa-taxi"></i> POLİS ÇAKARI
+                        class="bg-gray-900 border border-red-500 text-red-500 hover:bg-red-900/30 py-[2vh] rounded-xl font-bold text-[2vh] transition-all active:scale-95 flex flex-col items-center justify-center gap-[0.5vh]">
+                        <i class="fa-solid fa-taxi"></i> POLİS
                     </button>
                 </div>
             </div>
@@ -726,8 +748,12 @@
             }
         }
 
-        function updateLight(mode) {
-            const color = document.getElementById('colorPicker').value;
+        let currentColorHex = "#00f3ff"; // Varsayılan ışık rengi
+
+        function updateLight(mode, colorHex) {
+            if (colorHex) {
+                currentColorHex = colorHex;
+            }
             currentLightMode = mode;
             refreshLightPowerButton();
 
@@ -735,7 +761,7 @@
             // C++ kodu eksik parametre gelirse diğerlerini değiştirmiyor
             var data = {
                 lightMode: mode,
-                color: color,
+                color: currentColorHex,
                 // Yine de motor durmasın diye mevcut hızı ve yönü ekleyebiliriz ama
                 // C++ tarafında 'direction' yoksa işlem yapmıyor, bu yüzden güvenli.
             };
