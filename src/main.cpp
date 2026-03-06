@@ -31,6 +31,9 @@ const int servoPin2 = 14;
 #define RGB_PIN 23  // NeoPixel Data Pini
 #define NUMPIXELS 8 // Kaç adet LED var? (Burayı sayına göre değiştir)
 
+// *** PİL ÖLÇÜM (ADC) PİNİ ***
+#define BATTERY_PIN 34 // 45K + 45K Gerilim Bölücü Ortası
+
 // --- NESNELER ---
 DFRobotDFPlayerMini myDFPlayer;
 #define SCREEN_WIDTH 128
@@ -227,6 +230,69 @@ void updateLEDs() {
       pixels.show();
     }
   }
+}
+
+// --- PİL OKUMA YARDIMCISI ---
+// Önceki okumayı saklayacağımız global/statik değişken (Filtre için)
+static float smoothedVoltage = 0.0;
+
+int readBatteryPercentage() {
+  // 1. Çoklu okuma ile anlık çapakları al (Donanımsal gürültü için)
+  long sum = 0;
+  for (int i = 0; i < 20; i++) {
+    sum += analogRead(BATTERY_PIN);
+    delay(2);
+  }
+  float avgAdc = sum / 20.0;
+
+  // 2. Ham Voltaj Hesabı
+  // ADC çözünürlüğü: 4095, ESP32 Çalışma Voltajı: 3.3V
+  // Gerilim Bölücü: 45K + 45K = Çarpan ~2.0
+  // NOT: ESP32 ADC'si referans noktasında genelde düşük okur (~%5).
+  // Kalibrasyon Katsayısı (Eğer 3.8V pili az okuyorsa bu çarpanı 2.0 yerine
+  // mesela 2.15 yaptık)
+  float calibrationFactor =
+      2.15; // KALİBRASYON: Gerektiğinde bu sayıyı değiştir
+  float pinVoltage = (avgAdc / 4095.0) * 3.3;
+  float currentVoltage = pinVoltage * calibrationFactor;
+
+  // İlk okuma ise smoothedVoltage'a direkt ata
+  if (smoothedVoltage == 0.0) {
+    smoothedVoltage = currentVoltage;
+  } else {
+    // 3. LOGARİTMİK (EMA) FİLTRE
+    // Yeni değerin sadece %5'ini, eski değerin %95'ini alır. Bu sayede voltaj
+    // asla "zıplamaz", yumuşakça hareket eder.
+    smoothedVoltage = (0.05 * currentVoltage) + (0.95 * smoothedVoltage);
+  }
+
+  // 4. Lİ-İON PİL EĞRİSİ YÜZDE HESABI
+  // Li-Ion piller doğrusal deşarj olmaz. 3.8V aslında pilin yarısından (%60
+  // civarı) fazladır. 4.20V = 100% 3.80V = ~60% 3.60V = ~20% 3.30V = ~0%
+
+  float percentage = 0;
+  if (smoothedVoltage >= 4.20)
+    percentage = 100.0;
+  else if (smoothedVoltage >= 3.80) {
+    // 3.8V - 4.2V arası (%60 - %100)
+    percentage = 60.0 + ((smoothedVoltage - 3.80) / (4.20 - 3.80)) * 40.0;
+  } else if (smoothedVoltage >= 3.60) {
+    // 3.6V - 3.8V arası (%20 - %60)
+    percentage = 20.0 + ((smoothedVoltage - 3.60) / (3.80 - 3.60)) * 40.0;
+  } else if (smoothedVoltage >= 3.30) {
+    // 3.3V - 3.6V arası (%0 - %20)
+    percentage = ((smoothedVoltage - 3.30) / (3.60 - 3.30)) * 20.0;
+  } else {
+    percentage = 0.0;
+  }
+
+  // Sınırlandırma
+  if (percentage > 100)
+    percentage = 100;
+  if (percentage < 0)
+    percentage = 0;
+
+  return (int)percentage;
 }
 
 // --- EKRANA YAZI YAZDIRMA YARDIMCISI ---
@@ -645,6 +711,20 @@ void Task_Mantik(void *parameter) {
 
     // *** 4. LED GÜNCELLEME ***
     updateLEDs();
+
+    // *** 5. PİL YÜZDESİNİ WEBSOCKET İLE GÖNDERME ***
+    // (Saniyede bir kez veya 5 saniyede bir göndermek daha iyidir,
+    // biz her 5 saniyede bir UI'ı güncelleyelim ki Wi-Fi trafiği şişmesin)
+    static unsigned long lastBatteryUpdate = 0;
+    if (currentMillis - lastBatteryUpdate >= 5000) {
+      lastBatteryUpdate = currentMillis;
+      if (ws.count() > 0) { // Sadece arayüz açıkken gönder
+        int batPercent = readBatteryPercentage();
+        char msg[32];
+        snprintf(msg, sizeof(msg), "{\"battery\": %d}", batPercent);
+        ws.textAll(msg);
+      }
+    }
 
     vTaskDelay(20 / portTICK_PERIOD_MS); // Döngü hızı (50 fps)
   }

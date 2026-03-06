@@ -318,6 +318,12 @@
                     class="text-[1.8vh] px-[1vh] py-[0.5vh] rounded border border-red-500 text-red-300 bg-red-900/50">
                     BAĞLANTI YOK
                 </div>
+                <!-- YENİ: Pil Göstergesi -->
+                <div id="battery-status"
+                    class="flex items-center gap-[0.5vh] bg-gray-900 border border-gray-700 rounded px-[1vh] py-[0.5vh] text-[1.8vh]">
+                    <i id="battery-icon" class="fa-solid fa-battery-half text-yellow-500"></i>
+                    <span id="battery-text" class="text-white font-bold font-tech">--%</span>
+                </div>
             </div>
 
             <!-- Orta: Kayıt ve Oynatma Butonları (Mutlak Merkezleme ve Büyütülmüş Fontlar) -->
@@ -624,6 +630,41 @@
 
         function onMessage(event) {
             log('Gelen: ' + event.data);
+            try {
+                let data = JSON.parse(event.data);
+                if (data.battery !== undefined) {
+                    updateBatteryUI(data.battery);
+                }
+            } catch (e) {
+                // JSON değilse yoksay
+            }
+        }
+
+        function updateBatteryUI(percentage) {
+            const batText = document.getElementById('battery-text');
+            const batIcon = document.getElementById('battery-icon');
+
+            batText.innerText = percentage + "%";
+
+            // Yüzdeye göre ikon ve renk değiştirme
+            batIcon.className = "fa-solid";
+            if (percentage >= 80) {
+                batIcon.classList.add('fa-battery-full', 'text-green-500');
+            } else if (percentage >= 60) {
+                batIcon.classList.add('fa-battery-three-quarters', 'text-green-400');
+            } else if (percentage >= 40) {
+                batIcon.classList.add('fa-battery-half', 'text-yellow-500');
+            } else if (percentage >= 20) {
+                batIcon.classList.add('fa-battery-quarter', 'text-orange-500');
+            } else {
+                batIcon.classList.add('fa-battery-empty', 'text-red-600', 'animate-pulse');
+                batText.classList.add('text-red-500', 'animate-pulse');
+            }
+
+            // Eğer yüzde düşük değilse kırmızı alarmı kaldır
+            if (percentage >= 20) {
+                batText.classList.remove('text-red-500', 'animate-pulse');
+            }
         }
 
         function toggleFullScreen() {
