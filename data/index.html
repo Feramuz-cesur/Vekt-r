@@ -166,6 +166,7 @@
         /* --- Renk Seçici (Color Input) --- */
         input[type="color"] {
             -webkit-appearance: none;
+            appearance: none;
             border: none;
             width: 10vh;
             height: 10vh;
@@ -1061,6 +1062,32 @@
         }
 
         // 5. Oynatma Mantığı
+        function highlightPlaybackButtons(direction, mood) {
+            // Yön butonlarının aktifliğini temizle
+            document.querySelectorAll('.neon-btn').forEach(btn => btn.classList.remove('active'));
+            
+            // Mod butonlarının aktifliğini temizle
+            document.querySelectorAll('[onclick^="updateMood"]').forEach(btn => {
+                btn.style.transform = '';
+                btn.style.boxShadow = '';
+            });
+
+            // Gelen yöne göre butonu aktif yap
+            if (direction && direction !== 'STOP') {
+                const dirBtn = document.getElementById('btn-' + direction.toLowerCase());
+                if (dirBtn) dirBtn.classList.add('active');
+            }
+
+            // Gelen moda göre butonu aktif yap
+            if (mood && mood !== 'DEFAULT') {
+                const moodBtn = document.querySelector(`[onclick="updateMood('${mood}')"]`);
+                if (moodBtn) {
+                    moodBtn.style.transform = 'scale(0.95)';
+                    moodBtn.style.boxShadow = '0 0 2vh currentColor';
+                }
+            }
+        }
+
         function startPlayback() {
             // Önce olası açık timeoutları temizle
             playbackTimeouts.forEach(clearTimeout);
@@ -1106,6 +1133,9 @@
                     currentHead = packet.head;
                     currentSpeed = packet.speed;
                     updateSliderDisplays();
+                    
+                    // Butonların görsel durumlarını güncelle
+                    highlightPlaybackButtons(packet.direction, packet.mood);
 
                 }, packet.timeOffset);
 
@@ -1138,6 +1168,10 @@
 
             // UI'ı normale döndür
             updatePlaybackUI();
+            
+            // Butonların aktiflik durumunu temizle
+            highlightPlaybackButtons('STOP', 'DEFAULT');
+            
             log("Oynatma İptal Edildi/Bitti.");
         }
 
