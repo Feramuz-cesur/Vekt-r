@@ -417,9 +417,12 @@
                 <!-- Mod Seçici -->
                 <div class="flex bg-gray-900 rounded-lg p-[0.5vh] gap-[0.5vh]">
                     <button onclick="setUIMode('manual')" id="btn-manual"
-                        class="px-[3vh] py-[1vh] rounded text-[2vh] font-bold transition-all bg-neon-blue text-black shadow-[0_0_10px_#00f3ff]">MANUEL</button>
+                        class="px-[2vh] py-[1vh] rounded text-[2vh] font-bold transition-all bg-neon-blue text-black shadow-[0_0_10px_#00f3ff]">MANUEL</button>
                     <button onclick="setUIMode('auto')" id="btn-auto"
-                        class="px-[3vh] py-[1vh] rounded text-[2vh] font-bold transition-all text-gray-400 hover:text-white">AUTO</button>
+                        class="px-[2vh] py-[1vh] rounded text-[2vh] font-bold transition-all text-gray-400 hover:text-white">AUTO</button>
+                    <button onclick="setUIMode('ai')" id="btn-ai"
+                        class="px-[2vh] py-[1vh] rounded text-[2vh] font-bold transition-all text-neon-purple border border-neon-purple hover:bg-neon-purple hover:text-black shadow-[0_0_10px_#bc13fe_inset]">AI
+                        MOD</button>
                 </div>
 
                 <!-- Tam Ekran Butonu -->
@@ -597,6 +600,42 @@
                 <h2 class="text-[3vh] font-tech text-green-400 text-center">OTOMATİK OYNATMA<br>AKTİF</h2>
                 <p class="text-gray-400 mt-[1vh] font-tech text-[1.5vh]">Manuel kontroller geçici olarak kilitlendi.</p>
             </div>
+        </div>
+
+        <!-- Yapay Zeka Modu (Overlay) -->
+        <div id="ai-overlay"
+            class="hidden fixed inset-0 z-[100] bg-black/95 backdrop-blur-lg flex flex-col items-center justify-center pointer-events-auto">
+            <div class="relative flex flex-col items-center mt-[-5vh]">
+                <!-- AI Neon Halka Animasyonu -->
+                <div
+                    class="absolute inset-0 rounded-full border-[0.5vh] border-neon-purple blur-[8px] scale-[1.8] animate-ping opacity-60">
+                </div>
+                <div
+                    class="absolute inset-0 rounded-full border-[0.5vh] border-neon-purple blur-[3px] scale-[1.3] animate-pulse">
+                </div>
+
+                <!-- Merkez AI İkonu -->
+                <div
+                    class="bg-gray-900 border-4 border-neon-purple rounded-full w-[15vh] h-[15vh] flex items-center justify-center shadow-[0_0_60px_rgba(188,19,254,0.7)] z-10 relative">
+                    <i class="fa-solid fa-brain text-[7vh] text-neon-purple animate-pulse"></i>
+                </div>
+            </div>
+
+            <h2
+                class="text-[4vh] font-tech text-neon-purple text-center mt-[8vh] tracking-[0.5em] shadow-neon-purple drop-shadow-[0_0_15px_rgba(188,19,254,0.8)] font-bold">
+                A.I. AKTİF
+            </h2>
+            <p class="text-gray-300 mt-[2vh] font-tech text-[1.8vh] opacity-80 text-center px-[4vh] mb-[4vh]">
+                Robot dış sesleri dinliyor ve bulut ile haberleşiyor...
+            </p>
+
+            <!-- Kapatma Butonu -->
+            <button onclick="setUIMode('manual')"
+                class="group relative flex items-center gap-[1.5vh] bg-red-900/40 hover:bg-red-600 border-2 border-red-600 text-red-100 px-[4vh] py-[1.5vh] rounded-full font-tech font-bold text-[2vh] transition-all duration-300 active:scale-95 overflow-hidden shadow-[0_0_20px_rgba(220,38,38,0.4)]">
+                <div class="absolute inset-0 bg-red-500 opacity-0 group-hover:opacity-20 transition-opacity"></div>
+                <i class="fa-solid fa-power-off text-red-400 group-hover:text-white transition-colors text-[2.5vh]"></i>
+                <span class="tracking-wider">YAPAY ZEKAYI KAPAT</span>
+            </button>
         </div>
 
     </div>
@@ -864,30 +903,74 @@
             sendData();
         }
 
+        let isAIModeActive = false;
+
         function setUIMode(modeName) {
             document.getElementById('mode-manual').classList.add('hidden');
             document.getElementById('mode-auto').classList.add('hidden');
-            resetBtnStyle('btn-manual');
-            resetBtnStyle('btn-auto');
-            const activeBtn = document.getElementById(`btn-${modeName}`);
-            activeBtn.classList.remove('text-gray-400');
-            activeBtn.classList.add('bg-neon-blue', 'text-black', 'shadow-[0_0_10px_#00f3ff]');
-            const activeView = document.getElementById(`mode-${modeName}`);
-            activeView.classList.remove('hidden');
-            activeView.classList.add('flex');
+            document.getElementById('ai-overlay').classList.add('hidden');
 
-            if (modeName === 'auto') {
-                log("Mod: OTO SEÇİMİ");
+            resetBtnStyle('btn-manual', false);
+            resetBtnStyle('btn-auto', false);
+            resetBtnStyle('btn-ai', true);
+
+            isAIModeActive = (modeName === 'ai');
+            const activeBtn = document.getElementById(`btn-${modeName}`);
+
+            if (modeName === 'ai') {
+                document.getElementById('mode-manual').classList.remove('hidden');
+                document.getElementById('mode-manual').classList.add('flex');
+                document.getElementById('ai-overlay').classList.remove('hidden');
+
+                activeBtn.classList.remove('text-neon-purple', 'hover:text-black', 'border');
+                activeBtn.className += ' bg-neon-purple text-black shadow-[0_0_15px_#bc13fe] border-transparent';
+
+                log("Mod: YAPAY ZEKA DEVREDE");
+                if (websocket && websocket.readyState === WebSocket.OPEN) {
+                    // Kullanicidan bilgisayarin baslangic IPsini isteyelim (1 defaya mahsus onbellege alir)
+                    let savedIp = localStorage.getItem("aiServerIp") || "192.168.1.100";
+                    let userIp = prompt("Lütfen Bilgisayarınızın (Node.js AI Sunucusunun) Local IP'sini giriniz:", savedIp);
+                    
+                    if(userIp) {
+                        localStorage.setItem("aiServerIp", userIp);
+                        websocket.send(JSON.stringify({ 
+                            modeCommand: "AI",
+                            serverIp: userIp 
+                        }));
+                    } else {
+                        // iptal edildiyse geri don
+                        setUIMode('manual');
+                    }
+                }
             } else {
-                currentMood = "DEFAULT";
-                log("Mod: MANUEL");
-                sendData();
+                const activeView = document.getElementById(`mode-${modeName}`);
+                activeView.classList.remove('hidden');
+                activeView.classList.add('flex');
+
+                activeBtn.classList.remove('text-gray-400');
+                activeBtn.classList.add('bg-neon-blue', 'text-black', 'shadow-[0_0_10px_#00f3ff]');
+
+                if (modeName === 'auto') {
+                    log("Mod: OTO SEÇİMİ");
+                } else {
+                    currentMood = "DEFAULT";
+                    log("Mod: MANUEL");
+                    sendData();
+                }
+
+                if (websocket && websocket.readyState === WebSocket.OPEN) {
+                    websocket.send(JSON.stringify({ modeCommand: "NORMAL" }));
+                }
             }
         }
 
-        function resetBtnStyle(btnId) {
+        function resetBtnStyle(btnId, isAI) {
             const btn = document.getElementById(btnId);
-            btn.className = "px-[3vh] py-[1vh] rounded text-[2vh] font-bold transition-all text-gray-400 hover:text-white";
+            if (isAI) {
+                btn.className = "px-[2vh] py-[1vh] rounded text-[2vh] font-bold transition-all text-neon-purple border border-neon-purple hover:bg-neon-purple hover:text-black shadow-[0_0_10px_#bc13fe_inset]";
+            } else {
+                btn.className = "px-[2vh] py-[1vh] rounded text-[2vh] font-bold transition-all text-gray-400 hover:text-white";
+            }
         }
 
         function log(msg) {

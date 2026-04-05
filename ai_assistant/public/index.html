@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wector AI - Backend Dashboard</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #0b0f19;
+            color: white;
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+        .font-tech {
+            font-family: 'Orbitron', sans-serif;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center py-10 px-4 relative">
+    
+    <!-- Arka plan Süslemeleri -->
+    <div class="fixed top-[-10vh] left-[-10vw] w-[50vw] h-[50vw] bg-purple-900/20 rounded-full blur-[100px] pointer-events-none"></div>
+    <div class="fixed bottom-[-10vh] right-[-10vw] w-[40vw] h-[40vw] bg-blue-900/20 rounded-full blur-[100px] pointer-events-none"></div>
+
+    <div class="z-10 w-full max-w-4xl flex flex-col gap-6">
+
+        <!-- Header -->
+        <div class="bg-gray-900/80 backdrop-blur-md border border-gray-800 rounded-2xl p-6 flex justify-between items-center shadow-xl">
+            <div class="flex items-center gap-4 text-purple-400 font-tech">
+                <i class="fa-solid fa-server text-4xl"></i>
+                <div>
+                    <h1 class="text-2xl font-bold tracking-widest text-white">WECTOR AI</h1>
+                    <span class="text-sm">BACKEND DASHBOARD</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <div id="ui-connection-status" class="px-3 py-1 bg-green-900/30 border border-green-500/50 text-green-400 rounded-full text-xs font-tech flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                    UI CANLI
+                </div>
+            </div>
+        </div>
+
+        <!-- Ana Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            <!-- Sol: API Key Ayarları -->
+            <div class="bg-gray-900/60 backdrop-blur-md border border-gray-800 rounded-2xl p-6 shadow-xl flex flex-col">
+                <h2 class="text-xl font-tech text-blue-400 mb-4 border-b border-gray-800 pb-2"><i class="fa-solid fa-key mr-2"></i> Gemini API Lisansı</h2>
+                
+                <div id="api-status-banner" class="mb-4 p-3 rounded-lg bg-red-900/20 border border-red-500/30 text-red-400 text-sm flex items-center gap-3">
+                    <i class="fa-solid fa-triangle-exclamation text-lg"></i>
+                    <span>Sistemde API Anahtarı bulunamadı! Lütfen anahtarınızı girin.</span>
+                </div>
+
+                <p class="text-gray-400 text-sm mb-4">Gemini Live API'sini kullanabilmek için geçerli bir sistem API anahtarı giriniz. Anahtar gizli olarak (.env dosyasına) kaydedilecektir.</p>
+                
+                <div class="flex flex-col gap-2 relative mt-auto">
+                    <label class="text-xs font-bold text-gray-500">GEMINI API KEY</label>
+                    <div class="relative">
+                        <input type="password" id="apiKeyInput" placeholder="sk-..." class="w-full bg-black/50 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500 transition-colors">
+                        <button onclick="togglePassword()" class="absolute right-3 top-3 text-gray-500 hover:text-gray-300"><i class="fa-solid fa-eye" id="eyeIcon"></i></button>
+                    </div>
+                    <button onclick="saveApiKey()" class="mt-2 w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-all active:scale-95">
+                        KAYDET
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sağ: Bağlantı Durumları -->
+            <div class="bg-gray-900/60 backdrop-blur-md border border-gray-800 rounded-2xl p-6 shadow-xl flex flex-col gap-4">
+                <h2 class="text-xl font-tech text-purple-400 mb-2 border-b border-gray-800 pb-2"><i class="fa-solid fa-network-wired mr-2"></i> Sistem Durumu</h2>
+                
+                <!-- ESP32 Status -->
+                <div class="flex items-center justify-between p-4 bg-black/30 rounded-xl border border-gray-800">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-robot text-2xl text-gray-500" id="icon-esp32"></i>
+                        <div>
+                            <h3 class="font-bold text-gray-300">Robot (ESP32)</h3>
+                            <span class="text-xs text-gray-500">ws://localhost:8080</span>
+                        </div>
+                    </div>
+                    <div id="status-esp32" class="px-3 py-1 bg-gray-800 border border-gray-600 text-gray-400 rounded-lg text-sm font-tech">
+                        BEKLENİYOR
+                    </div>
+                </div>
+
+                <!-- Gemini Status -->
+                <div class="flex items-center justify-between p-4 bg-black/30 rounded-xl border border-gray-800">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-gem text-2xl text-gray-500" id="icon-openai"></i>
+                        <div>
+                            <h3 class="font-bold text-gray-300">Gemini Live</h3>
+                            <span class="text-xs text-gray-500">Generative Language API</span>
+                        </div>
+                    </div>
+                    <div id="status-openai" class="px-3 py-1 bg-gray-800 border border-gray-600 text-gray-400 rounded-lg text-sm font-tech">
+                        BEKLENİYOR
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alt: Log ve Transkript -->
+        <div class="grid grid-cols-1 gap-6">
+            <div class="bg-gray-900/60 backdrop-blur-md border border-gray-800 rounded-2xl p-6 shadow-xl flex flex-col">
+                <h2 class="text-xl font-tech text-green-400 mb-4 border-b border-gray-800 pb-2"><i class="fa-solid fa-comment-dots mr-2"></i> Canlı Transkript & Log</h2>
+                
+                <div class="flex flex-col gap-4">
+                    <div class="p-4 bg-black/50 border border-gray-800 rounded-xl h-24 overflow-y-auto font-mono text-sm text-gray-400 flex flex-col justify-end" id="systemLogContainer">
+                        <span id="logText" class="text-green-500">> Sistem başlatıldı...</span>
+                    </div>
+
+                    <div class="relative p-6 bg-purple-900/10 border border-purple-500/20 rounded-xl min-h-[120px] flex items-center justify-center text-center shadow-[inset_0_0_20px_rgba(188,19,254,0.05)]">
+                        <i class="fa-solid fa-quote-left absolute top-4 left-4 text-purple-500/30 text-3xl"></i>
+                        <p id="transcriptText" class="text-xl text-gray-300 font-light italic leading-relaxed">...</p>
+                        <i class="fa-solid fa-quote-right absolute bottom-4 right-4 text-purple-500/30 text-3xl"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Frontend Script -->
+    <script>
+        // API Key Görünürlük
+        function togglePassword() {
+            const inp = document.getElementById('apiKeyInput');
+            const icon = document.getElementById('eyeIcon');
+            if(inp.type === 'password') {
+                inp.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                inp.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+
+        // Başlangıçta API Key var mı kontrol et
+        fetch('/api/status').then(r => r.json()).then(data => {
+            const banner = document.getElementById('api-status-banner');
+            if(data.hasApiKey) {
+                banner.className = "mb-4 p-3 rounded-lg bg-green-900/20 border border-green-500/30 text-green-400 text-sm flex items-center gap-3";
+                banner.innerHTML = `<i class="fa-solid fa-circle-check text-lg"></i><span>Sistemde API Anahtarı kayıtlı ve hazır.</span>`;
+            }
+        });
+
+        // API Key Kaydet
+        async function saveApiKey() {
+            const key = document.getElementById('apiKeyInput').value;
+            if(!key || key.length < 10) return alert('Geçersiz anahtar uzunluğu.');
+            
+            const res = await fetch('/api/save-key', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ apiKey: key })
+            });
+            const data = await res.json();
+            if(data.success) {
+                document.getElementById('apiKeyInput').value = '';
+                const banner = document.getElementById('api-status-banner');
+                banner.className = "mb-4 p-3 rounded-lg bg-green-900/20 border border-green-500/30 text-green-400 text-sm flex items-center gap-3";
+                banner.innerHTML = `<i class="fa-solid fa-circle-check text-lg"></i><span>Sistemde API Anahtarı kayıtlı ve hazır.</span>`;
+            }
+        }
+
+        // WebSocket Bağlantısı (Loglar ve Durum)
+        const ws = new WebSocket(`ws://${window.location.host}/ui`);
+
+        ws.onopen = () => {
+            document.getElementById('ui-connection-status').className = "px-3 py-1 bg-green-900/30 border border-green-500 text-green-400 rounded-full text-xs font-tech flex items-center gap-2 shadow-[0_0_10px_#22c55e]";
+        };
+
+        ws.onclose = () => {
+            document.getElementById('ui-connection-status').className = "px-3 py-1 bg-red-900/30 border border-red-500 text-red-500 rounded-full text-xs font-tech flex items-center gap-2";
+            document.getElementById('ui-connection-status').innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500"></span>BAĞLANTI KOPTU';
+        };
+
+        ws.onmessage = (event) => {
+            const status = JSON.parse(event.data);
+            
+            // ESP32 UI Update
+            const elEsp32 = document.getElementById('status-esp32');
+            const iconEsp32 = document.getElementById('icon-esp32');
+            if (status.esp32) {
+                elEsp32.className = "px-3 py-1 bg-blue-900/40 border border-blue-500 text-blue-300 rounded-lg text-sm font-tech shadow-[0_0_10px_#3b82f6]";
+                elEsp32.innerText = "BAĞLI";
+                iconEsp32.className = "fa-solid fa-robot text-2xl text-blue-400 animate-pulse";
+            } else {
+                elEsp32.className = "px-3 py-1 bg-gray-800 border border-gray-600 text-gray-400 rounded-lg text-sm font-tech";
+                elEsp32.innerText = "BEKLENİYOR";
+                iconEsp32.className = "fa-solid fa-robot text-2xl text-gray-600";
+            }
+
+            // Gemini UI Update
+            const elOpenAI = document.getElementById('status-openai');
+            const iconOpenAI = document.getElementById('icon-openai');
+            if (status.openai) {
+                elOpenAI.className = "px-3 py-1 bg-purple-900/40 border border-purple-500 text-purple-300 rounded-lg text-sm font-tech shadow-[0_0_10px_#a855f7]";
+                elOpenAI.innerText = "BAĞLI";
+                iconOpenAI.className = "fa-solid fa-gem text-2xl text-purple-400 animate-pulse";
+            } else {
+                elOpenAI.className = "px-3 py-1 bg-gray-800 border border-gray-600 text-gray-400 rounded-lg text-sm font-tech";
+                elOpenAI.innerText = "BEKLENİYOR";
+                iconOpenAI.className = "fa-solid fa-gem text-2xl text-gray-600";
+            }
+
+            // Log Update
+            if (status.log) {
+                const logCont = document.getElementById('systemLogContainer');
+                logCont.innerHTML += `<div class="mt-1">> ${status.log}</div>`;
+                logCont.scrollTop = logCont.scrollHeight;
+            }
+
+            // Transcript
+            if (status.transcript) {
+                document.getElementById('transcriptText').innerText = status.transcript;
+            }
+        };
+
+    </script>
+</body>
+</html>

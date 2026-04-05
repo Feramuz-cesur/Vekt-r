@@ -3,3 +3,11 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+
+# Node.js
+node_modules/
+npm-debug.log
+
+# Environment Variables
+.env
+.env.*

@@ -1,4 +1,4 @@
-﻿#include "DFRobotDFPlayerMini.h"
+#include "DFRobotDFPlayerMini.h"
 #include "SPIFFS.h"
 #include "time.h"
 #include <Adafruit_GFX.h>
@@ -9,9 +9,13 @@
 #include <AsyncTCP.h>
 #include <ESP32Servo.h>
 #include <ESPAsyncWebServer.h>
-#include <FluxGarage_RoboEyes.h>
 #include <WiFi.h>
 #include <Wire.h>
+#include <WebSocketsClient.h>
+#include <driver/i2s.h>
+#include <driver/adc.h>
+#include <freertos/ringbuf.h>
+#include <FluxGarage_RoboEyes.h>
 
 // RGB Kütüphanesi
 #include <Adafruit_NeoPixel.h>
@@ -34,6 +38,16 @@ const int servoPin2 = 14;
 // *** PİL ÖLÇÜM (ADC) PİNİ ***
 #define BATTERY_PIN 34 // 45K + 45K Gerilim Bölücü Ortası
 
+// *** YAPAY ZEKA DONANIM PİNLERİ (I2S & ADC) ***
+#define I2S_SPEAKER_PORT I2S_NUM_1
+#define I2S_MIC_PORT I2S_NUM_0
+#define I2S_BCLK 16
+#define I2S_LRC 15
+#define I2S_DOUT 17
+#define MIC_PIN 35      // MAX9814 Analog Çıkışı
+#define MIC_SAMPLE_RATE 16000
+#define SPEAKER_SAMPLE_RATE 24000
+
 // --- NESNELER ---
 DFRobotDFPlayerMini myDFPlayer;
 #define SCREEN_WIDTH 128
@@ -55,6 +69,15 @@ const char *ssid = "FiberHGW_TPB9C0";
 const char *password = "NVArVrUNL3Ap";
 
 volatile bool displayLocked = false; // Ekran kilitli mi?
+
+// AI WebSocket İstemcisi
+WebSocketsClient aiClient;
+volatile bool isAIModeActive = false;
+RingbufHandle_t audio_ringbuf = NULL;
+RingbufHandle_t mic_ringbuf = NULL;
+volatile uint32_t speaker_sample_rate = SPEAKER_SAMPLE_RATE;
+volatile bool speakerTestPending = false;
+volatile bool micMuted = false;
 
 // Görevler arasında veri paylaşımı
 volatile int danceTrigger = 0;
@@ -543,6 +566,37 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
         enableClockMode();
       }
     }
+
+      if (myObj.hasOwnProperty("modeCommand")) {
+      String modeCmd = (const char *)myObj["modeCommand"];
+      if (modeCmd == "AI") {
+        isAIModeActive = true;
+        speakerTestPending = true; // AI moduna giriste hoparlor/pin kontrolu icin kisa bip
+        micMuted = false;
+        
+        // AI Moduna geçildiğinde RGB Mor pulse yapılsın
+        lightMode = "PULSE";
+        selectedColor = pixels.Color(188, 19, 254);
+        
+        // Eger kullanici arayuzden serverIp yolladiysa onu kullan
+        String targetIp = "192.168.1.100"; // Default
+        if (myObj.hasOwnProperty("serverIp")) {
+          targetIp = (const char *)myObj["serverIp"];
+        }
+
+        Serial.print("AI Moduna Gecildi! Baglanilan Sunucu: ");
+        Serial.println(targetIp);
+
+        if(!aiClient.isConnected()) {
+          aiClient.begin(targetIp, 8080, "/");
+        }
+      } else if (modeCmd == "NORMAL") {
+        isAIModeActive = false;
+        lightMode = "OFF";
+        micMuted = false;
+        Serial.println("Normal Moda Donuldu!");
+      }
+    }
   }
 }
 
@@ -569,11 +623,231 @@ void Task_Gozler(void *parameter) {
   }
 }
 
+// AI WebSocket Event Handler
+void aiWebSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
+  switch(type) {
+    case WStype_DISCONNECTED:
+      Serial.println("[AI] Baglanti Koptu!");
+      break;
+    case WStype_CONNECTED:
+      Serial.printf("[AI] Baglandi: %s\n", payload);
+      break;
+    case WStype_TEXT: {
+      if (payload == NULL || length == 0) break;
+      char *buf = (char *)malloc(length + 1);
+      if (!buf) break;
+      memcpy(buf, payload, length);
+      buf[length] = '\0';
+
+      JSONVar obj = JSON.parse(buf);
+      free(buf);
+
+      if (JSON.typeof(obj) == "undefined") break;
+      if (obj.hasOwnProperty("type")) {
+        String t = (const char *)obj["type"];
+        if (t == "audio_out_format" && obj.hasOwnProperty("rate")) {
+          int rate = (int)obj["rate"];
+          if (rate >= 8000 && rate <= 48000) {
+            speaker_sample_rate = (uint32_t)rate;
+            i2s_set_clk(I2S_SPEAKER_PORT, speaker_sample_rate,
+                        I2S_BITS_PER_SAMPLE_16BIT, I2S_CHANNEL_STEREO);
+            Serial.printf("[AI] Speaker rate guncellendi: %lu Hz\n",
+                          (unsigned long)speaker_sample_rate);
+          }
+        } else if (t == "mic_mute" && obj.hasOwnProperty("mute")) {
+          bool mute = (bool)obj["mute"];
+          micMuted = mute;
+          Serial.printf("[AI] Mic %s\n", micMuted ? "MUTE" : "UNMUTE");
+        }
+      }
+      break;
+    }
+    case WStype_BIN:
+      // I2S Amfi (MAX98357A) kullanarak NodeJS'ten gelen PCM16 verisi yazilacak
+      if (isAIModeActive && audio_ringbuf != NULL) {
+          // Blocking fonksiyon yuzunden ag frame'leri donmasin diye Buffer'a yolla
+          xRingbufferSend(audio_ringbuf, payload, length, 0); 
+      }
+      break;
+  }
+}
+
+static void playSpeakerTestBeep() {
+  // Kablolama/pin dogrulama icin kisa bip (PCM16, stereo)
+  const uint32_t rate = speaker_sample_rate ? speaker_sample_rate : SPEAKER_SAMPLE_RATE;
+  const int freq_hz = 1000;
+  const int duration_ms = 150;
+  const int16_t amp = 6000;
+
+  int total_samples = (int)((rate * (uint32_t)duration_ms) / 1000U);
+  int period = (int)(rate / (uint32_t)freq_hz);
+  if (period < 2) period = 2;
+  int half = period / 2;
+
+  int16_t stereo_buffer[512]; // 256 sample * 2ch
+  int sample_index = 0;
+  while (sample_index < total_samples) {
+    int chunk = min(256, total_samples - sample_index);
+    for (int i = 0; i < chunk; i++) {
+      int pos = (sample_index + i) % period;
+      int16_t v = (pos < half) ? amp : (int16_t)-amp;
+      stereo_buffer[i * 2] = v;
+      stereo_buffer[i * 2 + 1] = v;
+    }
+
+    size_t bytes_written = 0;
+    i2s_write(I2S_SPEAKER_PORT, stereo_buffer, chunk * 4, &bytes_written,
+              portMAX_DELAY);
+    sample_index += chunk;
+  }
+}
+
+// AI Audio Cikttisi (Hoparlor) GOREVI
+void Task_AI_Speaker(void *parameter) {
+  for(;;) {
+    if (audio_ringbuf != NULL) {
+      size_t item_size;
+
+      if (speakerTestPending && isAIModeActive) {
+        speakerTestPending = false;
+        playSpeakerTestBeep();
+      }
+
+      // 1024 byte'a kadar veri al (periyodik uyan ki test bip'i calabilsin)
+      void *item = xRingbufferReceiveUpTo(audio_ringbuf, &item_size, pdMS_TO_TICKS(100), 1024);
+      
+      if (item != NULL) {
+        if (isAIModeActive) {
+          size_t bytes_written;
+
+          // PCM16 mono gelirse stereo frame'e kopyala (up-mix)
+          int16_t* pcm_mono = (int16_t*)item;
+          int num_samples = item_size / 2;
+          int16_t stereo_buffer[512]; // 256 sample * 2ch
+
+          int offset = 0;
+          while(offset < num_samples) {
+              int chunk = min(256, num_samples - offset);
+              for(int i = 0; i < chunk; i++) {
+                  // Dijital ses seviyesini hafif arttir (Gemini cıkısı bazen cok dusuk geliyor)
+                  int32_t s = (int32_t)pcm_mono[offset + i] * 4;
+                  if (s > 32767) s = 32767;
+                  if (s < -32768) s = -32768;
+                  stereo_buffer[i * 2]     = (int16_t)s; // Left
+                  stereo_buffer[i * 2 + 1] = (int16_t)s; // Right
+              }
+              i2s_write(I2S_SPEAKER_PORT, stereo_buffer, chunk * 4, &bytes_written, portMAX_DELAY);
+              offset += chunk;
+          }
+        }
+
+        vRingbufferReturnItem(audio_ringbuf, item); // AI modu kapaliyken de iade et (ringbuffer kilitlenmesin)
+      }
+    } else {
+      vTaskDelay(100 / portTICK_PERIOD_MS);
+    }
+  }
+}
+
 void Task_Network(void *parameter) {
   for (;;) {
     ws.cleanupClients();
     ArduinoOTA.handle();
-    vTaskDelay(50 / portTICK_PERIOD_MS);
+    
+    // Eger AI modu aktifse, bilgisayara actigimiz Client websocketini de dondur
+    if (isAIModeActive) {
+      aiClient.loop();
+    }
+    
+    vTaskDelay(10 / portTICK_PERIOD_MS);
+  }
+}
+
+// AI Audio Dinleme GOREVI (ADC ile analog mikrofon okuma altyapisi)
+void Task_AI_Audio(void *parameter) {
+  int16_t mic_buffer[256]; // 256 sample * 2 byte = 512 byte (PCM16)
+  
+  static float dc_offset = 2048.0; // Otomatik DC offset izleyici
+
+  for(;;) {
+    if (isAIModeActive && aiClient.isConnected() && !micMuted) {
+      int max_raw = 0;
+      int min_raw = 4095;
+      
+      int64_t next_sample_time = esp_timer_get_time();
+      const int32_t base_interval_us = 1000000 / MIC_SAMPLE_RATE; // 62
+      const int32_t remainder = 1000000 % MIC_SAMPLE_RATE;        // 8000
+      int32_t accum = 0;
+
+      // 512 byte = 256 adet 16-bit PCM ornegi (Gemini icin ideal kucuk paket)
+      for (int i = 0; i < 256; i++) {
+        // 1. ESP32'nin standart ve en stabil fonksiyonu ile Analog pini oku
+        int raw_adc = analogRead(MIC_PIN); // MAX9814 analog cikis
+
+        if (raw_adc > max_raw) max_raw = raw_adc;
+        if (raw_adc < min_raw) min_raw = raw_adc;
+        
+        // 2. Sesi eksene (0'a) oturt
+        dc_offset = (dc_offset * 0.9995) + (raw_adc * 0.0005);
+        int32_t centered = (int32_t)raw_adc - (int32_t)dc_offset;
+
+        // 3. Gain + clip (PCM16 signed)
+        // Gain degeri mikrofonun hassasiyetini belirler. 32 seviyesi sesi çok daha canli alir.
+        const int32_t gain = 48; 
+        int32_t s = centered * gain;
+        if (s > 32767) s = 32767;
+        if (s < -32768) s = -32768;
+        mic_buffer[i] = (int16_t)s;
+
+        // 4. Siradaki ornekleme zamanini bekle (Pürüzsüz 16kHz icin hassas zamanlama)
+        next_sample_time += base_interval_us;
+        accum += remainder;
+        if (accum >= MIC_SAMPLE_RATE) {
+          next_sample_time += 1;
+          accum -= MIC_SAMPLE_RATE;
+        }
+        int64_t wait_time = next_sample_time - esp_timer_get_time();
+        if (wait_time > 0) {
+            delayMicroseconds(wait_time);
+        }
+      }
+
+      // Saniyede ~1 kez konsola RAW (islenmemis) ADC sinirlerini yaz
+      static int log_cnt = 0;
+      if (log_cnt++ % 60 == 0) {
+         Serial.printf("[Mikrofon Test] MinADC: %d | MaxADC: %d | Merkez(DC): %.1f\n", min_raw, max_raw, dc_offset);
+      }
+
+      // 5. Modifiye edilmis Buffer'i yolla
+      aiClient.sendBIN((uint8_t*)mic_buffer, sizeof(mic_buffer));
+
+      // WiFi/WebSocket loop task'ine nefes aldir (uzun sureli yayinlarda kopma olmasin)
+      vTaskDelay(pdMS_TO_TICKS(1));
+      
+    } else {
+      vTaskDelay(50 / portTICK_PERIOD_MS); // Rölantide yorulmamasi icin 50ms bekle
+    }
+  }
+}
+
+void Task_AI_Mic_Sender(void *parameter) {
+  for(;;) {
+    if (isAIModeActive && aiClient.isConnected() && mic_ringbuf != NULL && !micMuted) {
+      size_t item_size;
+      void *item = xRingbufferReceiveUpTo(mic_ringbuf, &item_size, portMAX_DELAY, 1024);
+      if (item != NULL) {
+        aiClient.sendBIN((uint8_t*)item, item_size);
+        vRingbufferReturnItem(mic_ringbuf, item);
+      }
+    } else {
+      if (mic_ringbuf != NULL) {
+         size_t dummy_size;
+         void *dummy = xRingbufferReceiveUpTo(mic_ringbuf, &dummy_size, pdMS_TO_TICKS(100), 1024);
+         if (dummy) vRingbufferReturnItem(mic_ringbuf, dummy);
+      } else {
+         vTaskDelay(100 / portTICK_PERIOD_MS);
+      }
+    }
   }
 }
 
@@ -731,10 +1005,57 @@ void Task_Mantik(void *parameter) {
 }
 
 // =========================================================================
-// SETUP
+// SETUP VE ALT FONKSIYONLAR
 // =========================================================================
+
+void initI2S() {
+  // --- HOPARLÖR İÇİN (I2S_NUM_1) ---
+  i2s_config_t speaker_config = {
+    .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_TX),
+    .sample_rate = SPEAKER_SAMPLE_RATE,
+    .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT,
+    .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT, // MAX98357A Stereo formati bozuk hizlari duzeltmek zorunlu!
+    .communication_format = I2S_COMM_FORMAT_STAND_I2S,
+    .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
+    .dma_buf_count = 6,
+    .dma_buf_len = 512,
+    .use_apll = false,
+    .tx_desc_auto_clear = true
+  };
+  
+  i2s_pin_config_t speaker_pins = {
+    .bck_io_num = I2S_BCLK,
+    .ws_io_num = I2S_LRC,
+    .data_out_num = I2S_DOUT,
+    .data_in_num = I2S_PIN_NO_CHANGE
+  };
+
+  i2s_driver_install(I2S_SPEAKER_PORT, &speaker_config, 0, NULL);
+  i2s_set_pin(I2S_SPEAKER_PORT, &speaker_pins);
+  i2s_zero_dma_buffer(I2S_SPEAKER_PORT);
+
+  // MİKROFON İÇİN (I2S_NUM_0) KULLANIMI İPTAL EDİLMİŞTİR
+  // Analog mikrofonlar (MAX9814) I2S ile değil, Task_AI_Audio içerisinde
+  // yüksek hassasiyetli analogRead() + esp_timer kullanılarak daha sağlıklı okunmaktadır.
+  
+  // PİN 35 giriş olarak ayarlanır
+  pinMode(MIC_PIN, INPUT);
+}
+
 void setup() {
   Serial.begin(115200);
+
+  // Ses icin 16KB gecici kopru bellek (RingBuffer)
+  audio_ringbuf = xRingbufferCreate(16384, RINGBUF_TYPE_BYTEBUF);
+  mic_ringbuf = xRingbufferCreate(8192, RINGBUF_TYPE_BYTEBUF); 
+
+  // I2S Donanımlarını (Amfi ve Mikrofon) Başlat
+  initI2S();
+
+  // ADC ayarlari (MAX9814 analog mikrofon icin)
+  adcAttachPin(MIC_PIN);
+  analogReadResolution(12);
+  analogSetPinAttenuation(MIC_PIN, ADC_11db);
 
   // RGB Init
   pixels.begin();
@@ -805,9 +1126,19 @@ void setup() {
   server.begin();
   ArduinoOTA.begin();
 
+  // AI Client Baslatma (Sadece altyapi konfigürasyonu)
+  // 192.168.1.100 bilgisayarinizin local IP si varsayilmistir, guncellenmeli.
+  aiClient.onEvent(aiWebSocketEvent);
+  aiClient.begin("192.168.1.100", 8080, "/"); 
+  aiClient.setReconnectInterval(5000);
+
   xTaskCreatePinnedToCore(Task_Gozler, "TaskGozler", 10000, NULL, 2, NULL, 1);
   xTaskCreatePinnedToCore(Task_Network, "TaskNetwork", 10000, NULL, 1, NULL, 0);
   xTaskCreatePinnedToCore(Task_Mantik, "TaskMantik", 10000, NULL, 1, NULL, 1);
+  // Not: WiFi/TCPIP task'leri genelde Core 0'da. Mikrofon okuma tight-loop oldugu icin
+  xTaskCreatePinnedToCore(Task_AI_Audio, "TaskAIAudio", 10000, NULL, 3, NULL, 1);        // En yuksek oncelik (Prio=3) kilit kirici timer
+  xTaskCreatePinnedToCore(Task_AI_Mic_Sender, "TaskAIMicSend", 10000, NULL, 1, NULL, 1); // Mic Network gonderici (Prio=1)
+  xTaskCreatePinnedToCore(Task_AI_Speaker, "TaskAISpeaker", 10000, NULL, 2, NULL, 1); // Hoparloru bagimsiz isleyen kilit kirici
 
   myDFPlayer.play(5);
 }
