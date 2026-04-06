@@ -8,7 +8,45 @@ import 'dotenv/config';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+function createWavHeader(dataSize) {
+    const header = Buffer.alloc(44);
+    header.write('RIFF', 0);
+    header.writeUInt32LE(36 + dataSize, 4);   // ChunkSize
+    header.write('WAVE', 8);
+    header.write('fmt ', 12);
+    header.writeUInt32LE(16, 16);              // Subchunk1Size
+    header.writeUInt16LE(1, 20);               // AudioFormat: PCM
+    header.writeUInt16LE(1, 22);               // NumChannels: 1 (Mono)
+    header.writeUInt32LE(16000, 24);           // SampleRate: 16000 Hz
+    header.writeUInt32LE(32000, 28);           // ByteRate
+    header.writeUInt16LE(2, 32);               // BlockAlign
+    header.writeUInt16LE(16, 34);              // BitsPerSample: 16
+    header.write('data', 36);
+    header.writeUInt32LE(dataSize, 40);        // Subchunk2Size
+    return header;
+}
+
 let GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+
+// Global RAM havuzu (bağlantı kopsa da, node kapatılsa da içeriği kaydetmek için)
+const recordedMicChunks = [];
+
+function saveWavToFile() {
+    if (recordedMicChunks.length > 0) {
+        const pcmData = Buffer.concat(recordedMicChunks);
+        const wavHeader = createWavHeader(pcmData.length);
+        fs.writeFileSync(path.join(__dirname, 'test_kayit.wav'), Buffer.concat([wavHeader, pcmData]));
+        console.log(`\n[BİLGİ] Ses kaydı başarıyla "test_kayit.wav" dosyasına kaydedildi! Boyut: ${pcmData.length} byte.`);
+        recordedMicChunks.length = 0;
+    }
+}
+
+// Eğer sunucu terminalden (Ctrl+C) kapatılırsa, yine de diske yaz!
+process.on('SIGINT', () => {
+    console.log("\n[SİSTEM] Node.js kapatılıyor, RAM'deki mevcut sesler diske yazılıyor...");
+    saveWavToFile();
+    process.exit();
+});
 
 const app = express();
 app.use(express.json());
@@ -162,6 +200,12 @@ wssEsp32.on('connection', (esp32Ws) => {
     lastGeminiAudioMimeType = "";
     uiLog('[ESP32] Robot Bağlandı! AI Modu Aktif.');
     broadcastStatus();
+
+    // --- MİKROFON TESTİ İÇİN OTOMATİK SES KAYDI RAM HAVUZU ---
+    // Her yeni bağlantıda eski RAM temizlenir.
+    recordedMicChunks.length = 0; 
+    console.log(`[BİLGİ] Robotun duyduğu sesler RAM'de biriktiriliyor. (Bağlantı koparsa VEYA konsoldan Ctrl+C ile çıkarsanız otomatik kaydedilecektir)...`);
+    // -----------------------------------------------------------
 
     if (!GEMINI_API_KEY || GEMINI_API_KEY === 'GEMINI_API_KEY_BURAYA') {
         uiLog("HATA: Gemini API Anahtarı eksik! Lütfen arayüzden giriniz.");
@@ -429,6 +473,12 @@ wssEsp32.on('connection', (esp32Ws) => {
     // ESP32'den gelen PCM 16kHz verilerini Gemini'ye aktar
     let packageCount = 0;
 
+    // Bar hesaplaması için gerekli periyodik değişkenler
+    let barSampleSum = 0;
+    let barSampleCount = 0;
+    let lastBarPrint = Date.now();
+    const BAR_INTERVAL_MS = 500;
+
     // Basit VAD (server-side): ESP32'dan gelen PCM'i turn'lere ayiriyoruz.
     // Setup'ta automaticActivityDetection.disabled=true oldugu icin activityStart/activityEnd gonderiyoruz.
     let vadSpeaking = false;
@@ -438,7 +488,10 @@ wssEsp32.on('connection', (esp32Ws) => {
     let vadStreamActive = false;
     
     esp32Ws.on('message', (data, isBinary) => {
-        if (isBinary) {
+        if (isBinary || Buffer.isBuffer(data)) {
+            // [TEST] Gelen ses paketini RAM havuzuna alıyoruz:
+            recordedMicChunks.push(Buffer.from(data));
+
             if (isOpenAIConnected && isGeminiSetupComplete && geminiWs.readyState === 1) {
                 // Model konuşurken mic kapalı: kendi sesini interrupt etmesin
                 if (playbackActive) return;
@@ -494,12 +547,19 @@ wssEsp32.on('connection', (esp32Ws) => {
                     }
                 }
 
-                // Mikrofondan gelen sesi 20 pakette bir (saniyede 1 kere) ekranda barlarla goster
-                packageCount++;
-                if (packageCount % 20 === 0) {
-                    const barLength = Math.max(0, Math.floor(avg / 100));
-                    const bar = '#'.repeat(Math.min(barLength, 50));
-                    console.log(`[Mikrofon Seviyesi]: ${avg.toFixed(0)} |${bar}`);
+                // Ses çubuğunu (bar) periyodik 500ms biriktirerek göster
+                barSampleSum += sum;
+                barSampleCount += (data.length / 2);
+
+                const now = Date.now();
+                if (now - lastBarPrint >= BAR_INTERVAL_MS) {
+                    const barAvg = barSampleCount > 0 ? barSampleSum / barSampleCount : 0;
+                    const barLength = Math.min(Math.floor(barAvg / 20), 50);
+                    const bar = '█'.repeat(barLength) || '░';
+                    console.log(`🎤 [${new Date().toLocaleTimeString()}] Ses: ${Math.floor(barAvg).toString().padStart(4,'0')} | ${bar}`);
+                    barSampleSum = 0;
+                    barSampleCount = 0;
+                    lastBarPrint = now;
                 }
 
                 // Gemini'ye sadece "konusma" aninda yolla (sessizligi kes)
@@ -532,6 +592,9 @@ wssEsp32.on('connection', (esp32Ws) => {
     esp32Ws.on('close', () => {
         isEsp32Connected = false;
         uiLog('[ESP32] Bağlantı koptu. AI modundan çıkıldı.');
+        
+        saveWavToFile();
+
         broadcastStatus();
         if (geminiWs.readyState === WebSocket.OPEN) {
             geminiWs.close();

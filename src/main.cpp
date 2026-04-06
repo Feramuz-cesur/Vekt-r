@@ -38,13 +38,16 @@ const int servoPin2 = 14;
 // *** PİL ÖLÇÜM (ADC) PİNİ ***
 #define BATTERY_PIN 34 // 45K + 45K Gerilim Bölücü Ortası
 
-// *** YAPAY ZEKA DONANIM PİNLERİ (I2S & ADC) ***
+// *** YAPAY ZEKA DONANIM PİNLERİ (I2S ÇİFT KANAL) ***
 #define I2S_SPEAKER_PORT I2S_NUM_1
-#define I2S_MIC_PORT I2S_NUM_0
 #define I2S_BCLK 16
 #define I2S_LRC 15
 #define I2S_DOUT 17
-#define MIC_PIN 35      // MAX9814 Analog Çıkışı
+
+#define I2S_MIC_PORT I2S_NUM_0
+#define I2S_MIC_SCK 19
+#define I2S_MIC_WS 18
+#define I2S_MIC_SD 35  // Pin 35 input-only pin, I2S için idealdir.
 #define MIC_SAMPLE_RATE 16000
 #define SPEAKER_SAMPLE_RATE 24000
 
@@ -763,86 +766,72 @@ void Task_Network(void *parameter) {
   }
 }
 
-// AI Audio Dinleme GOREVI (ADC ile analog mikrofon okuma altyapisi)
+// AI Audio Dinleme GOREVI (INMP441 I2S Digital Mikrofon)
 void Task_AI_Audio(void *parameter) {
-  int16_t mic_buffer[256]; // 256 sample * 2 byte = 512 byte (PCM16)
-  
-  static float dc_offset = 2048.0; // Otomatik DC offset izleyici
+  int32_t raw_buffer[256]; // I2S RX 32-bit veri okur
+  int16_t out_buffer[256]; // Gemini 16-bit PCM bekler
+  size_t bytes_read;
 
   for(;;) {
     if (isAIModeActive && aiClient.isConnected() && !micMuted) {
-      int max_raw = 0;
-      int min_raw = 4095;
+      // I2S'den 256 adet 32-bit sample oku (1024 byte)
+      i2s_read(I2S_MIC_PORT, &raw_buffer, sizeof(raw_buffer), &bytes_read, portMAX_DELAY);
       
-      int64_t next_sample_time = esp_timer_get_time();
-      const int32_t base_interval_us = 1000000 / MIC_SAMPLE_RATE; // 62
-      const int32_t remainder = 1000000 % MIC_SAMPLE_RATE;        // 8000
-      int32_t accum = 0;
-
-      // 512 byte = 256 adet 16-bit PCM ornegi (Gemini icin ideal kucuk paket)
-      for (int i = 0; i < 256; i++) {
-        // 1. ESP32'nin standart ve en stabil fonksiyonu ile Analog pini oku
-        int raw_adc = analogRead(MIC_PIN); // MAX9814 analog cikis
-
-        if (raw_adc > max_raw) max_raw = raw_adc;
-        if (raw_adc < min_raw) min_raw = raw_adc;
-        
-        // 2. Sesi eksene (0'a) oturt
-        dc_offset = (dc_offset * 0.9995) + (raw_adc * 0.0005);
-        int32_t centered = (int32_t)raw_adc - (int32_t)dc_offset;
-
-        // 3. Gain + clip (PCM16 signed)
-        // Gain degeri mikrofonun hassasiyetini belirler. 32 seviyesi sesi çok daha canli alir.
-        const int32_t gain = 48; 
-        int32_t s = centered * gain;
-        if (s > 32767) s = 32767;
-        if (s < -32768) s = -32768;
-        mic_buffer[i] = (int16_t)s;
-
-        // 4. Siradaki ornekleme zamanini bekle (Pürüzsüz 16kHz icin hassas zamanlama)
-        next_sample_time += base_interval_us;
-        accum += remainder;
-        if (accum >= MIC_SAMPLE_RATE) {
-          next_sample_time += 1;
-          accum -= MIC_SAMPLE_RATE;
+      if (bytes_read > 0) {
+        int samples = bytes_read / 4;
+        for (int i = 0; i < samples; i++) {
+          // INMP441 veriyi 24-bit MSB olarak 32-bit slotta yollar.
+          // 16-bit'e cevirmek için 16 bit sağa kaydırıyoruz. (MSB 24-bit -> MSB 16-bit)
+          out_buffer[i] = (int16_t)(raw_buffer[i] >> 14); 
+          // Not: Bazı INMP441'lerde ses seviyesi için >> 14 veya >> 16 gerekebilir. 
+          // Deneme yanılma ile en temiz seviyeyi (14) seçelim.
         }
-        int64_t wait_time = next_sample_time - esp_timer_get_time();
-        if (wait_time > 0) {
-            delayMicroseconds(wait_time);
+
+        // Gemini'ye köprü (RingBuffer) üzerinden yolla
+        if (mic_ringbuf != NULL) {
+            xRingbufferSend(mic_ringbuf, out_buffer, samples * 2, 0);
         }
       }
-
-      // Saniyede ~1 kez konsola RAW (islenmemis) ADC sinirlerini yaz
-      static int log_cnt = 0;
-      if (log_cnt++ % 60 == 0) {
-         Serial.printf("[Mikrofon Test] MinADC: %d | MaxADC: %d | Merkez(DC): %.1f\n", min_raw, max_raw, dc_offset);
-      }
-
-      // 5. Modifiye edilmis Buffer'i yolla
-      aiClient.sendBIN((uint8_t*)mic_buffer, sizeof(mic_buffer));
-
-      // WiFi/WebSocket loop task'ine nefes aldir (uzun sureli yayinlarda kopma olmasin)
+      
+      // WiFi/Watchdog için nefes al
       vTaskDelay(pdMS_TO_TICKS(1));
-      
     } else {
-      vTaskDelay(50 / portTICK_PERIOD_MS); // Rölantide yorulmamasi icin 50ms bekle
+      vTaskDelay(pdMS_TO_TICKS(50));
     }
   }
 }
 
+// Network gönderici: Sesi ufak ufak 512 byte yollamak WiFi'yi tıkar (çipmunk sebebidir). 
+// 4096 byte biriktirip yollayacağız.
 void Task_AI_Mic_Sender(void *parameter) {
+  uint8_t tx_buffer[4096];
   for(;;) {
     if (isAIModeActive && aiClient.isConnected() && mic_ringbuf != NULL && !micMuted) {
-      size_t item_size;
-      void *item = xRingbufferReceiveUpTo(mic_ringbuf, &item_size, portMAX_DELAY, 1024);
-      if (item != NULL) {
-        aiClient.sendBIN((uint8_t*)item, item_size);
-        vRingbufferReturnItem(mic_ringbuf, item);
+      size_t received_bytes = 0;
+      
+      // Buffer'da 4096 byte dolana kadar (veya 100ms zaman aşımı olana kadar) bekle ve biriktir
+      while(received_bytes < 4096) {
+         size_t item_size;
+         // Kalan boşluk kadarını havuzdan çek
+         void *item = xRingbufferReceiveUpTo(mic_ringbuf, &item_size, pdMS_TO_TICKS(50), 4096 - received_bytes);
+         if (item != NULL) {
+            memcpy(tx_buffer + received_bytes, item, item_size);
+            vRingbufferReturnItem(mic_ringbuf, item);
+            received_bytes += item_size;
+         } else {
+            // 50ms geçti ve hala tampon dolmadıysa, beklemeyi bırakıp eldekini gönder
+            break; 
+         }
+      }
+      
+      // Toplu veriyi Wi-Fi üzerinden tek seferde gönder (Ağ darboğazını çözer)
+      if (received_bytes > 0) {
+        aiClient.sendBIN(tx_buffer, received_bytes);
       }
     } else {
       if (mic_ringbuf != NULL) {
          size_t dummy_size;
-         void *dummy = xRingbufferReceiveUpTo(mic_ringbuf, &dummy_size, pdMS_TO_TICKS(100), 1024);
+         void *dummy = xRingbufferReceiveUpTo(mic_ringbuf, &dummy_size, pdMS_TO_TICKS(100), 4096);
          if (dummy) vRingbufferReturnItem(mic_ringbuf, dummy);
       } else {
          vTaskDelay(100 / portTICK_PERIOD_MS);
@@ -1014,7 +1003,7 @@ void initI2S() {
     .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_TX),
     .sample_rate = SPEAKER_SAMPLE_RATE,
     .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT,
-    .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT, // MAX98357A Stereo formati bozuk hizlari duzeltmek zorunlu!
+    .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT, 
     .communication_format = I2S_COMM_FORMAT_STAND_I2S,
     .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
     .dma_buf_count = 6,
@@ -1034,12 +1023,28 @@ void initI2S() {
   i2s_set_pin(I2S_SPEAKER_PORT, &speaker_pins);
   i2s_zero_dma_buffer(I2S_SPEAKER_PORT);
 
-  // MİKROFON İÇİN (I2S_NUM_0) KULLANIMI İPTAL EDİLMİŞTİR
-  // Analog mikrofonlar (MAX9814) I2S ile değil, Task_AI_Audio içerisinde
-  // yüksek hassasiyetli analogRead() + esp_timer kullanılarak daha sağlıklı okunmaktadır.
-  
-  // PİN 35 giriş olarak ayarlanır
-  pinMode(MIC_PIN, INPUT);
+  // --- MİKROFON İÇİN (I2S_NUM_0 / INMP441 ) ---
+  i2s_config_t mic_config = {
+      .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX),
+      .sample_rate = MIC_SAMPLE_RATE,
+      .bits_per_sample = I2S_BITS_PER_SAMPLE_32BIT, // INMP441 için idealdir.
+      .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
+      .communication_format = I2S_COMM_FORMAT_STAND_I2S,
+      .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
+      .dma_buf_count = 8,
+      .dma_buf_len = 512,
+      .use_apll = false
+  };
+
+  i2s_pin_config_t mic_pins = {
+      .bck_io_num = I2S_MIC_SCK,
+      .ws_io_num = I2S_MIC_WS,
+      .data_out_num = I2S_PIN_NO_CHANGE,
+      .data_in_num = I2S_MIC_SD
+  };
+
+  i2s_driver_install(I2S_MIC_PORT, &mic_config, 0, NULL);
+  i2s_set_pin(I2S_MIC_PORT, &mic_pins);
 }
 
 void setup() {
@@ -1049,13 +1054,8 @@ void setup() {
   audio_ringbuf = xRingbufferCreate(16384, RINGBUF_TYPE_BYTEBUF);
   mic_ringbuf = xRingbufferCreate(8192, RINGBUF_TYPE_BYTEBUF); 
 
-  // I2S Donanımlarını (Amfi ve Mikrofon) Başlat
+  // I2S Donanımlarını (Amfi ve I2S Mikrofon) Başlat
   initI2S();
-
-  // ADC ayarlari (MAX9814 analog mikrofon icin)
-  adcAttachPin(MIC_PIN);
-  analogReadResolution(12);
-  analogSetPinAttenuation(MIC_PIN, ADC_11db);
 
   // RGB Init
   pixels.begin();
