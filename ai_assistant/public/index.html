@@ -3,126 +3,702 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wector AI - Backend Dashboard</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <title>Wector AI — Kontrol Paneli</title>
+    <meta name="description" content="Wector Robot AI Kontrol Paneli - Gemini Live API ile sesli yapay zeka etkileşimi">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
-        body {
-            background-color: #0b0f19;
-            color: white;
-            font-family: 'Roboto', sans-serif;
-            margin: 0;
-            padding: 0;
-            overflow-x: hidden;
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg-primary: #07080d;
+            --bg-card: rgba(15, 18, 30, 0.75);
+            --bg-card-hover: rgba(20, 24, 40, 0.85);
+            --bg-input: rgba(8, 10, 20, 0.6);
+            --border-subtle: rgba(255, 255, 255, 0.06);
+            --border-active: rgba(139, 92, 246, 0.4);
+            --text-primary: #f0f0f5;
+            --text-secondary: #8b8fa3;
+            --text-muted: #555870;
+            --accent-violet: #8b5cf6;
+            --accent-violet-glow: rgba(139, 92, 246, 0.25);
+            --accent-blue: #3b82f6;
+            --accent-emerald: #10b981;
+            --accent-rose: #f43f5e;
+            --accent-amber: #f59e0b;
+            --accent-cyan: #06b6d4;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+            --shadow-glow-violet: 0 0 30px rgba(139, 92, 246, 0.15), 0 0 60px rgba(139, 92, 246, 0.05);
+            --shadow-glow-emerald: 0 0 20px rgba(16, 185, 129, 0.2);
+            --shadow-glow-rose: 0 0 20px rgba(244, 63, 94, 0.2);
         }
-        .font-tech {
-            font-family: 'Orbitron', sans-serif;
+
+        body {
+            font-family: var(--font-sans);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            line-height: 1.5;
+        }
+
+        /* === Ambient Background === */
+        .ambient-bg {
+            position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+        }
+        .ambient-orb {
+            position: absolute; border-radius: 50%; filter: blur(100px); opacity: 0.35;
+            animation: orbFloat 20s ease-in-out infinite;
+        }
+        .ambient-orb.orb-1 {
+            width: 500px; height: 500px; top: -150px; left: -100px;
+            background: radial-gradient(circle, rgba(139,92,246,0.4), transparent 70%);
+        }
+        .ambient-orb.orb-2 {
+            width: 400px; height: 400px; bottom: -100px; right: -80px;
+            background: radial-gradient(circle, rgba(59,130,246,0.3), transparent 70%);
+            animation-delay: -7s;
+        }
+        .ambient-orb.orb-3 {
+            width: 300px; height: 300px; top: 50%; left: 50%; transform: translate(-50%,-50%);
+            background: radial-gradient(circle, rgba(6,182,212,0.15), transparent 70%);
+            animation-delay: -14s;
+        }
+        @keyframes orbFloat {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -20px) scale(1.05); }
+            66% { transform: translate(-20px, 15px) scale(0.95); }
+        }
+
+        /* === Layout === */
+        .app-container {
+            position: relative; z-index: 1;
+            max-width: 1100px; margin: 0 auto;
+            padding: 24px 20px 40px;
+        }
+
+        /* === Header === */
+        .header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 20px 28px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-xl);
+            backdrop-filter: blur(20px);
+            margin-bottom: 24px;
+            box-shadow: var(--shadow-glow-violet);
+        }
+        .header-brand {
+            display: flex; align-items: center; gap: 16px;
+        }
+        .header-logo {
+            width: 48px; height: 48px; border-radius: var(--radius-md);
+            background: linear-gradient(135deg, var(--accent-violet), var(--accent-blue));
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px; color: white;
+            box-shadow: 0 4px 15px rgba(139,92,246,0.3);
+        }
+        .header-title {
+            font-size: 20px; font-weight: 800; letter-spacing: 2px;
+            background: linear-gradient(135deg, #fff, #c4b5fd);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .header-subtitle {
+            font-size: 11px; color: var(--text-muted); letter-spacing: 3px;
+            text-transform: uppercase; font-weight: 500;
+        }
+        .header-status {
+            display: flex; align-items: center; gap: 8px;
+            padding: 6px 14px; border-radius: 100px;
+            font-size: 11px; font-weight: 600; letter-spacing: 1px;
+            transition: all 0.3s;
+        }
+        .header-status.connected {
+            background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3);
+            color: var(--accent-emerald);
+        }
+        .header-status.disconnected {
+            background: rgba(244,63,94,0.1); border: 1px solid rgba(244,63,94,0.3);
+            color: var(--accent-rose);
+        }
+        .status-dot {
+            width: 7px; height: 7px; border-radius: 50%;
+        }
+        .status-dot.pulse { animation: dotPulse 2s ease-in-out infinite; }
+        @keyframes dotPulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 currentColor; }
+            50% { opacity: 0.7; box-shadow: 0 0 0 4px transparent; }
+        }
+
+        /* === Grid Layout === */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        /* === Cards === */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            backdrop-filter: blur(20px);
+            padding: 24px;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        .card:hover {
+            border-color: rgba(255,255,255,0.08);
+        }
+        .card-header {
+            display: flex; align-items: center; gap: 10px;
+            margin-bottom: 20px; padding-bottom: 14px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .card-header i {
+            font-size: 16px; opacity: 0.7;
+        }
+        .card-header h2 {
+            font-size: 14px; font-weight: 700; letter-spacing: 1.5px;
+            text-transform: uppercase;
+        }
+        .card-full { grid-column: 1 / -1; }
+
+        /* === Status Nodes === */
+        .status-node {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 16px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            margin-bottom: 10px;
+            transition: all 0.3s;
+        }
+        .status-node:last-child { margin-bottom: 0; }
+        .status-node-left {
+            display: flex; align-items: center; gap: 12px;
+        }
+        .status-node-left i { font-size: 20px; color: var(--text-muted); transition: color 0.3s; }
+        .status-node-left h3 { font-size: 14px; font-weight: 600; color: var(--text-secondary); }
+        .status-node-left small { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
+        .status-badge {
+            padding: 4px 12px; border-radius: 6px;
+            font-size: 11px; font-weight: 700; letter-spacing: 1px;
+            font-family: var(--font-mono);
+            transition: all 0.3s;
+        }
+        .status-badge.waiting {
+            background: rgba(85,88,112,0.15); border: 1px solid rgba(85,88,112,0.3);
+            color: var(--text-muted);
+        }
+        .status-badge.online {
+            background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.4);
+            color: var(--accent-emerald); box-shadow: var(--shadow-glow-emerald);
+        }
+        .status-badge.active {
+            background: rgba(139,92,246,0.1); border: 1px solid rgba(139,92,246,0.4);
+            color: var(--accent-violet); box-shadow: var(--shadow-glow-violet);
+        }
+
+        /* === Form Elements === */
+        .form-group { margin-bottom: 16px; }
+        .form-group:last-child { margin-bottom: 0; }
+        .form-label {
+            display: block; font-size: 11px; font-weight: 600;
+            color: var(--text-muted); letter-spacing: 1.5px;
+            text-transform: uppercase; margin-bottom: 6px;
+        }
+        .form-input, .form-select, .form-textarea {
+            width: 100%; padding: 10px 14px;
+            background: var(--bg-input); color: var(--text-primary);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            font-family: var(--font-sans); font-size: 13px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            outline: none;
+        }
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            border-color: var(--accent-violet);
+            box-shadow: 0 0 0 3px var(--accent-violet-glow);
+        }
+        .form-textarea {
+            resize: vertical; min-height: 80px; line-height: 1.6;
+            font-size: 12.5px;
+        }
+        .form-select {
+            cursor: pointer; appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b8fa3' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 36px;
+        }
+        .form-select option { background: #12152a; color: var(--text-primary); }
+
+        .form-row {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+        }
+
+        /* Slider */
+        .slider-container {
+            display: flex; align-items: center; gap: 12px;
+        }
+        .slider-container input[type="range"] {
+            flex: 1; height: 4px; -webkit-appearance: none; appearance: none;
+            background: rgba(139,92,246,0.2); border-radius: 2px; outline: none;
+        }
+        .slider-container input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 16px; height: 16px;
+            border-radius: 50%; background: var(--accent-violet);
+            cursor: pointer; box-shadow: 0 0 8px rgba(139,92,246,0.4);
+        }
+        .slider-value {
+            font-family: var(--font-mono); font-size: 13px; font-weight: 600;
+            color: var(--accent-violet); min-width: 36px; text-align: center;
+        }
+
+        /* Toggle */
+        .toggle-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 0;
+        }
+        .toggle-label { font-size: 13px; color: var(--text-secondary); }
+        .toggle-switch {
+            position: relative; width: 44px; height: 24px; cursor: pointer;
+        }
+        .toggle-switch input { display: none; }
+        .toggle-track {
+            position: absolute; inset: 0; border-radius: 12px;
+            background: rgba(85,88,112,0.3); transition: background 0.3s;
+        }
+        .toggle-switch input:checked + .toggle-track {
+            background: var(--accent-violet);
+        }
+        .toggle-knob {
+            position: absolute; top: 3px; left: 3px;
+            width: 18px; height: 18px; border-radius: 50%;
+            background: white; transition: transform 0.3s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        .toggle-switch input:checked ~ .toggle-knob {
+            transform: translateX(20px);
+        }
+
+        /* Password Input Wrapper */
+        .input-password-wrap {
+            position: relative;
+        }
+        .input-password-wrap .form-input {
+            padding-right: 40px;
+        }
+        .input-password-wrap button {
+            position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+            background: none; border: none; color: var(--text-muted);
+            cursor: pointer; font-size: 14px; padding: 4px;
+        }
+        .input-password-wrap button:hover { color: var(--text-secondary); }
+
+        /* === API Key Banner === */
+        .api-banner {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 14px; border-radius: var(--radius-sm);
+            font-size: 12px; margin-bottom: 14px;
+        }
+        .api-banner.error {
+            background: rgba(244,63,94,0.08); border: 1px solid rgba(244,63,94,0.2);
+            color: var(--accent-rose);
+        }
+        .api-banner.success {
+            background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2);
+            color: var(--accent-emerald);
+        }
+        .api-banner i { font-size: 14px; flex-shrink: 0; }
+
+        /* === Buttons === */
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            padding: 12px 24px; border-radius: var(--radius-sm);
+            font-family: var(--font-sans); font-size: 13px; font-weight: 700;
+            letter-spacing: 0.5px; border: none; cursor: pointer;
+            transition: all 0.25s; text-transform: uppercase; width: 100%;
+        }
+        .btn:active { transform: scale(0.97); }
+        .btn:disabled {
+            opacity: 0.35; cursor: not-allowed; transform: none !important;
+        }
+
+        .btn-save {
+            background: linear-gradient(135deg, var(--accent-blue), #2563eb);
+            color: white; box-shadow: 0 4px 15px rgba(59,130,246,0.25);
+        }
+        .btn-save:hover:not(:disabled) { box-shadow: 0 4px 25px rgba(59,130,246,0.4); }
+
+        .btn-start {
+            background: linear-gradient(135deg, var(--accent-emerald), #059669);
+            color: white; box-shadow: 0 4px 15px rgba(16,185,129,0.25);
+            font-size: 15px; padding: 14px 24px;
+        }
+        .btn-start:hover:not(:disabled) {
+            box-shadow: 0 4px 30px rgba(16,185,129,0.4);
+            transform: translateY(-1px);
+        }
+
+        .btn-stop {
+            background: linear-gradient(135deg, var(--accent-rose), #dc2626);
+            color: white; box-shadow: 0 4px 15px rgba(244,63,94,0.25);
+            font-size: 15px; padding: 14px 24px;
+        }
+        .btn-stop:hover:not(:disabled) {
+            box-shadow: 0 4px 30px rgba(244,63,94,0.4);
+            transform: translateY(-1px);
+        }
+
+        .control-buttons {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+            margin-top: 8px;
+        }
+
+        /* === Log Area === */
+        .log-area {
+            background: var(--bg-input);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            padding: 12px 14px;
+            height: 160px; overflow-y: auto;
+            font-family: var(--font-mono); font-size: 11.5px;
+            line-height: 1.8; color: var(--text-muted);
+        }
+        .log-area .log-entry {
+            padding: 1px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.02);
+        }
+        .log-area .log-entry:last-child { border: none; }
+        .log-area::-webkit-scrollbar { width: 4px; }
+        .log-area::-webkit-scrollbar-track { background: transparent; }
+        .log-area::-webkit-scrollbar-thumb {
+            background: rgba(139,92,246,0.3); border-radius: 2px;
+        }
+
+        /* === Transcript / Chat === */
+        .chat-area {
+            background: var(--bg-input);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            min-height: 200px; max-height: 350px; overflow-y: auto;
+        }
+        .chat-area::-webkit-scrollbar { width: 4px; }
+        .chat-area::-webkit-scrollbar-track { background: transparent; }
+        .chat-area::-webkit-scrollbar-thumb {
+            background: rgba(139,92,246,0.3); border-radius: 2px;
+        }
+        .chat-empty {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            height: 160px; color: var(--text-muted);
+        }
+        .chat-empty i { font-size: 32px; margin-bottom: 12px; opacity: 0.3; }
+        .chat-empty span { font-size: 13px; }
+
+        .chat-bubble {
+            max-width: 85%; padding: 10px 14px;
+            border-radius: 14px; margin-bottom: 10px;
+            font-size: 13px; line-height: 1.55;
+            animation: bubbleIn 0.3s ease-out;
+        }
+        @keyframes bubbleIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .chat-bubble.user {
+            background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.15);
+            color: #93c5fd; margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+        .chat-bubble.assistant {
+            background: rgba(139,92,246,0.1); border: 1px solid rgba(139,92,246,0.15);
+            color: #c4b5fd;
+            border-bottom-left-radius: 4px;
+        }
+        .chat-bubble .chat-role {
+            font-size: 10px; font-weight: 700; letter-spacing: 1px;
+            text-transform: uppercase; margin-bottom: 4px; opacity: 0.6;
+        }
+        .chat-bubble .chat-time {
+            font-size: 10px; opacity: 0.4; margin-top: 4px;
+            font-family: var(--font-mono);
+        }
+
+        /* === AI Pulse Ring === */
+        .ai-pulse-ring {
+            display: none; align-items: center; justify-content: center;
+            margin: 12px auto; width: 60px; height: 60px;
+        }
+        .ai-pulse-ring.active { display: flex; }
+        .ai-pulse-ring .ring {
+            position: absolute; border-radius: 50%;
+            border: 2px solid var(--accent-violet);
+            animation: pulseRing 2s ease-out infinite;
+        }
+        .ai-pulse-ring .ring:nth-child(1) { width: 30px; height: 30px; }
+        .ai-pulse-ring .ring:nth-child(2) { width: 45px; height: 45px; animation-delay: 0.5s; }
+        .ai-pulse-ring .ring:nth-child(3) { width: 60px; height: 60px; animation-delay: 1s; }
+        @keyframes pulseRing {
+            0% { opacity: 0.8; transform: scale(0.8); }
+            100% { opacity: 0; transform: scale(1.3); }
+        }
+        .ai-pulse-ring i {
+            position: relative; z-index: 1; font-size: 20px;
+            color: var(--accent-violet); animation: micPulse 1s ease-in-out infinite;
+        }
+        @keyframes micPulse {
+            0%, 100% { opacity: 0.7; }
+            50% { opacity: 1; }
+        }
+
+        /* === Responsive === */
+        @media (max-width: 768px) {
+            .main-grid { grid-template-columns: 1fr; }
+            .header { padding: 16px 20px; }
+            .header-title { font-size: 16px; }
+            .form-row { grid-template-columns: 1fr; }
+            .control-buttons { grid-template-columns: 1fr; }
+            .app-container { padding: 12px 10px 30px; }
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center py-10 px-4 relative">
-    
-    <!-- Arka plan Süslemeleri -->
-    <div class="fixed top-[-10vh] left-[-10vw] w-[50vw] h-[50vw] bg-purple-900/20 rounded-full blur-[100px] pointer-events-none"></div>
-    <div class="fixed bottom-[-10vh] right-[-10vw] w-[40vw] h-[40vw] bg-blue-900/20 rounded-full blur-[100px] pointer-events-none"></div>
+<body>
 
-    <div class="z-10 w-full max-w-4xl flex flex-col gap-6">
+    <!-- Ambient Background -->
+    <div class="ambient-bg">
+        <div class="ambient-orb orb-1"></div>
+        <div class="ambient-orb orb-2"></div>
+        <div class="ambient-orb orb-3"></div>
+    </div>
 
-        <!-- Header -->
-        <div class="bg-gray-900/80 backdrop-blur-md border border-gray-800 rounded-2xl p-6 flex justify-between items-center shadow-xl">
-            <div class="flex items-center gap-4 text-purple-400 font-tech">
-                <i class="fa-solid fa-server text-4xl"></i>
+    <div class="app-container">
+
+        <!-- ===== HEADER ===== -->
+        <header class="header">
+            <div class="header-brand">
+                <div class="header-logo"><i class="fa-solid fa-robot"></i></div>
                 <div>
-                    <h1 class="text-2xl font-bold tracking-widest text-white">WECTOR AI</h1>
-                    <span class="text-sm">BACKEND DASHBOARD</span>
+                    <div class="header-title">WECTOR AI</div>
+                    <div class="header-subtitle">Kontrol Paneli</div>
                 </div>
             </div>
-            <div class="flex items-center gap-2">
-                <div id="ui-connection-status" class="px-3 py-1 bg-green-900/30 border border-green-500/50 text-green-400 rounded-full text-xs font-tech flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                    UI CANLI
-                </div>
+            <div id="uiStatus" class="header-status connected">
+                <span class="status-dot pulse" style="background:var(--accent-emerald)"></span>
+                DASHBOARD
             </div>
-        </div>
+        </header>
 
-        <!-- Ana Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            
-            <!-- Sol: API Key Ayarları -->
-            <div class="bg-gray-900/60 backdrop-blur-md border border-gray-800 rounded-2xl p-6 shadow-xl flex flex-col">
-                <h2 class="text-xl font-tech text-blue-400 mb-4 border-b border-gray-800 pb-2"><i class="fa-solid fa-key mr-2"></i> Gemini API Lisansı</h2>
-                
-                <div id="api-status-banner" class="mb-4 p-3 rounded-lg bg-red-900/20 border border-red-500/30 text-red-400 text-sm flex items-center gap-3">
-                    <i class="fa-solid fa-triangle-exclamation text-lg"></i>
-                    <span>Sistemde API Anahtarı bulunamadı! Lütfen anahtarınızı girin.</span>
-                </div>
+        <!-- ===== MAIN GRID ===== -->
+        <div class="main-grid">
 
-                <p class="text-gray-400 text-sm mb-4">Gemini Live API'sini kullanabilmek için geçerli bir sistem API anahtarı giriniz. Anahtar gizli olarak (.env dosyasına) kaydedilecektir.</p>
-                
-                <div class="flex flex-col gap-2 relative mt-auto">
-                    <label class="text-xs font-bold text-gray-500">GEMINI API KEY</label>
-                    <div class="relative">
-                        <input type="password" id="apiKeyInput" placeholder="sk-..." class="w-full bg-black/50 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500 transition-colors">
-                        <button onclick="togglePassword()" class="absolute right-3 top-3 text-gray-500 hover:text-gray-300"><i class="fa-solid fa-eye" id="eyeIcon"></i></button>
+            <!-- Left Column: API Key + System Status -->
+            <div style="display:flex;flex-direction:column;gap:20px;">
+
+                <!-- API Key Card -->
+                <div class="card">
+                    <div class="card-header" style="color:var(--accent-blue)">
+                        <i class="fa-solid fa-key"></i>
+                        <h2>API Anahtarı</h2>
                     </div>
-                    <button onclick="saveApiKey()" class="mt-2 w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-all active:scale-95">
-                        KAYDET
+
+                    <div id="apiBanner" class="api-banner error">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span>API Anahtarı girilmemiş!</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Gemini API Key</label>
+                        <div class="input-password-wrap">
+                            <input type="password" id="apiKeyInput" class="form-input" placeholder="AIza...">
+                            <button onclick="togglePassword()" title="Göster/Gizle">
+                                <i class="fa-solid fa-eye" id="eyeIcon"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button onclick="saveApiKey()" class="btn btn-save" style="margin-top:8px;">
+                        <i class="fa-solid fa-floppy-disk"></i> Kaydet
                     </button>
                 </div>
+
+                <!-- System Status Card -->
+                <div class="card">
+                    <div class="card-header" style="color:var(--accent-violet)">
+                        <i class="fa-solid fa-network-wired"></i>
+                        <h2>Sistem Durumu</h2>
+                    </div>
+
+                    <div id="nodeEsp32" class="status-node">
+                        <div class="status-node-left">
+                            <i class="fa-solid fa-robot" id="iconEsp32"></i>
+                            <div>
+                                <h3>Robot (ESP32)</h3>
+                                <small>ws://localhost:8080</small>
+                            </div>
+                        </div>
+                        <span id="badgeEsp32" class="status-badge waiting">BEKLENİYOR</span>
+                    </div>
+
+                    <div id="nodeGemini" class="status-node">
+                        <div class="status-node-left">
+                            <i class="fa-solid fa-gem" id="iconGemini"></i>
+                            <div>
+                                <h3>Gemini Live</h3>
+                                <small>Generative Language API</small>
+                            </div>
+                        </div>
+                        <span id="badgeGemini" class="status-badge waiting">BEKLENİYOR</span>
+                    </div>
+
+                    <!-- AI Pulse Ring -->
+                    <div id="aiPulse" class="ai-pulse-ring">
+                        <div class="ring"></div>
+                        <div class="ring"></div>
+                        <div class="ring"></div>
+                        <i class="fa-solid fa-microphone"></i>
+                    </div>
+
+                    <!-- Control Buttons -->
+                    <div class="control-buttons">
+                        <button id="btnStart" onclick="startAI()" class="btn btn-start" disabled>
+                            <i class="fa-solid fa-play"></i> Başlat
+                        </button>
+                        <button id="btnStop" onclick="stopAI()" class="btn btn-stop" disabled>
+                            <i class="fa-solid fa-stop"></i> Durdur
+                        </button>
+                    </div>
+                </div>
             </div>
 
-            <!-- Sağ: Bağlantı Durumları -->
-            <div class="bg-gray-900/60 backdrop-blur-md border border-gray-800 rounded-2xl p-6 shadow-xl flex flex-col gap-4">
-                <h2 class="text-xl font-tech text-purple-400 mb-2 border-b border-gray-800 pb-2"><i class="fa-solid fa-network-wired mr-2"></i> Sistem Durumu</h2>
-                
-                <!-- ESP32 Status -->
-                <div class="flex items-center justify-between p-4 bg-black/30 rounded-xl border border-gray-800">
-                    <div class="flex items-center gap-3">
-                        <i class="fa-solid fa-robot text-2xl text-gray-500" id="icon-esp32"></i>
-                        <div>
-                            <h3 class="font-bold text-gray-300">Robot (ESP32)</h3>
-                            <span class="text-xs text-gray-500">ws://localhost:8080</span>
-                        </div>
+            <!-- Right Column: AI Customization -->
+            <div class="card">
+                <div class="card-header" style="color:var(--accent-cyan)">
+                    <i class="fa-solid fa-sliders"></i>
+                    <h2>AI Kişiselleştirme</h2>
+                </div>
+
+                <!-- System Prompt -->
+                <div class="form-group">
+                    <label class="form-label">🧠 Sistem Promptu</label>
+                    <textarea id="cfgPrompt" class="form-textarea" rows="3" placeholder="Robotun kişiliğini tanımla...">Sen Wector adında yardımsever, cana yakın ve fütüristik bir robotsun. Feramuz isimli yapımcın tarafından yaratıldın. İnsanlarla doğal ve esprili bir dille samimi şekilde konuşursun. Cevapların her zaman çok kısa olmalı, gereksiz cümle uzatma.</textarea>
+                </div>
+
+                <!-- Voice + Model Row -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">🗣️ Ses</label>
+                        <select id="cfgVoice" class="form-select">
+                            <option value="Aoede" selected>Aoede (Kadın)</option>
+                            <option value="Puck">Puck (Erkek)</option>
+                            <option value="Charon">Charon (Erkek)</option>
+                            <option value="Kore">Kore (Kadın)</option>
+                            <option value="Fenrir">Fenrir (Erkek)</option>
+                            <option value="Leda">Leda (Kadın)</option>
+                            <option value="Orus">Orus (Erkek)</option>
+                            <option value="Perseus">Perseus (Erkek)</option>
+                        </select>
                     </div>
-                    <div id="status-esp32" class="px-3 py-1 bg-gray-800 border border-gray-600 text-gray-400 rounded-lg text-sm font-tech">
-                        BEKLENİYOR
+                    <div class="form-group">
+                        <label class="form-label">🤖 Model</label>
+                        <select id="cfgModel" class="form-select">
+                            <option value="models/gemini-2.5-flash-native-audio-latest" selected>Gemini 2.5 Flash Native Audio</option>
+                            <option value="models/gemini-3.1-flash-live-preview">Gemini 3.1 Flash Live Preview</option>
+                        </select>
                     </div>
                 </div>
 
-                <!-- Gemini Status -->
-                <div class="flex items-center justify-between p-4 bg-black/30 rounded-xl border border-gray-800">
-                    <div class="flex items-center gap-3">
-                        <i class="fa-solid fa-gem text-2xl text-gray-500" id="icon-openai"></i>
-                        <div>
-                            <h3 class="font-bold text-gray-300">Gemini Live</h3>
-                            <span class="text-xs text-gray-500">Generative Language API</span>
+                <!-- Speaker Name + Temperature Row -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">📛 Konuşan Kişi</label>
+                        <input type="text" id="cfgSpeaker" class="form-input" value="Kullanıcı" placeholder="İsim girin...">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">🌡️ Temperature</label>
+                        <div class="slider-container" style="margin-top:4px;">
+                            <input type="range" id="cfgTemp" min="0" max="2" step="0.1" value="1.0" oninput="document.getElementById('tempVal').textContent=this.value">
+                            <span class="slider-value" id="tempVal">1.0</span>
                         </div>
                     </div>
-                    <div id="status-openai" class="px-3 py-1 bg-gray-800 border border-gray-600 text-gray-400 rounded-lg text-sm font-tech">
-                        BEKLENİYOR
+                </div>
+
+                <!-- Volume Row -->
+                <div class="form-row" style="margin-top: 16px;">
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label class="form-label">🔊 Ses Seviyesi (Volume)</label>
+                        <div class="slider-container" style="margin-top:4px;">
+                            <input type="range" id="cfgVolume" min="0.1" max="3.0" step="0.1" value="1.0" oninput="document.getElementById('volVal').textContent=this.value">
+                            <span class="slider-value" id="volVal">1.0x</span>
+                        </div>
                     </div>
                 </div>
+
+                <!-- Proactivity Toggle -->
+                <div class="toggle-row">
+                    <span class="toggle-label">
+                        <i class="fa-solid fa-brain" style="margin-right:6px;color:var(--accent-amber)"></i>
+                        Proaktif Yanıt (İlgisiz sesleri yoksay)
+                    </span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="cfgProactive">
+                        <span class="toggle-track"></span>
+                        <span class="toggle-knob"></span>
+                    </label>
+                </div>
+
+                <!-- Transcription Toggle -->
+                <div class="toggle-row">
+                    <span class="toggle-label">
+                        <i class="fa-solid fa-file-lines" style="margin-right:6px;color:var(--accent-cyan)"></i>
+                        Transkript Açık (Ekstra Token Kullanır)
+                    </span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="cfgTranscription" checked>
+                        <span class="toggle-track"></span>
+                        <span class="toggle-knob"></span>
+                    </label>
+                </div>
+
+                <hr style="border:none;border-top:1px solid var(--border-subtle);margin:14px 0;">
+
+                <button onclick="saveConfig()" class="btn btn-save">
+                    <i class="fa-solid fa-gear"></i> Ayarları Kaydet
+                </button>
             </div>
         </div>
 
-        <!-- Alt: Log ve Transkript -->
-        <div class="grid grid-cols-1 gap-6">
-            <div class="bg-gray-900/60 backdrop-blur-md border border-gray-800 rounded-2xl p-6 shadow-xl flex flex-col">
-                <h2 class="text-xl font-tech text-green-400 mb-4 border-b border-gray-800 pb-2"><i class="fa-solid fa-comment-dots mr-2"></i> Canlı Transkript & Log</h2>
-                
-                <div class="flex flex-col gap-4">
-                    <div class="p-4 bg-black/50 border border-gray-800 rounded-xl h-24 overflow-y-auto font-mono text-sm text-gray-400 flex flex-col justify-end" id="systemLogContainer">
-                        <span id="logText" class="text-green-500">> Sistem başlatıldı...</span>
-                    </div>
+        <!-- ===== LOG & TRANSCRIPT (Full Width) ===== -->
+        <div class="main-grid" style="grid-template-columns: 1fr 1.2fr;">
 
-                    <div class="relative p-6 bg-purple-900/10 border border-purple-500/20 rounded-xl min-h-[120px] flex items-center justify-center text-center shadow-[inset_0_0_20px_rgba(188,19,254,0.05)]">
-                        <i class="fa-solid fa-quote-left absolute top-4 left-4 text-purple-500/30 text-3xl"></i>
-                        <p id="transcriptText" class="text-xl text-gray-300 font-light italic leading-relaxed">...</p>
-                        <i class="fa-solid fa-quote-right absolute bottom-4 right-4 text-purple-500/30 text-3xl"></i>
+            <!-- System Log -->
+            <div class="card">
+                <div class="card-header" style="color:var(--accent-emerald)">
+                    <i class="fa-solid fa-terminal"></i>
+                    <h2>Sistem Logları</h2>
+                </div>
+                <div class="log-area" id="logArea">
+                    <div class="log-entry" style="color:var(--accent-emerald)">▸ Sunucu başlatıldı...</div>
+                </div>
+            </div>
+
+            <!-- Chat / Transcript -->
+            <div class="card">
+                <div class="card-header" style="color:var(--accent-amber)">
+                    <i class="fa-solid fa-comments"></i>
+                    <h2>Sohbet Transkripti</h2>
+                </div>
+                <div class="chat-area" id="chatArea">
+                    <div class="chat-empty">
+                        <i class="fa-solid fa-comment-slash"></i>
+                        <span>AI başlatıldığında sohbet burada görünecek</span>
                     </div>
                 </div>
             </div>
@@ -130,105 +706,228 @@
 
     </div>
 
-    <!-- Frontend Script -->
+    <!-- ===== JAVASCRIPT ===== -->
     <script>
-        // API Key Görünürlük
-        function togglePassword() {
-            const inp = document.getElementById('apiKeyInput');
-            const icon = document.getElementById('eyeIcon');
-            if(inp.type === 'password') {
-                inp.type = 'text';
-                icon.classList.remove('fa-eye');
-                icon.classList.add('fa-eye-slash');
+        // ===================== STATE =====================
+        let currentState = { esp32: false, gemini: false, aiRunning: false };
+        let logEntries = [];
+        const MAX_LOG = 100;
+
+        // ===================== WS CONNECTION =====================
+        const ws = new WebSocket(`ws://${window.location.host}/ui`);
+
+        ws.onopen = () => updateUIStatus(true);
+        ws.onclose = () => updateUIStatus(false);
+
+        ws.onmessage = (event) => {
+            const status = JSON.parse(event.data);
+            currentState = status;
+            updateSystemNodes(status);
+            updateControlButtons(status);
+            updateLog(status.log);
+            updateChat(status.transcriptHistory);
+        };
+
+        function updateUIStatus(connected) {
+            const el = document.getElementById('uiStatus');
+            if (connected) {
+                el.className = 'header-status connected';
+                el.innerHTML = '<span class="status-dot pulse" style="background:var(--accent-emerald)"></span>DASHBOARD';
             } else {
-                inp.type = 'password';
-                icon.classList.remove('fa-eye-slash');
-                icon.classList.add('fa-eye');
+                el.className = 'header-status disconnected';
+                el.innerHTML = '<span class="status-dot" style="background:var(--accent-rose)"></span>BAĞLANTI KOPTU';
             }
         }
 
-        // Başlangıçta API Key var mı kontrol et
-        fetch('/api/status').then(r => r.json()).then(data => {
-            const banner = document.getElementById('api-status-banner');
-            if(data.hasApiKey) {
-                banner.className = "mb-4 p-3 rounded-lg bg-green-900/20 border border-green-500/30 text-green-400 text-sm flex items-center gap-3";
-                banner.innerHTML = `<i class="fa-solid fa-circle-check text-lg"></i><span>Sistemde API Anahtarı kayıtlı ve hazır.</span>`;
+        function updateSystemNodes(s) {
+            // ESP32
+            const bEsp = document.getElementById('badgeEsp32');
+            const iEsp = document.getElementById('iconEsp32');
+            if (s.esp32) {
+                bEsp.className = 'status-badge online'; bEsp.textContent = 'BAĞLI';
+                iEsp.style.color = 'var(--accent-emerald)';
+            } else {
+                bEsp.className = 'status-badge waiting'; bEsp.textContent = 'BEKLENİYOR';
+                iEsp.style.color = 'var(--text-muted)';
             }
-        });
 
-        // API Key Kaydet
+            // Gemini
+            const bGem = document.getElementById('badgeGemini');
+            const iGem = document.getElementById('iconGemini');
+            if (s.aiRunning) {
+                bGem.className = 'status-badge active'; bGem.textContent = 'AKTİF';
+                iGem.style.color = 'var(--accent-violet)';
+            } else if (s.gemini) {
+                bGem.className = 'status-badge online'; bGem.textContent = 'BAĞLI';
+                iGem.style.color = 'var(--accent-emerald)';
+            } else {
+                bGem.className = 'status-badge waiting'; bGem.textContent = 'BEKLENİYOR';
+                iGem.style.color = 'var(--text-muted)';
+            }
+
+            // Pulse ring
+            const pulse = document.getElementById('aiPulse');
+            pulse.className = s.aiRunning ? 'ai-pulse-ring active' : 'ai-pulse-ring';
+        }
+
+        function updateControlButtons(s) {
+            const btnStart = document.getElementById('btnStart');
+            const btnStop = document.getElementById('btnStop');
+            btnStart.disabled = !s.esp32 || s.aiRunning;
+            btnStop.disabled = !s.aiRunning;
+        }
+
+        // ===================== LOG =====================
+        let lastLog = '';
+        function updateLog(log) {
+            if (!log || log === lastLog) return;
+            lastLog = log;
+            const area = document.getElementById('logArea');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+
+            // Log renklendirme
+            let color = 'var(--text-muted)';
+            if (log.includes('❌') || log.includes('HATA')) color = 'var(--accent-rose)';
+            else if (log.includes('✅') || log.includes('🟢')) color = 'var(--accent-emerald)';
+            else if (log.includes('⚠️')) color = 'var(--accent-amber)';
+            else if (log.includes('🔊') || log.includes('🎤') || log.includes('🗣️')) color = 'var(--accent-cyan)';
+            else if (log.includes('⚙️') || log.includes('🔄')) color = 'var(--accent-violet)';
+
+            entry.style.color = color;
+            entry.textContent = `▸ ${log}`;
+            area.appendChild(entry);
+
+            // Max log sınırı
+            while (area.children.length > MAX_LOG) area.removeChild(area.firstChild);
+            area.scrollTop = area.scrollHeight;
+        }
+
+        // ===================== CHAT =====================
+        let lastChatLen = 0;
+        function updateChat(history) {
+            if (!history || history.length === lastChatLen) return;
+            lastChatLen = history.length;
+            const area = document.getElementById('chatArea');
+
+            if (history.length === 0) {
+                area.innerHTML = '<div class="chat-empty"><i class="fa-solid fa-comment-slash"></i><span>AI başlatıldığında sohbet burada görünecek</span></div>';
+                return;
+            }
+
+            area.innerHTML = '';
+            const speakerName = document.getElementById('cfgSpeaker').value || 'Kullanıcı';
+
+            history.forEach(msg => {
+                const bubble = document.createElement('div');
+                bubble.className = `chat-bubble ${msg.role}`;
+                const roleName = msg.role === 'user' ? speakerName : 'Wector';
+                bubble.innerHTML = `
+                    <div class="chat-role">${roleName}</div>
+                    <div>${msg.text}</div>
+                    <div class="chat-time">${msg.time}</div>
+                `;
+                area.appendChild(bubble);
+            });
+            area.scrollTop = area.scrollHeight;
+        }
+
+        // ===================== API KEY =====================
+        function togglePassword() {
+            const inp = document.getElementById('apiKeyInput');
+            const icon = document.getElementById('eyeIcon');
+            if (inp.type === 'password') {
+                inp.type = 'text';
+                icon.classList.replace('fa-eye', 'fa-eye-slash');
+            } else {
+                inp.type = 'password';
+                icon.classList.replace('fa-eye-slash', 'fa-eye');
+            }
+        }
+
         async function saveApiKey() {
-            const key = document.getElementById('apiKeyInput').value;
-            if(!key || key.length < 10) return alert('Geçersiz anahtar uzunluğu.');
-            
+            const key = document.getElementById('apiKeyInput').value.trim();
+            if (!key || key.length < 10) return alert('Geçersiz anahtar!');
             const res = await fetch('/api/save-key', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ apiKey: key })
             });
             const data = await res.json();
-            if(data.success) {
+            if (data.success) {
                 document.getElementById('apiKeyInput').value = '';
-                const banner = document.getElementById('api-status-banner');
-                banner.className = "mb-4 p-3 rounded-lg bg-green-900/20 border border-green-500/30 text-green-400 text-sm flex items-center gap-3";
-                banner.innerHTML = `<i class="fa-solid fa-circle-check text-lg"></i><span>Sistemde API Anahtarı kayıtlı ve hazır.</span>`;
+                showApiBanner(true);
             }
         }
 
-        // WebSocket Bağlantısı (Loglar ve Durum)
-        const ws = new WebSocket(`ws://${window.location.host}/ui`);
-
-        ws.onopen = () => {
-            document.getElementById('ui-connection-status').className = "px-3 py-1 bg-green-900/30 border border-green-500 text-green-400 rounded-full text-xs font-tech flex items-center gap-2 shadow-[0_0_10px_#22c55e]";
-        };
-
-        ws.onclose = () => {
-            document.getElementById('ui-connection-status').className = "px-3 py-1 bg-red-900/30 border border-red-500 text-red-500 rounded-full text-xs font-tech flex items-center gap-2";
-            document.getElementById('ui-connection-status').innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500"></span>BAĞLANTI KOPTU';
-        };
-
-        ws.onmessage = (event) => {
-            const status = JSON.parse(event.data);
-            
-            // ESP32 UI Update
-            const elEsp32 = document.getElementById('status-esp32');
-            const iconEsp32 = document.getElementById('icon-esp32');
-            if (status.esp32) {
-                elEsp32.className = "px-3 py-1 bg-blue-900/40 border border-blue-500 text-blue-300 rounded-lg text-sm font-tech shadow-[0_0_10px_#3b82f6]";
-                elEsp32.innerText = "BAĞLI";
-                iconEsp32.className = "fa-solid fa-robot text-2xl text-blue-400 animate-pulse";
+        function showApiBanner(ok) {
+            const b = document.getElementById('apiBanner');
+            if (ok) {
+                b.className = 'api-banner success';
+                b.innerHTML = '<i class="fa-solid fa-circle-check"></i><span>API Anahtarı kayıtlı ve hazır.</span>';
             } else {
-                elEsp32.className = "px-3 py-1 bg-gray-800 border border-gray-600 text-gray-400 rounded-lg text-sm font-tech";
-                elEsp32.innerText = "BEKLENİYOR";
-                iconEsp32.className = "fa-solid fa-robot text-2xl text-gray-600";
+                b.className = 'api-banner error';
+                b.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i><span>API Anahtarı girilmemiş!</span>';
             }
+        }
 
-            // Gemini UI Update
-            const elOpenAI = document.getElementById('status-openai');
-            const iconOpenAI = document.getElementById('icon-openai');
-            if (status.openai) {
-                elOpenAI.className = "px-3 py-1 bg-purple-900/40 border border-purple-500 text-purple-300 rounded-lg text-sm font-tech shadow-[0_0_10px_#a855f7]";
-                elOpenAI.innerText = "BAĞLI";
-                iconOpenAI.className = "fa-solid fa-gem text-2xl text-purple-400 animate-pulse";
-            } else {
-                elOpenAI.className = "px-3 py-1 bg-gray-800 border border-gray-600 text-gray-400 rounded-lg text-sm font-tech";
-                elOpenAI.innerText = "BEKLENİYOR";
-                iconOpenAI.className = "fa-solid fa-gem text-2xl text-gray-600";
+        // Başlangıç kontrolü
+        fetch('/api/status').then(r => r.json()).then(d => showApiBanner(d.hasApiKey));
+
+        // ===================== CONFIG =====================
+        async function loadConfig() {
+            try {
+                const res = await fetch('/api/config');
+                const cfg = await res.json();
+                document.getElementById('cfgPrompt').value = cfg.systemPrompt || '';
+                document.getElementById('cfgVoice').value = cfg.voiceName || 'Aoede';
+                document.getElementById('cfgModel').value = cfg.model || 'models/gemini-2.5-flash-native-audio-latest';
+                document.getElementById('cfgSpeaker').value = cfg.speakerName || 'Kullanıcı';
+                document.getElementById('cfgTemp').value = cfg.temperature ?? 1.0;
+                document.getElementById('tempVal').textContent = cfg.temperature ?? '1.0';
+                document.getElementById('cfgProactive').checked = !!cfg.proactiveAudio;
+                
+                document.getElementById('cfgVolume').value = cfg.volume ?? 1.0;
+                document.getElementById('volVal').textContent = (cfg.volume ?? 1.0) + 'x';
+                // undefined ise varsayılan true kabul edelim
+                document.getElementById('cfgTranscription').checked = cfg.transcriptionEnabled !== false;
+            } catch (e) {
+                console.warn('Config yüklenemedi:', e);
             }
+        }
+        loadConfig();
 
-            // Log Update
-            if (status.log) {
-                const logCont = document.getElementById('systemLogContainer');
-                logCont.innerHTML += `<div class="mt-1">> ${status.log}</div>`;
-                logCont.scrollTop = logCont.scrollHeight;
-            }
+        function getConfigFromUI() {
+            return {
+                systemPrompt: document.getElementById('cfgPrompt').value,
+                voiceName: document.getElementById('cfgVoice').value,
+                model: document.getElementById('cfgModel').value,
+                speakerName: document.getElementById('cfgSpeaker').value,
+                temperature: parseFloat(document.getElementById('cfgTemp').value),
+                proactiveAudio: document.getElementById('cfgProactive').checked,
+                volume: parseFloat(document.getElementById('cfgVolume').value),
+                transcriptionEnabled: document.getElementById('cfgTranscription').checked
+            };
+        }
 
-            // Transcript
-            if (status.transcript) {
-                document.getElementById('transcriptText').innerText = status.transcript;
-            }
-        };
+        async function saveConfig() {
+            const cfg = getConfigFromUI();
+            await fetch('/api/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(cfg)
+            });
+        }
 
+        // ===================== START / STOP AI =====================
+        function startAI() {
+            const cfg = getConfigFromUI();
+            ws.send(JSON.stringify({ type: 'start-ai', config: cfg }));
+        }
+
+        function stopAI() {
+            ws.send(JSON.stringify({ type: 'stop-ai' }));
+        }
     </script>
 </body>
 </html>

@@ -661,6 +661,22 @@ void aiWebSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
           bool mute = (bool)obj["mute"];
           micMuted = mute;
           Serial.printf("[AI] Mic %s\n", micMuted ? "MUTE" : "UNMUTE");
+        } else if (t == "server_command" && obj.hasOwnProperty("modeCommand")) {
+          // Sunucudan gelen AI mod komutu (Dashboard "Başlat"/"Durdur")
+          String modeCmd = (const char *)obj["modeCommand"];
+          if (modeCmd == "AI") {
+            isAIModeActive = true;
+            speakerTestPending = true;
+            micMuted = false;
+            lightMode = "PULSE";
+            selectedColor = pixels.Color(188, 19, 254);
+            Serial.println("[AI] Sunucu komutuyla AI Modu AKTIF!");
+          } else if (modeCmd == "NORMAL") {
+            isAIModeActive = false;
+            micMuted = false;
+            lightMode = "OFF";
+            Serial.println("[AI] Sunucu komutuyla Normal Moda donuldu.");
+          }
         }
       }
       break;
