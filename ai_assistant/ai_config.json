@@ -2,9 +2,9 @@
   "systemPrompt": "Sen Wector adında yardımsever, cana yakın ve fütüristik bir robotsun. Feramuz isimli yapımcın tarafından yaratıldın. Cevapların her zaman çok kısa olmalı, gereksiz cümle uzatma.",
   "voiceName": "Aoede",
   "model": "models/gemini-3.1-flash-live-preview",
-  "temperature": 1.8,
+  "temperature": 1,
   "speakerName": "Kullanıcı",
-  "proactiveAudio": false,
-  "volume": 0.9,
+  "proactiveAudio": true,
+  "volume": 1,
   "transcriptionEnabled": false
 }

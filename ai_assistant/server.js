@@ -471,11 +471,6 @@ function startGeminiSession() {
             }
         };
 
-        // Proaktiflik ayarı
-        if (aiConfig.proactiveAudio) {
-            sessionSetup.setup.proactivity = { proactiveAudio: true };
-        }
-
         // Transkript sadece açıksa ekle (token tasarrufu)
         if (aiConfig.transcriptionEnabled) {
             sessionSetup.setup.inputAudioTranscription = {};
@@ -594,19 +589,7 @@ function startGeminiSession() {
                             pcmBuffer = pcmBuffer.subarray(0, pcmBuffer.length - 1);
                         }
 
-                        // Ses seviyesi kontrolü
-                        if (pcmBuffer.length >= 2000) {
-                            let sum = 0;
-                            const samples = Math.min(1000, pcmBuffer.length / 2);
-                            for (let i = 0; i < samples * 2; i += 2) {
-                                sum += Math.abs(pcmBuffer.readInt16LE(i));
-                            }
-                            const avg = sum / samples;
-                            if (avg < 50) {
-                                uiLog(`⚠️ Gemini çok düşük ses (avg=${avg.toFixed(0)})`);
-                            }
-                        }
-
+                        // Ses seviyesi kontrolü (Kaldırıldı)
                         if (currentEsp32Ws && currentEsp32Ws.readyState === WebSocket.OPEN) {
                             enqueueAudioForEsp32(pcmBuffer);
                         }

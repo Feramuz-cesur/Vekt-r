@@ -748,12 +748,10 @@ void Task_AI_Speaker(void *parameter) {
           while(offset < num_samples) {
               int chunk = min(256, num_samples - offset);
               for(int i = 0; i < chunk; i++) {
-                  // Dijital ses seviyesini hafif arttir (Gemini cıkısı bazen cok dusuk geliyor)
-                  int32_t s = (int32_t)pcm_mono[offset + i] * 4;
-                  if (s > 32767) s = 32767;
-                  if (s < -32768) s = -32768;
-                  stereo_buffer[i * 2]     = (int16_t)s; // Left
-                  stereo_buffer[i * 2 + 1] = (int16_t)s; // Right
+                  // Gelen ham sesi hic carpmadan direkt stereo buffer'a kopyala
+                  int16_t s = pcm_mono[offset + i];
+                  stereo_buffer[i * 2]     = s; // Left
+                  stereo_buffer[i * 2 + 1] = s; // Right
               }
               i2s_write(I2S_SPEAKER_PORT, stereo_buffer, chunk * 4, &bytes_written, portMAX_DELAY);
               offset += chunk;
