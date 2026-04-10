@@ -345,6 +345,7 @@ function tryExtractPcmFromWav(wavBuffer) {
 let esp32AudioQueue = [];
 let isSendingAudio = false;
 let playbackActive = false;
+let playbackEndTimer = null; // Debounce: playback bitişini geciktir
 
 function setMicMute(mute) {
     if (currentEsp32Ws && currentEsp32Ws.readyState === WebSocket.OPEN) {
@@ -370,6 +371,12 @@ async function processAudioQueue() {
     if (isSendingAudio) return;
     isSendingAudio = true;
 
+    // Yeni ses geldi → bekleyen "playback bitti" zamanlayıcısını iptal et
+    if (playbackEndTimer) {
+        clearTimeout(playbackEndTimer);
+        playbackEndTimer = null;
+    }
+
     if (!playbackActive) {
         playbackActive = true;
         setMicMute(true);
@@ -385,24 +392,39 @@ async function processAudioQueue() {
         const buf = esp32AudioQueue.shift();
         // Ses seviyesini uygula
         const amplified = applyVolume(buf, aiConfig.volume);
-        // Daha küçük chunk + daha hızlı gönderim = daha az kesilme
-        const CHUNK_SIZE = 2048;
+
+        // ESP32'nin 16KB ringbuffer'ı taşmasın diye akış kontrolü (pacing) gerekli.
+        // Veriyi 4096 byte'lık parçalar halinde gönder, her parça arasında
+        // ses süresinin %95'i kadar bekle. Bu ESP32 buffer'ını beslerken taşırmaz.
+        // 4096 byte = ~85ms ses → setTimeout jitter'ı (%±12) daha az etkili.
+        const CHUNK_SIZE = 4096;
 
         for (let i = 0; i < amplified.length; i += CHUNK_SIZE) {
             if (!currentEsp32Ws || currentEsp32Ws.readyState !== WebSocket.OPEN) break;
             const chunk = amplified.subarray(i, i + CHUNK_SIZE);
             currentEsp32Ws.send(chunk);
-            // 24kHz PCM16 = 48000 byte/s, chunk = ~42ms gerçek süre
-            // 0.65 çarpanla ~27ms bekle → ESP32 buffer'ını dolu tut, kesilme azalt
+            // 24kHz PCM16 mono = 48000 byte/s
+            // 4096 byte ≈ 85ms ses süresi, %95 hızda gönder → ~81ms bekleme
             const durationMs = (chunk.length / 48000) * 1000;
-            await new Promise(r => setTimeout(r, durationMs * 0.98));
+            await new Promise(r => setTimeout(r, durationMs * 0.95));
         }
     }
 
     isSendingAudio = false;
-    playbackActive = false;
-    setMicMute(false);
-    uiLog("🎤 Dinleniyor...");
+
+    // Gemini sesi parça parça gönderir. Her parça sonrası hemen
+    // "playback bitti" demek yerine 500ms bekle. Bu sürede yeni
+    // ses parçası gelirse timer iptal olur ve playback kesintisiz devam eder.
+    // Gelmezse 500ms sonra mic açılır ve dinleme moduna geçilir.
+    if (playbackEndTimer) clearTimeout(playbackEndTimer);
+    playbackEndTimer = setTimeout(() => {
+        playbackEndTimer = null;
+        if (esp32AudioQueue.length === 0 && !isSendingAudio) {
+            playbackActive = false;
+            setMicMute(false);
+            uiLog("🎤 Dinleniyor...");
+        }
+    }, 500);
 }
 
 function enqueueAudioForEsp32(buffer) {

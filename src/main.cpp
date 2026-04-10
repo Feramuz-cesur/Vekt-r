@@ -684,8 +684,8 @@ void aiWebSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
     case WStype_BIN:
       // I2S Amfi (MAX98357A) kullanarak NodeJS'ten gelen PCM16 verisi yazilacak
       if (isAIModeActive && audio_ringbuf != NULL) {
-          // Blocking fonksiyon yuzunden ag frame'leri donmasin diye Buffer'a yolla
-          xRingbufferSend(audio_ringbuf, payload, length, 0); 
+          // pdMS_TO_TICKS(10): Buffer doluysa 10ms bekle, aninda atma (ses bozulmasi onlenir)
+          xRingbufferSend(audio_ringbuf, payload, length, pdMS_TO_TICKS(10)); 
       }
       break;
   }
@@ -732,8 +732,8 @@ void Task_AI_Speaker(void *parameter) {
         playSpeakerTestBeep();
       }
 
-      // 1024 byte'a kadar veri al (periyodik uyan ki test bip'i calabilsin)
-      void *item = xRingbufferReceiveUpTo(audio_ringbuf, &item_size, pdMS_TO_TICKS(100), 1024);
+      // 2048 byte'a kadar veri al (daha buyuk parcalar = daha az kesinti)
+      void *item = xRingbufferReceiveUpTo(audio_ringbuf, &item_size, pdMS_TO_TICKS(100), 2048);
       
       if (item != NULL) {
         if (isAIModeActive) {
@@ -742,11 +742,11 @@ void Task_AI_Speaker(void *parameter) {
           // PCM16 mono gelirse stereo frame'e kopyala (up-mix)
           int16_t* pcm_mono = (int16_t*)item;
           int num_samples = item_size / 2;
-          int16_t stereo_buffer[512]; // 256 sample * 2ch
+          int16_t stereo_buffer[1024]; // 512 sample * 2ch (2048 byte'a uygun)
 
           int offset = 0;
           while(offset < num_samples) {
-              int chunk = min(256, num_samples - offset);
+              int chunk = min(512, num_samples - offset);
               for(int i = 0; i < chunk; i++) {
                   // Gelen ham sesi hic carpmadan direkt stereo buffer'a kopyala
                   int16_t s = pcm_mono[offset + i];
