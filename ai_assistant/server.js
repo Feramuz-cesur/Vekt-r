@@ -578,7 +578,7 @@ function startGeminiSession() {
 
                     // Text çıktısı
                     if (part.text && part.text.trim() !== "") {
-                        uiTranscript('assistant', part.text);
+                        appendTranscript('assistant', part.text);
                     }
                 });
             }
@@ -586,9 +586,9 @@ function startGeminiSession() {
             // Lifecycle events
             if (data.serverContent) {
                 if (data.serverContent.turnComplete) {
-                    // Sıra tamamlandı → birikmiş transkriptleri flush et
-                    flushTranscript('assistant');
+                    // Sıra tamamlandı → ÖNCE kullanıcıyı, SONRA asistanı flush et
                     flushTranscript('user');
+                    flushTranscript('assistant');
                     uiLog("✔️ Yanıt tamamlandı.");
                 }
                 if (data.serverContent.generationComplete) uiLog("📝 Üretim tamamlandı.");
