@@ -770,13 +770,24 @@ void Task_Network(void *parameter) {
   for (;;) {
     ws.cleanupClients();
     ArduinoOTA.handle();
-    
-    // Eger AI modu aktifse, bilgisayara actigimiz Client websocketini de dondur
+    // aiClient.loop() artik ozel Task_AI_Network gorevinde calistiriliyor
+    vTaskDelay(10 / portTICK_PERIOD_MS);
+  }
+}
+
+// AI WebSocket iletisimi icin ozel gorev
+// Core 0'da yuksek oncelikle calisir, ses verisinin kesintisiz akmasini saglar.
+// Eskiden Task_Network icinde 10ms aralikla ve OTA/cleanup ile paylasimli calisiyordu,
+// bu da ses akisinda 500ms-1s'lik boşluklara sebep oluyordu.
+void Task_AI_Network(void *parameter) {
+  for (;;) {
     if (isAIModeActive) {
       aiClient.loop();
+      vTaskDelay(pdMS_TO_TICKS(2)); // AI aktif: 2ms aralikla cok sik polling
+    } else {
+      aiClient.loop(); // AI kapali: baglanti canli kalsin ama seyrek
+      vTaskDelay(pdMS_TO_TICKS(50));
     }
-    
-    vTaskDelay(10 / portTICK_PERIOD_MS);
   }
 }
 
@@ -987,15 +998,20 @@ void Task_Mantik(void *parameter) {
     }
 
     // *** 4. LED GÜNCELLEME ***
-    updateLEDs();
+    // AI modunda LED guncellemeyi seyrekleştir (her 100ms yerine her 200ms)
+    // CPU/WiFi kaynaklarini ses akisina oncelik ver
+    static unsigned long lastLedUpdate = 0;
+    if (!isAIModeActive || (currentMillis - lastLedUpdate >= 200)) {
+      lastLedUpdate = currentMillis;
+      updateLEDs();
+    }
 
     // *** 5. PİL YÜZDESİNİ WEBSOCKET İLE GÖNDERME ***
-    // (Saniyede bir kez veya 5 saniyede bir göndermek daha iyidir,
-    // biz her 5 saniyede bir UI'ı güncelleyelim ki Wi-Fi trafiği şişmesin)
+    // AI modunda pil okuma atlanir (40ms delay + ADC kullanimi gereksiz yuk)
     static unsigned long lastBatteryUpdate = 0;
-    if (currentMillis - lastBatteryUpdate >= 5000) {
+    if (!isAIModeActive && currentMillis - lastBatteryUpdate >= 5000) {
       lastBatteryUpdate = currentMillis;
-      if (ws.count() > 0) { // Sadece arayüz açıkken gönder
+      if (ws.count() > 0) {
         int batPercent = readBatteryPercentage();
         char msg[32];
         snprintf(msg, sizeof(msg), "{\"battery\": %d}", batPercent);
@@ -1064,8 +1080,9 @@ void initI2S() {
 void setup() {
   Serial.begin(115200);
 
-  // Ses icin 16KB gecici kopru bellek (RingBuffer)
-  audio_ringbuf = xRingbufferCreate(16384, RINGBUF_TYPE_BYTEBUF);
+  // Ses icin 20KB gecici kopru bellek (RingBuffer) - ~416ms ses tamponu
+  // 16KB (340ms) kesilmelere yol aciyordu, 32KB ise WiFi heap'ini kirdi
+  audio_ringbuf = xRingbufferCreate(20480, RINGBUF_TYPE_BYTEBUF);
   mic_ringbuf = xRingbufferCreate(8192, RINGBUF_TYPE_BYTEBUF); 
 
   // I2S Donanımlarını (Amfi ve I2S Mikrofon) Başlat
@@ -1153,6 +1170,8 @@ void setup() {
   xTaskCreatePinnedToCore(Task_AI_Audio, "TaskAIAudio", 10000, NULL, 3, NULL, 1);        // En yuksek oncelik (Prio=3) kilit kirici timer
   xTaskCreatePinnedToCore(Task_AI_Mic_Sender, "TaskAIMicSend", 10000, NULL, 1, NULL, 1); // Mic Network gonderici (Prio=1)
   xTaskCreatePinnedToCore(Task_AI_Speaker, "TaskAISpeaker", 10000, NULL, 2, NULL, 1); // Hoparloru bagimsiz isleyen kilit kirici
+  // AI WebSocket ozel gorevi: Core 0'da Prio=2, ses verisini hizli alir (OTA/cleanup'tan bagimsiz)
+  xTaskCreatePinnedToCore(Task_AI_Network, "TaskAINet", 4096, NULL, 2, NULL, 0);
 
   myDFPlayer.play(5);
 }
