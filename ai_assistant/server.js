@@ -8,23 +8,6 @@ import 'dotenv/config';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-function createWavHeader(dataSize) {
-    const header = Buffer.alloc(44);
-    header.write('RIFF', 0);
-    header.writeUInt32LE(36 + dataSize, 4);
-    header.write('WAVE', 8);
-    header.write('fmt ', 12);
-    header.writeUInt32LE(16, 16);
-    header.writeUInt16LE(1, 20);               // PCM
-    header.writeUInt16LE(1, 22);               // Mono
-    header.writeUInt32LE(16000, 24);           // 16kHz
-    header.writeUInt32LE(32000, 28);           // ByteRate
-    header.writeUInt16LE(2, 32);               // BlockAlign
-    header.writeUInt16LE(16, 34);              // 16-bit
-    header.write('data', 36);
-    header.writeUInt32LE(dataSize, 40);
-    return header;
-}
 
 let GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 
@@ -66,22 +49,8 @@ function saveConfig() {
 
 loadConfig();
 
-// ======================== SES KAYDI HAVUZU ========================
-const recordedMicChunks = [];
-
-function saveWavToFile() {
-    if (recordedMicChunks.length > 0) {
-        const pcmData = Buffer.concat(recordedMicChunks);
-        const wavHeader = createWavHeader(pcmData.length);
-        fs.writeFileSync(path.join(__dirname, 'test_kayit.wav'), Buffer.concat([wavHeader, pcmData]));
-        console.log(`\n[BİLGİ] Ses kaydı "test_kayit.wav" dosyasına kaydedildi! Boyut: ${pcmData.length} byte.`);
-        recordedMicChunks.length = 0;
-    }
-}
-
 process.on('SIGINT', () => {
-    console.log("\n[SİSTEM] Node.js kapatılıyor, ses kaydı diske yazılıyor...");
-    saveWavToFile();
+    console.log("\n[SİSTEM] Node.js kapatılıyor...");
     process.exit();
 });
 
@@ -451,10 +420,6 @@ function startGeminiSession() {
     isSendingAudio = false;
     playbackActive = false;
 
-    // Kayıt havuzunu temizle
-    recordedMicChunks.length = 0;
-    console.log(`[BİLGİ] Ses kayıt havuzu temizlendi.`);
-
     const HOST = 'generativelanguage.googleapis.com';
     const WS_URL = `wss://${HOST}/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${GEMINI_API_KEY}`;
 
@@ -512,12 +477,6 @@ function startGeminiSession() {
     let vadNoiseFloor = 200;
     let vadLastStateLog = 0;
     let vadStreamActive = false;
-
-    // Bar çizimi değişkenleri
-    let barSampleSum = 0;
-    let barSampleCount = 0;
-    let lastBarPrint = Date.now();
-    const BAR_INTERVAL_MS = 500;
 
     geminiWs.on('message', (message) => {
         try {
@@ -741,21 +700,8 @@ function startGeminiSession() {
             }
         }
 
-        // Ses çubuğu (500ms aralıklı)
-        barSampleSum += sum;
-        barSampleCount += (data.length / 2);
-        const now = Date.now();
-        if (now - lastBarPrint >= BAR_INTERVAL_MS) {
-            const barAvg = barSampleCount > 0 ? barSampleSum / barSampleCount : 0;
-            const barLength = Math.min(Math.floor(barAvg / 20), 50);
-            const bar = '█'.repeat(barLength) || '░';
-            console.log(`🎤 [${new Date().toLocaleTimeString()}] Ses: ${Math.floor(barAvg).toString().padStart(4, '0')} | ${bar}`);
-            barSampleSum = 0;
-            barSampleCount = 0;
-            lastBarPrint = now;
-        }
-
         // Sessiz anları Gemini'ye gönderme
+        const now = Date.now();
         if (!vadSpeaking) {
             if (now - vadLastStateLog > 8000) {
                 vadLastStateLog = now;
@@ -783,8 +729,6 @@ function startGeminiSession() {
 
         currentEsp32Ws.on('message', (data, isBinary) => {
             if (isBinary || Buffer.isBuffer(data)) {
-                // Ses kaydı
-                recordedMicChunks.push(Buffer.from(data));
                 // Audio işleme
                 handleEsp32AudioData(data);
             } else {
@@ -818,9 +762,6 @@ function stopGeminiSession(reason) {
     playbackActive = false;
     currentGeminiWs = null;
 
-    // Ses kaydını kaydet
-    saveWavToFile();
-
     broadcastStatus();
 }
 
@@ -832,15 +773,9 @@ wssEsp32.on('connection', (esp32Ws) => {
     uiLog('🤖 Robot (ESP32) bağlandı! Dashboard\'dan AI\'ı başlatabilirsiniz.');
     broadcastStatus();
 
-    // Kayıt havuzunu temizle
-    recordedMicChunks.length = 0;
-
     // ESP32'den gelen mesajları dinle (AI başlatılmadan önce de)
     esp32Ws.on('message', (data, isBinary) => {
-        if (isBinary || Buffer.isBuffer(data)) {
-            // AI çalışmıyorken de kayıt havuzuna al
-            recordedMicChunks.push(Buffer.from(data));
-        } else {
+        if (!isBinary && !Buffer.isBuffer(data)) {
             console.log('[ESP32 Text]:', data.toString());
         }
     });
@@ -855,7 +790,6 @@ wssEsp32.on('connection', (esp32Ws) => {
             stopGeminiSession('ESP32 bağlantısı koptu');
         }
 
-        saveWavToFile();
         broadcastStatus();
     });
 
