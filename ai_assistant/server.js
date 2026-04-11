@@ -119,17 +119,21 @@ app.post('/api/start-ai', (req, res) => {
     if (!GEMINI_API_KEY || GEMINI_API_KEY === 'GEMINI_API_KEY_BURAYA') {
         return res.json({ success: false, error: 'API Anahtarı girilmemiş!' });
     }
-    if (isAIRunning) {
-        return res.json({ success: false, error: 'AI zaten çalışıyor!' });
+    if (isAIRunning || isSystemReady) {
+        return res.json({ success: false, error: 'AI zaten çalışıyor veya hazır durumda!' });
     }
 
-    startGeminiSession();
+    isSystemReady = true;
+    uiLog("🟢 Sistem Hazır. Wector'dan (ESP32) tetikleme mesajı bekleniyor...");
+    broadcastStatus();
     res.json({ success: true });
 });
 
 // --- API: AI'ı durdur ---
 app.post('/api/stop-ai', (req, res) => {
-    stopGeminiSession('Manuel durdurma');
+    isSystemReady = false;
+    stopGeminiSession('Dashboard üzerinden durduruldu');
+    uiLog("🛑 Sistem Standby modundan çıkarıldı.");
     res.json({ success: true });
 });
 
@@ -153,18 +157,21 @@ wssUI.on('connection', (ws) => {
         try {
             const msg = JSON.parse(data.toString());
             if (msg.type === 'start-ai') {
-                if (!isEsp32Connected) return uiLog('❌ ESP32 bağlı değil!');
                 if (!GEMINI_API_KEY) return uiLog('❌ API Anahtarı yok!');
-                if (isAIRunning) return uiLog('⚠️ AI zaten çalışıyor!');
+                if (isAIRunning || isSystemReady) return uiLog('⚠️ Sistem zaten hazır veya çalışıyor!');
 
                 // Ayarları güncelle
                 if (msg.config) {
                     Object.assign(aiConfig, msg.config);
                     saveConfig();
                 }
-                startGeminiSession();
+                isSystemReady = true;
+                uiLog("🟢 Sistem Hazır. Wector'dan (ESP32) tetikleme bekleniyor...");
+                broadcastStatus();
             } else if (msg.type === 'stop-ai') {
+                isSystemReady = false;
                 stopGeminiSession('Dashboard üzerinden durduruldu');
+                uiLog("🛑 Sistem Standby modundan çıkarıldı.");
             }
         } catch (e) { /* ignore */ }
     });
@@ -177,6 +184,7 @@ let isEsp32Connected = false;
 let isGeminiConnected = false;
 let isGeminiSetupComplete = false;
 let isAIRunning = false;
+let isSystemReady = false; // "Başlatıldı" durumu ama Gemini henüz aktif değil
 let latestLog = "Sunucu başlatıldı. Robot ile bağlantı bekleniyor...";
 let transcriptHistory = []; // Sohbet geçmişi
 let lastGeminiAudioMimeType = "";
@@ -190,6 +198,7 @@ function broadcastStatus() {
         esp32: isEsp32Connected,
         gemini: isGeminiConnected,
         aiRunning: isAIRunning,
+        systemReady: isSystemReady,
         log: latestLog,
         transcriptHistory: transcriptHistory
     };
@@ -728,14 +737,42 @@ function startGeminiSession() {
         currentEsp32Ws.removeAllListeners('message');
 
         currentEsp32Ws.on('message', (data, isBinary) => {
-            if (isBinary || Buffer.isBuffer(data)) {
+            if (isBinary) {
                 // Audio işleme
                 handleEsp32AudioData(data);
             } else {
-                console.log('[ESP32 Text]:', data.toString());
+                const rawMsg = data.toString();
+                try {
+                    const msg = JSON.parse(rawMsg);
+                    if (msg.command === "STOP_AI") {
+                        stopGeminiSession('ESP32 üzerinden durduruldu');
+                    }
+                } catch(e) { console.log('[ESP32 Text]:', rawMsg); }
             }
         });
     }
+}
+
+function attachStandbyMessageListener(ws) {
+    ws.removeAllListeners('message');
+    ws.on('message', (data, isBinary) => {
+        if (!isBinary) {
+            const rawMsg = data.toString();
+            try {
+                const msg = JSON.parse(rawMsg);
+                if (msg.command === "START_AI") {
+                    if (isSystemReady && !isAIRunning) {
+                        uiLog("🚀 ESP32 Yapay Zeka Başlatma isteği gönderdi! Ses kaydı başlıyor.");
+                        startGeminiSession();
+                    } else if (!isSystemReady) {
+                        uiLog("⚠️ ESP32 konuşmak istiyor ama Dashboard'dan 'Başlat'a basılarak sistem hazır hale getirilmemiş.");
+                    }
+                } else if (msg.command === "STOP_AI") {
+                    if (isAIRunning) stopGeminiSession('ESP32 üzerinden durduruldu');
+                }
+            } catch (e) { console.log('[ESP32 Text]:', rawMsg); }
+        }
+    });
 }
 
 function stopGeminiSession(reason) {
@@ -762,6 +799,11 @@ function stopGeminiSession(reason) {
     playbackActive = false;
     currentGeminiWs = null;
 
+    // Bekleme modu dinleyicisini geri yükle (eğer bağlantı hala açıksa)
+    if (currentEsp32Ws && currentEsp32Ws.readyState === WebSocket.OPEN) {
+        attachStandbyMessageListener(currentEsp32Ws);
+    }
+
     broadcastStatus();
 }
 
@@ -773,14 +815,21 @@ wssEsp32.on('connection', (esp32Ws) => {
     uiLog('🤖 Robot (ESP32) bağlandı! Dashboard\'dan AI\'ı başlatabilirsiniz.');
     broadcastStatus();
 
-    // ESP32'den gelen mesajları dinle (AI başlatılmadan önce de)
-    esp32Ws.on('message', (data, isBinary) => {
-        if (!isBinary && !Buffer.isBuffer(data)) {
-            console.log('[ESP32 Text]:', data.toString());
-        }
-    });
+    // Bağlantı sağlığı (Ping) kontrolü (Koptuysa erken algıla)
+    esp32Ws.isAlive = true;
+    esp32Ws.on('pong', () => { esp32Ws.isAlive = true; });
+    const pingInterval = setInterval(() => {
+        if (esp32Ws.readyState !== WebSocket.OPEN) return;
+        if (esp32Ws.isAlive === false) return esp32Ws.terminate();
+        esp32Ws.isAlive = false;
+        esp32Ws.ping();
+    }, 5000);
+
+    // Standby mod dinleyicisini bağla
+    attachStandbyMessageListener(esp32Ws);
 
     esp32Ws.on('close', () => {
+        clearInterval(pingInterval);
         isEsp32Connected = false;
         currentEsp32Ws = null;
         uiLog('🔌 Robot (ESP32) bağlantısı koptu.');

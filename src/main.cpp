@@ -592,11 +592,15 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
 
         if(!aiClient.isConnected()) {
           aiClient.begin(targetIp, 8080, "/");
+        } else {
+          aiClient.sendTXT("{\"command\": \"START_AI\"}");
         }
       } else if (modeCmd == "NORMAL") {
         isAIModeActive = false;
         lightMode = "OFF";
         micMuted = false;
+        // Node.js'i tetikle
+        if(aiClient.isConnected()) aiClient.sendTXT("{\"command\": \"STOP_AI\"}");
         Serial.println("Normal Moda Donuldu!");
       }
     }
@@ -634,6 +638,10 @@ void aiWebSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
       break;
     case WStype_CONNECTED:
       Serial.printf("[AI] Baglandi: %s\n", payload);
+      // Eger baglanti kuruldugunda AI Modu aciksa, Node.js'e hemen baslama emri ver.
+      if (isAIModeActive) {
+          aiClient.sendTXT("{\"command\": \"START_AI\"}");
+      }
       break;
     case WStype_TEXT: {
       if (payload == NULL || length == 0) break;

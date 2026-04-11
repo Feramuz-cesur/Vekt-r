@@ -363,6 +363,12 @@
                     <i id="battery-icon" class="fa-solid fa-battery-half text-yellow-500"></i>
                     <span id="battery-text" class="text-white font-bold font-tech">--%</span>
                 </div>
+
+                <!-- YENİ: PC IP Girişi -->
+                <div class="hidden sm:flex items-center border border-neon-purple/60 rounded bg-gray-900/60 px-[1vh] h-[4vh] ml-[1vh] shadow-[0_0_10px_rgba(188,19,254,0.15)]">
+                    <i class="fa-solid fa-server text-neon-purple text-[1.5vh] mr-[1vh]"></i>
+                    <input type="text" id="cfgAiServerIp" class="bg-transparent text-gray-200 w-[14vh] h-full text-[1.6vh] font-tech outline-none" placeholder="192.168.x.x" onchange="localStorage.setItem('aiServerIp', this.value)">
+                </div>
             </div>
 
             <!-- Orta: Kayıt ve Oynatma Butonları (Mutlak Merkezleme ve Büyütülmüş Fontlar) -->
@@ -662,6 +668,9 @@
             updateSliderVariables();
             updateSliderDisplays();
             refreshLightPowerButton();
+            // AI IP Guncellemesi
+            let savedIp = localStorage.getItem("aiServerIp") || "192.168.1.100";
+            document.getElementById('cfgAiServerIp').value = savedIp;
         }
 
         // Slider değişince değişkenleri güncelle
@@ -927,10 +936,7 @@
 
                 log("Mod: YAPAY ZEKA DEVREDE");
                 if (websocket && websocket.readyState === WebSocket.OPEN) {
-                    // Kullanicidan bilgisayarin baslangic IPsini isteyelim (1 defaya mahsus onbellege alir)
-                    let savedIp = localStorage.getItem("aiServerIp") || "192.168.1.100";
-                    let userIp = prompt("Lütfen Bilgisayarınızın (Node.js AI Sunucusunun) Local IP'sini giriniz:", savedIp);
-                    
+                    let userIp = document.getElementById('cfgAiServerIp').value.trim();
                     if(userIp) {
                         localStorage.setItem("aiServerIp", userIp);
                         websocket.send(JSON.stringify({ 
@@ -938,8 +944,9 @@
                             serverIp: userIp 
                         }));
                     } else {
-                        // iptal edildiyse geri don
+                        // Eğer boş kalırsa iptal et
                         setUIMode('manual');
+                        log("Lütfen üst panele PC IP'si giriniz!");
                     }
                 }
             } else {

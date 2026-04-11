@@ -745,11 +745,11 @@
             if (s.aiRunning) {
                 bGem.className = 'status-badge active'; bGem.textContent = 'AKTİF';
                 iGem.style.color = 'var(--accent-violet)';
-            } else if (s.gemini) {
-                bGem.className = 'status-badge online'; bGem.textContent = 'BAĞLI';
-                iGem.style.color = 'var(--accent-emerald)';
+            } else if (s.systemReady) {
+                bGem.className = 'status-badge online'; bGem.textContent = 'HAZIRDA (TETİK BEKLENİYOR)';
+                iGem.style.color = 'var(--accent-amber)';
             } else {
-                bGem.className = 'status-badge waiting'; bGem.textContent = 'BEKLENİYOR';
+                bGem.className = 'status-badge waiting'; bGem.textContent = 'STANDBY DIŞI';
                 iGem.style.color = 'var(--text-muted)';
             }
 
@@ -761,8 +761,9 @@
         function updateControlButtons(s) {
             const btnStart = document.getElementById('btnStart');
             const btnStop = document.getElementById('btnStop');
-            btnStart.disabled = !s.esp32 || s.aiRunning;
-            btnStop.disabled = !s.aiRunning;
+            // Yeni mantıkta Başlat için ESP32'nin bağlı olması zorunlu değil (Tetik bekleyecektir)
+            btnStart.disabled = s.systemReady || s.aiRunning; 
+            btnStop.disabled = (!s.systemReady && !s.aiRunning);
         }
 
         // ===================== LOG =====================
@@ -877,8 +878,6 @@
                 
                 document.getElementById('cfgVolume').value = cfg.volume ?? 1.0;
                 document.getElementById('volVal').textContent = (cfg.volume ?? 1.0) + 'x';
-                // undefined ise varsayılan true kabul edelim
-                document.getElementById('cfgTranscription').checked = cfg.transcriptionEnabled !== false;
             } catch (e) {
                 console.warn('Config yüklenemedi:', e);
             }
@@ -893,8 +892,7 @@
                 speakerName: document.getElementById('cfgSpeaker').value,
                 temperature: parseFloat(document.getElementById('cfgTemp').value),
                 proactiveAudio: document.getElementById('cfgProactive').checked,
-                volume: parseFloat(document.getElementById('cfgVolume').value),
-                transcriptionEnabled: document.getElementById('cfgTranscription').checked
+                volume: parseFloat(document.getElementById('cfgVolume').value)
             };
         }
 
