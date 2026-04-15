@@ -193,6 +193,12 @@ let lastGeminiAudioMimeType = "";
 let currentEsp32Ws = null;
 let currentGeminiWs = null;
 
+// Robot durum takibi (göreceli servo hareketi ve hız için)
+let currentArmAngle = 0;    // Kol açısı (0-180)
+let currentHeadAngle = 30;  // Kafa açısı (0-60, 30 = orta)
+let defaultSpeed = 150;     // Varsayılan hareket hızı (0-255)
+let moveDurationTimer = null; // Zamanlı hareket timer'ı
+
 function broadcastStatus() {
     const status = {
         esp32: isEsp32Connected,
@@ -428,6 +434,8 @@ function startGeminiSession() {
     esp32AudioQueue = [];
     isSendingAudio = false;
     playbackActive = false;
+    currentArmAngle = 0;
+    currentHeadAngle = 30;
 
     const HOST = 'generativelanguage.googleapis.com';
     const WS_URL = `wss://${HOST}/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${GEMINI_API_KEY}`;
@@ -531,6 +539,67 @@ function startGeminiSession() {
                                     }
                                 },
                                 required: ["dance_number"]
+                            }
+                        },
+                        {
+                            name: "control_servo",
+                            description: "Robotun kol (arm) veya kafa (head) servosunu kontrol et. Göreceli modda mevcut açıya delta eklenir/çıkarılır. 'biraz' için ±15, normal için ±30, 'çok' için ±45 kullan.",
+                            parameters: {
+                                type: "object",
+                                properties: {
+                                    servo: {
+                                        type: "string",
+                                        enum: ["arm", "head"],
+                                        description: "'arm'=kol (0-180 derece, 0=aşağı, 180=yukarı), 'head'=kafa (0-60 derece, 0=aşağı, 60=yukarı)"
+                                    },
+                                    mode: {
+                                        type: "string",
+                                        enum: ["absolute", "relative", "min", "max"],
+                                        description: "'absolute'=belirli açıya git, 'relative'=mevcut açıya delta ekle (+ kaldırır, - indirir), 'min'=en aşağı, 'max'=en yukarı"
+                                    },
+                                    value: {
+                                        type: "integer",
+                                        description: "'absolute' modda hedef açı (derece), 'relative' modda delta. Pozitif=yukarı/kaldır, Negatif=aşağı/indir."
+                                    }
+                                },
+                                required: ["servo", "mode"]
+                            }
+                        },
+                        {
+                            name: "move_for_duration",
+                            description: "Robotu belirli bir süre boyunca hareket ettir, süre dolunca otomatik olarak durdur.",
+                            parameters: {
+                                type: "object",
+                                properties: {
+                                    direction: {
+                                        type: "string",
+                                        enum: ["FORWARD", "BACKWARD", "LEFT", "RIGHT"],
+                                        description: "Hareket yönü"
+                                    },
+                                    duration_ms: {
+                                        type: "integer",
+                                        description: "Hareket süresi milisaniye cinsinden. 1 saniye=1000, 2 saniye=2000. Maksimum 10000 (10sn)."
+                                    },
+                                    speed: {
+                                        type: "integer",
+                                        description: "Hız değeri (0-255). Belirtilmezse mevcut varsayılan hız kullanılır."
+                                    }
+                                },
+                                required: ["direction", "duration_ms"]
+                            }
+                        },
+                        {
+                            name: "set_speed",
+                            description: "Robotun varsayılan hareket hızını yüzde olarak ayarla. Sonraki move_robot ve move_for_duration komutlarında bu hız kullanılır.",
+                            parameters: {
+                                type: "object",
+                                properties: {
+                                    percentage: {
+                                        type: "integer",
+                                        description: "Hız yüzdesi (0-100). %0=dur, %50=orta, %100=maksimum"
+                                    }
+                                },
+                                required: ["percentage"]
                             }
                         }
                     ]
@@ -692,7 +761,7 @@ function startGeminiSession() {
                     let result = { success: false };
                     if (call.name === "move_robot") {
                         const direction = call.args?.direction ?? "STOP";
-                        const speed = call.args?.speed ?? 150;
+                        const speed = call.args?.speed ?? defaultSpeed;
                         sendRobotCommand({ direction, speed });
                         uiLog(`🤖 AI Komutu → Hareket: ${direction} (hız: ${speed})`);
                         result = { success: true, direction, speed };
@@ -712,6 +781,50 @@ function startGeminiSession() {
                         sendRobotCommand({ mood: `DANCE_${danceNum}` });
                         uiLog(`🤖 AI Komutu → Dans: ${danceNum}`);
                         result = { success: true, dance_number: danceNum };
+                    } else if (call.name === "control_servo") {
+                        const servo = call.args?.servo;
+                        const mode = call.args?.mode;
+                        const value = call.args?.value ?? 0;
+                        const maxVal = servo === "arm" ? 180 : 60;
+                        let current = servo === "arm" ? currentArmAngle : currentHeadAngle;
+                        let target;
+                        if (mode === "absolute")     target = Math.max(0, Math.min(maxVal, value));
+                        else if (mode === "relative") target = Math.max(0, Math.min(maxVal, current + value));
+                        else if (mode === "min")      target = 0;
+                        else if (mode === "max")      target = maxVal;
+                        else                          target = current;
+                        if (servo === "arm") {
+                            currentArmAngle = target;
+                            sendRobotCommand({ arm: target });
+                            uiLog(`🤖 AI Komutu → Kol: ${target}° (${mode})`);
+                        } else {
+                            currentHeadAngle = target;
+                            sendRobotCommand({ head: target });
+                            uiLog(`🤖 AI Komutu → Kafa: ${target}° (${mode})`);
+                        }
+                        result = { success: true, servo, mode, target_angle: target };
+                    } else if (call.name === "move_for_duration") {
+                        const direction = call.args?.direction ?? "FORWARD";
+                        const duration_ms = Math.min(call.args?.duration_ms ?? 1000, 10000);
+                        const speed = call.args?.speed ?? defaultSpeed;
+                        // Önceki zamanlı hareketi iptal et
+                        if (moveDurationTimer) {
+                            clearTimeout(moveDurationTimer);
+                            moveDurationTimer = null;
+                        }
+                        sendRobotCommand({ direction, speed });
+                        uiLog(`🤖 AI Komutu → ${direction} ${duration_ms}ms (hız: ${speed})`);
+                        moveDurationTimer = setTimeout(() => {
+                            moveDurationTimer = null;
+                            sendRobotCommand({ direction: "STOP", speed: 0 });
+                            uiLog(`🤖 Otomatik Dur (${duration_ms}ms doldu)`);
+                        }, duration_ms);
+                        result = { success: true, direction, duration_ms, speed };
+                    } else if (call.name === "set_speed") {
+                        const pct = Math.max(0, Math.min(100, call.args?.percentage ?? 50));
+                        defaultSpeed = Math.round((pct / 100) * 255);
+                        uiLog(`🤖 AI Komutu → Hız %${pct} (${defaultSpeed}/255)`);
+                        result = { success: true, percentage: pct, raw_speed: defaultSpeed };
                     }
                     responses.push({ id: call.id, name: call.name, response: { output: result } });
                 }
@@ -891,6 +1004,13 @@ function sendRobotCommand(cmd) {
 
 function stopGeminiSession(reason) {
     uiLog(`⏹️ AI durduruluyor: ${reason}`);
+
+    // Bekleyen zamanlı hareket varsa iptal et ve robotu durdur
+    if (moveDurationTimer) {
+        clearTimeout(moveDurationTimer);
+        moveDurationTimer = null;
+        sendRobotCommand({ direction: "STOP", speed: 0 });
+    }
 
     // ESP32'ye normal moda dönmesini söyle
     if (currentEsp32Ws && currentEsp32Ws.readyState === WebSocket.OPEN) {
