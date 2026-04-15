@@ -687,6 +687,47 @@ void aiWebSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
           }
         }
       }
+      // AI'nin tool calling'den gelen robot kontrol komutlari (type alani olmayan duz JSON)
+      if (obj.hasOwnProperty("direction") && obj.hasOwnProperty("speed")) {
+        String dir = (const char *)obj["direction"];
+        int spd = (int)obj["speed"];
+        if (dir == "FORWARD") ileri(spd);
+        else if (dir == "BACKWARD") geri(spd);
+        else if (dir == "RIGHT") sag(spd);
+        else if (dir == "LEFT") sol(spd);
+        else if (dir == "STOP") dur();
+      }
+      if (obj.hasOwnProperty("mood")) {
+        String mood = (const char *)obj["mood"];
+        if (mood == "HAPPY") { eyes.setMood(HAPPY); eyes.anim_laugh(); myDFPlayer.play(1); }
+        else if (mood == "ANGRY") { eyes.setMood(ANGRY); myDFPlayer.play(2); }
+        else if (mood == "TIRED") { eyes.setMood(TIRED); myDFPlayer.play(3); }
+        else if (mood == "CONFUSED") { eyes.setMood(DEFAULT); eyes.anim_confused(); myDFPlayer.play(4); }
+        else if (mood == "DEFAULT") eyes.setMood(DEFAULT);
+        else if (mood.startsWith("DANCE_")) {
+          int dNum = mood.charAt(6) - '0';
+          danceTrigger = dNum;
+        }
+      }
+      if (obj.hasOwnProperty("lightMode")) {
+        lightMode = (const char *)obj["lightMode"];
+        if (obj.hasOwnProperty("color")) {
+          String hexColor = (const char *)obj["color"];
+          if (hexColor.length() == 7) {
+            long number = strtol(&hexColor[1], NULL, 16);
+            int r = number >> 16;
+            int g = number >> 8 & 0xFF;
+            int b = number & 0xFF;
+            selectedColor = pixels.Color(r, g, b);
+          }
+        }
+      }
+      if (obj.hasOwnProperty("arm")) {
+        servo1.write((int)obj["arm"]);
+      }
+      if (obj.hasOwnProperty("head")) {
+        servo2.write(map((int)obj["head"], 0, 60, 60, 0));
+      }
       break;
     }
     case WStype_BIN:

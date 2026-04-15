@@ -463,7 +463,78 @@ function startGeminiSession() {
                 // Manuel VAD: activityStart/activityEnd gönderiyoruz
                 realtimeInputConfig: {
                     automaticActivityDetection: { disabled: true }
-                }
+                },
+                tools: [{
+                    functionDeclarations: [
+                        {
+                            name: "move_robot",
+                            description: "Robotu belirtilen yönde ve hızda hareket ettir",
+                            parameters: {
+                                type: "object",
+                                properties: {
+                                    direction: {
+                                        type: "string",
+                                        enum: ["FORWARD", "BACKWARD", "LEFT", "RIGHT", "STOP"],
+                                        description: "Hareket yönü"
+                                    },
+                                    speed: {
+                                        type: "integer",
+                                        description: "Hız değeri (0-255 arası, varsayılan 150)"
+                                    }
+                                },
+                                required: ["direction"]
+                            }
+                        },
+                        {
+                            name: "set_mood",
+                            description: "Robotun yüz ifadesini ve ses tepkisini ayarla",
+                            parameters: {
+                                type: "object",
+                                properties: {
+                                    mood: {
+                                        type: "string",
+                                        enum: ["HAPPY", "ANGRY", "TIRED", "CONFUSED", "DEFAULT"],
+                                        description: "Duygu durumu"
+                                    }
+                                },
+                                required: ["mood"]
+                            }
+                        },
+                        {
+                            name: "set_lights",
+                            description: "Robottaki LED ışıklarını kontrol et",
+                            parameters: {
+                                type: "object",
+                                properties: {
+                                    mode: {
+                                        type: "string",
+                                        enum: ["OFF", "STATIC", "RAINBOW", "PULSE", "POLICE"],
+                                        description: "Işık modu"
+                                    },
+                                    color: {
+                                        type: "string",
+                                        description: "#RRGGBB formatında HEX renk kodu (STATIC ve PULSE modları için)"
+                                    }
+                                },
+                                required: ["mode"]
+                            }
+                        },
+                        {
+                            name: "play_dance",
+                            description: "Robota dans sekansı yaptır (1-4 arası numaralar mevcuttur)",
+                            parameters: {
+                                type: "object",
+                                properties: {
+                                    dance_number: {
+                                        type: "integer",
+                                        description: "Dans sekansı numarası (1-4)"
+                                    }
+                                },
+                                required: ["dance_number"]
+                            }
+                        }
+                    ]
+                }]
             }
         };
 
@@ -612,6 +683,39 @@ function startGeminiSession() {
             if (data.error) {
                 uiLog(`❌ Gemini Hatası: ${data.error.message}`);
                 console.error('[Gemini Error]', data.error);
+            }
+
+            // *** TOOL CALLING (AI → Robot Fiziksel Kontrol) ***
+            if (data.toolCall && data.toolCall.functionCalls) {
+                const responses = [];
+                for (const call of data.toolCall.functionCalls) {
+                    let result = { success: false };
+                    if (call.name === "move_robot") {
+                        const direction = call.args?.direction ?? "STOP";
+                        const speed = call.args?.speed ?? 150;
+                        sendRobotCommand({ direction, speed });
+                        uiLog(`🤖 AI Komutu → Hareket: ${direction} (hız: ${speed})`);
+                        result = { success: true, direction, speed };
+                    } else if (call.name === "set_mood") {
+                        const mood = call.args?.mood ?? "DEFAULT";
+                        sendRobotCommand({ mood });
+                        uiLog(`🤖 AI Komutu → Mod: ${mood}`);
+                        result = { success: true, mood };
+                    } else if (call.name === "set_lights") {
+                        const mode = call.args?.mode ?? "OFF";
+                        const color = call.args?.color ?? "#ffffff";
+                        sendRobotCommand({ lightMode: mode, color });
+                        uiLog(`🤖 AI Komutu → Işık: ${mode} (${color})`);
+                        result = { success: true, mode, color };
+                    } else if (call.name === "play_dance") {
+                        const danceNum = call.args?.dance_number ?? 1;
+                        sendRobotCommand({ mood: `DANCE_${danceNum}` });
+                        uiLog(`🤖 AI Komutu → Dans: ${danceNum}`);
+                        result = { success: true, dance_number: danceNum };
+                    }
+                    responses.push({ id: call.id, name: call.name, response: { output: result } });
+                }
+                sendGemini({ toolResponse: { functionResponses: responses } }, "toolResponse");
             }
         } catch (e) {
             try {
@@ -773,6 +877,16 @@ function attachStandbyMessageListener(ws) {
             } catch (e) { console.log('[ESP32 Text]:', rawMsg); }
         }
     });
+}
+
+// ======================== ROBOT KOMUT GÖNDERİCİ ========================
+function sendRobotCommand(cmd) {
+    if (currentEsp32Ws && currentEsp32Ws.readyState === WebSocket.OPEN) {
+        currentEsp32Ws.send(JSON.stringify(cmd));
+        console.log('[ROBOT CMD]', JSON.stringify(cmd));
+    } else {
+        uiLog(`⚠️ Robot komutu gönderilemedi: ESP32 bağlı değil. (${JSON.stringify(cmd)})`);
+    }
 }
 
 function stopGeminiSession(reason) {
