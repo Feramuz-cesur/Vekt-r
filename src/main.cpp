@@ -44,11 +44,6 @@ const int servoPin2 = 14;
 #define I2S_LRC 15
 #define I2S_DOUT 17
 
-#define I2S_MIC_PORT I2S_NUM_0
-#define I2S_MIC_SCK 19
-#define I2S_MIC_WS 18
-#define I2S_MIC_SD 35  // Pin 35 input-only pin, I2S için idealdir.
-#define MIC_SAMPLE_RATE 16000
 #define SPEAKER_SAMPLE_RATE 24000
 
 // --- NESNELER ---
@@ -77,10 +72,8 @@ volatile bool displayLocked = false; // Ekran kilitli mi?
 WebSocketsClient aiClient;
 volatile bool isAIModeActive = false;
 RingbufHandle_t audio_ringbuf = NULL;
-RingbufHandle_t mic_ringbuf = NULL;
 volatile uint32_t speaker_sample_rate = SPEAKER_SAMPLE_RATE;
 volatile bool speakerTestPending = false;
-volatile bool micMuted = false;
 
 // Görevler arasında veri paylaşımı
 volatile int danceTrigger = 0;
@@ -575,8 +568,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       if (modeCmd == "AI") {
         isAIModeActive = true;
         speakerTestPending = true; // AI moduna giriste hoparlor/pin kontrolu icin kisa bip
-        micMuted = false;
-        
+
         // AI Moduna geçildiğinde RGB Mor pulse yapılsın
         lightMode = "PULSE";
         selectedColor = pixels.Color(188, 19, 254);
@@ -598,7 +590,6 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       } else if (modeCmd == "NORMAL") {
         isAIModeActive = false;
         lightMode = "OFF";
-        micMuted = false;
         // Node.js'i tetikle
         if(aiClient.isConnected()) aiClient.sendTXT("{\"command\": \"STOP_AI\"}");
         Serial.println("Normal Moda Donuldu!");
@@ -665,23 +656,17 @@ void aiWebSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
             Serial.printf("[AI] Speaker rate guncellendi: %lu Hz\n",
                           (unsigned long)speaker_sample_rate);
           }
-        } else if (t == "mic_mute" && obj.hasOwnProperty("mute")) {
-          bool mute = (bool)obj["mute"];
-          micMuted = mute;
-          Serial.printf("[AI] Mic %s\n", micMuted ? "MUTE" : "UNMUTE");
         } else if (t == "server_command" && obj.hasOwnProperty("modeCommand")) {
           // Sunucudan gelen AI mod komutu (Dashboard "Başlat"/"Durdur")
           String modeCmd = (const char *)obj["modeCommand"];
           if (modeCmd == "AI") {
             isAIModeActive = true;
             speakerTestPending = true;
-            micMuted = false;
             lightMode = "PULSE";
             selectedColor = pixels.Color(188, 19, 254);
             Serial.println("[AI] Sunucu komutuyla AI Modu AKTIF!");
           } else if (modeCmd == "NORMAL") {
             isAIModeActive = false;
-            micMuted = false;
             lightMode = "OFF";
             Serial.println("[AI] Sunucu komutuyla Normal Moda donuldu.");
           }
@@ -836,80 +821,6 @@ void Task_AI_Network(void *parameter) {
     } else {
       aiClient.loop(); // AI kapali: baglanti canli kalsin ama seyrek
       vTaskDelay(pdMS_TO_TICKS(50));
-    }
-  }
-}
-
-// AI Audio Dinleme GOREVI (INMP441 I2S Digital Mikrofon)
-void Task_AI_Audio(void *parameter) {
-  int32_t raw_buffer[256]; // I2S RX 32-bit veri okur
-  int16_t out_buffer[256]; // Gemini 16-bit PCM bekler
-  size_t bytes_read;
-
-  for(;;) {
-    if (isAIModeActive && aiClient.isConnected() && !micMuted) {
-      // I2S'den 256 adet 32-bit sample oku (1024 byte)
-      i2s_read(I2S_MIC_PORT, &raw_buffer, sizeof(raw_buffer), &bytes_read, portMAX_DELAY);
-      
-      if (bytes_read > 0) {
-        int samples = bytes_read / 4;
-        for (int i = 0; i < samples; i++) {
-          // INMP441 veriyi 24-bit MSB olarak 32-bit slotta yollar.
-          // 16-bit'e cevirmek için 16 bit sağa kaydırıyoruz. (MSB 24-bit -> MSB 16-bit)
-          out_buffer[i] = (int16_t)(raw_buffer[i] >> 14); 
-          // Not: Bazı INMP441'lerde ses seviyesi için >> 14 veya >> 16 gerekebilir. 
-          // Deneme yanılma ile en temiz seviyeyi (14) seçelim.
-        }
-
-        // Gemini'ye köprü (RingBuffer) üzerinden yolla
-        if (mic_ringbuf != NULL) {
-            xRingbufferSend(mic_ringbuf, out_buffer, samples * 2, 0);
-        }
-      }
-      
-      // WiFi/Watchdog için nefes al
-      vTaskDelay(pdMS_TO_TICKS(1));
-    } else {
-      vTaskDelay(pdMS_TO_TICKS(50));
-    }
-  }
-}
-
-// Network gönderici: Sesi ufak ufak 512 byte yollamak WiFi'yi tıkar (çipmunk sebebidir). 
-// 4096 byte biriktirip yollayacağız.
-void Task_AI_Mic_Sender(void *parameter) {
-  uint8_t tx_buffer[4096];
-  for(;;) {
-    if (isAIModeActive && aiClient.isConnected() && mic_ringbuf != NULL && !micMuted) {
-      size_t received_bytes = 0;
-      
-      // Buffer'da 4096 byte dolana kadar (veya 100ms zaman aşımı olana kadar) bekle ve biriktir
-      while(received_bytes < 4096) {
-         size_t item_size;
-         // Kalan boşluk kadarını havuzdan çek
-         void *item = xRingbufferReceiveUpTo(mic_ringbuf, &item_size, pdMS_TO_TICKS(50), 4096 - received_bytes);
-         if (item != NULL) {
-            memcpy(tx_buffer + received_bytes, item, item_size);
-            vRingbufferReturnItem(mic_ringbuf, item);
-            received_bytes += item_size;
-         } else {
-            // 50ms geçti ve hala tampon dolmadıysa, beklemeyi bırakıp eldekini gönder
-            break; 
-         }
-      }
-      
-      // Toplu veriyi Wi-Fi üzerinden tek seferde gönder (Ağ darboğazını çözer)
-      if (received_bytes > 0) {
-        aiClient.sendBIN(tx_buffer, received_bytes);
-      }
-    } else {
-      if (mic_ringbuf != NULL) {
-         size_t dummy_size;
-         void *dummy = xRingbufferReceiveUpTo(mic_ringbuf, &dummy_size, pdMS_TO_TICKS(100), 4096);
-         if (dummy) vRingbufferReturnItem(mic_ringbuf, dummy);
-      } else {
-         vTaskDelay(100 / portTICK_PERIOD_MS);
-      }
     }
   }
 }
@@ -1101,29 +1012,6 @@ void initI2S() {
   i2s_driver_install(I2S_SPEAKER_PORT, &speaker_config, 0, NULL);
   i2s_set_pin(I2S_SPEAKER_PORT, &speaker_pins);
   i2s_zero_dma_buffer(I2S_SPEAKER_PORT);
-
-  // --- MİKROFON İÇİN (I2S_NUM_0 / INMP441 ) ---
-  i2s_config_t mic_config = {
-      .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX),
-      .sample_rate = MIC_SAMPLE_RATE,
-      .bits_per_sample = I2S_BITS_PER_SAMPLE_32BIT, // INMP441 için idealdir.
-      .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
-      .communication_format = I2S_COMM_FORMAT_STAND_I2S,
-      .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
-      .dma_buf_count = 8,
-      .dma_buf_len = 512,
-      .use_apll = false
-  };
-
-  i2s_pin_config_t mic_pins = {
-      .bck_io_num = I2S_MIC_SCK,
-      .ws_io_num = I2S_MIC_WS,
-      .data_out_num = I2S_PIN_NO_CHANGE,
-      .data_in_num = I2S_MIC_SD
-  };
-
-  i2s_driver_install(I2S_MIC_PORT, &mic_config, 0, NULL);
-  i2s_set_pin(I2S_MIC_PORT, &mic_pins);
 }
 
 void setup() {
@@ -1132,7 +1020,6 @@ void setup() {
   // Ses icin 20KB gecici kopru bellek (RingBuffer) - ~416ms ses tamponu
   // 16KB (340ms) kesilmelere yol aciyordu, 32KB ise WiFi heap'ini kirdi
   audio_ringbuf = xRingbufferCreate(20480, RINGBUF_TYPE_BYTEBUF);
-  mic_ringbuf = xRingbufferCreate(8192, RINGBUF_TYPE_BYTEBUF); 
 
   // I2S Donanımlarını (Amfi ve I2S Mikrofon) Başlat
   initI2S();
@@ -1215,9 +1102,6 @@ void setup() {
   xTaskCreatePinnedToCore(Task_Gozler, "TaskGozler", 10000, NULL, 2, NULL, 1);
   xTaskCreatePinnedToCore(Task_Network, "TaskNetwork", 10000, NULL, 1, NULL, 0);
   xTaskCreatePinnedToCore(Task_Mantik, "TaskMantik", 10000, NULL, 1, NULL, 1);
-  // Not: WiFi/TCPIP task'leri genelde Core 0'da. Mikrofon okuma tight-loop oldugu icin
-  xTaskCreatePinnedToCore(Task_AI_Audio, "TaskAIAudio", 10000, NULL, 3, NULL, 1);        // En yuksek oncelik (Prio=3) kilit kirici timer
-  xTaskCreatePinnedToCore(Task_AI_Mic_Sender, "TaskAIMicSend", 10000, NULL, 1, NULL, 1); // Mic Network gonderici (Prio=1)
   xTaskCreatePinnedToCore(Task_AI_Speaker, "TaskAISpeaker", 10000, NULL, 2, NULL, 1); // Hoparloru bagimsiz isleyen kilit kirici
   // AI WebSocket ozel gorevi: Core 0'da Prio=2, ses verisini hizli alir (OTA/cleanup'tan bagimsiz)
   xTaskCreatePinnedToCore(Task_AI_Network, "TaskAINet", 4096, NULL, 2, NULL, 0);

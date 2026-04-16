@@ -935,19 +935,19 @@
                 activeBtn.className += ' bg-neon-purple text-black shadow-[0_0_15px_#bc13fe] border-transparent';
 
                 log("Mod: YAPAY ZEKA DEVREDE");
-                if (websocket && websocket.readyState === WebSocket.OPEN) {
-                    let userIp = document.getElementById('cfgAiServerIp').value.trim();
-                    if(userIp) {
-                        localStorage.setItem("aiServerIp", userIp);
-                        websocket.send(JSON.stringify({ 
+                let userIp = document.getElementById('cfgAiServerIp').value.trim();
+                if (!userIp) {
+                    setUIMode('manual');
+                    log("Lütfen üst panele PC IP'si giriniz!");
+                } else {
+                    localStorage.setItem("aiServerIp", userIp);
+                    if (websocket && websocket.readyState === WebSocket.OPEN) {
+                        websocket.send(JSON.stringify({
                             modeCommand: "AI",
-                            serverIp: userIp 
+                            serverIp: userIp
                         }));
-                    } else {
-                        // Eğer boş kalırsa iptal et
-                        setUIMode('manual');
-                        log("Lütfen üst panele PC IP'si giriniz!");
                     }
+                    startBrowserMic(userIp);
                 }
             } else {
                 const activeView = document.getElementById(`mode-${modeName}`);
@@ -965,10 +965,78 @@
                     sendData();
                 }
 
+                stopBrowserMic();
                 if (websocket && websocket.readyState === WebSocket.OPEN) {
                     websocket.send(JSON.stringify({ modeCommand: "NORMAL" }));
                 }
             }
+        }
+
+        // ======================== TARAYICI MİKROFONU ========================
+        let browserMicWs = null;
+        let browserAudioCtx = null;
+        let browserMicStream = null;
+        let browserMicProcessor = null;
+
+        async function startBrowserMic(serverIp) {
+            stopBrowserMic(); // Önceki bağlantıyı temizle
+
+            // Güvenli bağlam kontrolü (getUserMedia sadece https:// veya localhost'ta çalışır)
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                log('HATA: Mikrofon erişimi için HTTPS gerekli! Chrome flags ile ekle: chrome://flags/#unsafely-treat-insecure-origin-as-secure');
+                console.error('[MIC] navigator.mediaDevices mevcut değil. Sayfa HTTP üzerinden açılıyor olabilir.');
+                return;
+            }
+
+            try {
+                log('Mikrofon izni isteniyor...');
+                browserMicStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    }
+                });
+            } catch (err) {
+                log('Mikrofon hatasi: ' + err.name + ' - ' + err.message);
+                console.error('[MIC] getUserMedia hatası:', err);
+                return;
+            }
+
+            browserMicWs = new WebSocket(`ws://${serverIp}:8080/mic`);
+            browserMicWs.binaryType = 'arraybuffer';
+
+            browserMicWs.onopen = () => {
+                log('Mikrofon PC ye bağlandı — dinleniyor...');
+                try {
+                    browserAudioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+                    const source = browserAudioCtx.createMediaStreamSource(browserMicStream);
+                    // 4096 sample ≈ 256ms @ 16kHz — WiFi için iyi bir yığın boyutu
+                    browserMicProcessor = browserAudioCtx.createScriptProcessor(4096, 1, 1);
+                    browserMicProcessor.onaudioprocess = function(e) {
+                        if (!browserMicWs || browserMicWs.readyState !== WebSocket.OPEN) return;
+                        const float32 = e.inputBuffer.getChannelData(0);
+                        const int16 = new Int16Array(float32.length);
+                        for (let i = 0; i < float32.length; i++) {
+                            int16[i] = Math.max(-32768, Math.min(32767, Math.round(float32[i] * 32767)));
+                        }
+                        browserMicWs.send(int16.buffer);
+                    };
+                    source.connect(browserMicProcessor);
+                    browserMicProcessor.connect(browserAudioCtx.destination);
+                } catch (err) {
+                    log('Ses bağlamı hatası: ' + err.message);
+                }
+            };
+            browserMicWs.onclose  = () => log('Mikrofon bağlantısı kapandı.');
+            browserMicWs.onerror  = () => log('Mikrofon bağlantı hatası!');
+        }
+
+        function stopBrowserMic() {
+            if (browserMicProcessor) { browserMicProcessor.disconnect(); browserMicProcessor = null; }
+            if (browserAudioCtx)     { browserAudioCtx.close();          browserAudioCtx = null; }
+            if (browserMicStream)    { browserMicStream.getTracks().forEach(t => t.stop()); browserMicStream = null; }
+            if (browserMicWs)        { browserMicWs.close();              browserMicWs = null; }
         }
 
         function resetBtnStyle(btnId, isAI) {

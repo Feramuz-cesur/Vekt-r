@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import http from 'http';
 import { fileURLToPath } from 'url';
 import express from 'express';
 import { WebSocketServer, WebSocket } from 'ws';
@@ -140,11 +141,36 @@ app.post('/api/stop-ai', (req, res) => {
 const UI_PORT = 3000;
 const uiServer = app.listen(UI_PORT, () => {
     console.log(`💻 AI Dashboard: http://localhost:${UI_PORT}`);
-    console.log(`📡 ESP32 Portu: ws://localhost:8080`);
 });
 
-// WebSocket Sunucuları
-const wssEsp32 = new WebSocketServer({ port: 8080 });
+// ======================== PORT 8080: ESP32 + TARAYICI MİKROFONU ========================
+// Aynı port, farklı path:
+//   ws://[ip]:8080/      → ESP32 robot bağlantısı
+//   ws://[ip]:8080/mic   → Tarayıcı (telefon) mikrofonu
+const AI_PORT = process.env.AI_PORT || 8080;
+const server8080 = http.createServer();
+const wssEsp32 = new WebSocketServer({ noServer: true });
+const wssBrowserMic = new WebSocketServer({ noServer: true });
+
+server8080.on('upgrade', (request, socket, head) => {
+    const pathname = new URL(request.url, `http://localhost`).pathname;
+    if (pathname === '/mic') {
+        wssBrowserMic.handleUpgrade(request, socket, head, (ws) => {
+            wssBrowserMic.emit('connection', ws, request);
+        });
+    } else {
+        wssEsp32.handleUpgrade(request, socket, head, (ws) => {
+            wssEsp32.emit('connection', ws, request);
+        });
+    }
+});
+
+server8080.listen(AI_PORT, () => {
+    console.log(`📡 ESP32 Portu:      ws://localhost:${AI_PORT}`);
+    console.log(`🎤 Tarayıcı Mikrofon: ws://[pc-ip]:${AI_PORT}/mic`);
+});
+
+// Dashboard WebSocket (port 3000/ui)
 const wssUI = new WebSocketServer({ server: uiServer, path: '/ui' });
 
 let uiClients = new Set();
@@ -192,6 +218,14 @@ let lastGeminiAudioMimeType = "";
 // Aktif bağlantılar
 let currentEsp32Ws = null;
 let currentGeminiWs = null;
+let currentBrowserMicWs = null;
+
+// VAD (Voice Activity Detection) durumu — modül seviyesinde, session reset'te sıfırlanır
+let vadSpeaking = false;
+let vadSilenceMs = 0;
+let vadNoiseFloor = 200;
+let vadLastStateLog = 0;
+let vadStreamActive = false;
 
 // Robot durum takibi (göreceli servo hareketi ve hız için)
 let currentArmAngle = 0;    // Kol açısı (0-180)
@@ -331,12 +365,6 @@ let isSendingAudio = false;
 let playbackActive = false;
 let playbackEndTimer = null; // Debounce: playback bitişini geciktir
 
-function setMicMute(mute) {
-    if (currentEsp32Ws && currentEsp32Ws.readyState === WebSocket.OPEN) {
-        currentEsp32Ws.send(JSON.stringify({ type: "mic_mute", mute }));
-    }
-}
-
 // Ses seviyesi uygula (PCM16 buffer'ına volume çarpanı)
 function applyVolume(pcmBuffer, volume) {
     if (volume === 1.0) return pcmBuffer;
@@ -363,7 +391,6 @@ async function processAudioQueue() {
 
     if (!playbackActive) {
         playbackActive = true;
-        setMicMute(true);
         uiLog("🔊 Wector konuşuyor...");
     }
 
@@ -405,7 +432,6 @@ async function processAudioQueue() {
         playbackEndTimer = null;
         if (esp32AudioQueue.length === 0 && !isSendingAudio) {
             playbackActive = false;
-            setMicMute(false);
             uiLog("🎤 Dinleniyor...");
         }
     }, 500);
@@ -422,6 +448,85 @@ function sendGemini(obj, label) {
     }
 }
 
+// ======================== TARAYICI MİKROFONU SES İŞLEME ========================
+// Telefondaki data/index.html'den gelen PCM16 ses verisi burada işlenir.
+// VAD (ses algılama) uygular ve Gemini'ye iletir.
+function handleBrowserAudioData(data) {
+    if (!isAIRunning || !isGeminiSetupComplete || !currentGeminiWs || currentGeminiWs.readyState !== WebSocket.OPEN) return;
+
+    // Playback sırasında mic susturulur (çift konuşmayı önler)
+    if (playbackActive) return;
+
+    // PCM16 hizalama
+    if (data.length % 2 !== 0) {
+        data = data.subarray(0, data.length - 1);
+    }
+
+    // Seviye ölçümü (VAD)
+    let sum = 0;
+    for (let i = 0; i < data.length; i += 2) {
+        sum += Math.abs(data.readInt16LE(i));
+    }
+    const avg = sum / (data.length / 2);
+    const chunkMs = (data.length / 2) / 16000 * 1000;
+
+    // Noise floor güncelle (sessiz anlardan öğren)
+    if (!vadSpeaking) {
+        vadNoiseFloor = (vadNoiseFloor * 0.98) + (avg * 0.02);
+    }
+
+    const startThr = Math.max(150, vadNoiseFloor * 1.8);
+    const stopThr  = Math.max(100, vadNoiseFloor * 1.3);
+
+    if (!vadSpeaking) {
+        if (avg >= startThr) {
+            vadSpeaking = true;
+            vadSilenceMs = 0;
+            if (!vadStreamActive) {
+                vadStreamActive = true;
+                sendGemini({ realtimeInput: { activityStart: {} } }, "activityStart");
+            }
+            uiLog(`🗣️ Konuşma algılandı (avg=${avg.toFixed(0)}, thr=${startThr.toFixed(0)})`);
+        }
+    } else {
+        if (avg < stopThr) {
+            vadSilenceMs += chunkMs;
+            if (vadSilenceMs >= 700) {
+                vadSpeaking = false;
+                vadSilenceMs = 0;
+                if (vadStreamActive) {
+                    vadStreamActive = false;
+                    sendGemini({ realtimeInput: { activityEnd: {} } }, "activityEnd");
+                    flushTranscript('user');
+                }
+                uiLog(`🤫 Konuşma bitti (avg=${avg.toFixed(0)})`);
+            }
+        } else {
+            vadSilenceMs = 0;
+        }
+    }
+
+    // Sessizse Gemini'ye gönderme
+    const now = Date.now();
+    if (!vadSpeaking) {
+        if (now - vadLastStateLog > 8000) {
+            vadLastStateLog = now;
+            uiLog(`🔇 Sessiz (avg=${avg.toFixed(0)}, noise=${vadNoiseFloor.toFixed(0)})`);
+        }
+        return;
+    }
+
+    const audioBase64 = data.toString('base64');
+    sendGemini({
+        realtimeInput: {
+            audio: {
+                mimeType: "audio/pcm;rate=16000",
+                data: audioBase64
+            }
+        }
+    }, "realtimeInput.audio");
+}
+
 function startGeminiSession() {
     if (!currentEsp32Ws || currentEsp32Ws.readyState !== WebSocket.OPEN) {
         uiLog('❌ ESP32 bağlı değil, AI başlatılamıyor.');
@@ -436,6 +541,11 @@ function startGeminiSession() {
     playbackActive = false;
     currentArmAngle = 0;
     currentHeadAngle = 30;
+    // VAD sıfırla
+    vadSpeaking = false;
+    vadSilenceMs = 0;
+    vadNoiseFloor = 200;
+    vadStreamActive = false;
 
     const HOST = 'generativelanguage.googleapis.com';
     const WS_URL = `wss://${HOST}/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${GEMINI_API_KEY}`;
@@ -619,13 +729,6 @@ function startGeminiSession() {
 
         sendGemini(sessionSetup, "setup");
     });
-
-    // --- VAD (Voice Activity Detection) değişkenleri ---
-    let vadSpeaking = false;
-    let vadSilenceMs = 0;
-    let vadNoiseFloor = 200;
-    let vadLastStateLog = 0;
-    let vadStreamActive = false;
 
     geminiWs.on('message', (message) => {
         try {
@@ -864,100 +967,11 @@ function startGeminiSession() {
         uiLog(`❌ Gemini bağlantı hatası: ${err.message}`);
     });
 
-    // ======================== ESP32'DEN GELEN SES VERİSİ ========================
-    // Bu handler ESP32 ws için ayarlanır (mevcut bağlantı üzerinden)
-    // Not: handler zaten ESP32 connection event'inde ayarlanıyor
-
-    // ESP32 mesaj işleme (Gemini oturumu başladığında)
-    function handleEsp32AudioData(data) {
-        if (!isAIRunning || !isGeminiSetupComplete || !currentGeminiWs || currentGeminiWs.readyState !== WebSocket.OPEN) return;
-
-        // Playback sırasında mic kapalı (echo cancellation)
-        if (playbackActive) return;
-
-        // PCM16 hizalama
-        if (data.length % 2 !== 0) {
-            data = data.subarray(0, data.length - 1);
-        }
-
-        // Seviye ölçümü (VAD + debug)
-        let sum = 0;
-        for (let i = 0; i < data.length; i += 2) {
-            sum += Math.abs(data.readInt16LE(i));
-        }
-        const avg = sum / (data.length / 2);
-        const chunkMs = (data.length / 2) / 16000 * 1000;
-
-        // Noise floor güncelle (sessiz anlardan)
-        if (!vadSpeaking) {
-            vadNoiseFloor = (vadNoiseFloor * 0.98) + (avg * 0.02);
-        }
-
-        // VAD eşikleri
-        const startThr = Math.max(150, vadNoiseFloor * 1.8);
-        const stopThr = Math.max(100, vadNoiseFloor * 1.3);
-
-        if (!vadSpeaking) {
-            if (avg >= startThr) {
-                vadSpeaking = true;
-                vadSilenceMs = 0;
-                if (!vadStreamActive) {
-                    vadStreamActive = true;
-                    sendGemini({ realtimeInput: { activityStart: {} } }, "activityStart");
-                }
-                uiLog(`🗣️ Konuşma algılandı (avg=${avg.toFixed(0)}, thr=${startThr.toFixed(0)})`);
-            }
-        } else {
-            if (avg < stopThr) {
-                vadSilenceMs += chunkMs;
-                if (vadSilenceMs >= 700) {
-                    vadSpeaking = false;
-                    vadSilenceMs = 0;
-                    if (vadStreamActive) {
-                        vadStreamActive = false;
-                        sendGemini({ realtimeInput: { activityEnd: {} } }, "activityEnd");
-                        // Konuşma bitince kullanıcının transkriptini UI'da tek parça olarak göster
-                        flushTranscript('user');
-                    }
-                    uiLog(`🤫 Konuşma bitti (avg=${avg.toFixed(0)})`);
-                }
-            } else {
-                vadSilenceMs = 0;
-            }
-        }
-
-        // Sessiz anları Gemini'ye gönderme
-        const now = Date.now();
-        if (!vadSpeaking) {
-            if (now - vadLastStateLog > 8000) {
-                vadLastStateLog = now;
-                uiLog(`🔇 Sessiz (avg=${avg.toFixed(0)}, noise=${vadNoiseFloor.toFixed(0)})`);
-            }
-            return;
-        }
-
-        // ✅ Gemini'ye yeni API formatında ses gönder (mediaChunks DEPRECATED!)
-        const audioBase64 = data.toString('base64');
-        sendGemini({
-            realtimeInput: {
-                audio: {
-                    mimeType: "audio/pcm;rate=16000",
-                    data: audioBase64
-                }
-            }
-        }, "realtimeInput.audio");
-    }
-
-    // handleEsp32AudioData fonksiyonunu mevcut ESP32 bağlantısına bağla
+    // ESP32 text mesajlarını dinle (artık binary ses yok, sadece komutlar)
     if (currentEsp32Ws) {
-        // Önceki handler'ı temizle
         currentEsp32Ws.removeAllListeners('message');
-
         currentEsp32Ws.on('message', (data, isBinary) => {
-            if (isBinary) {
-                // Audio işleme
-                handleEsp32AudioData(data);
-            } else {
+            if (!isBinary) {
                 const rawMsg = data.toString();
                 try {
                     const msg = JSON.parse(rawMsg);
@@ -1078,5 +1092,38 @@ wssEsp32.on('connection', (esp32Ws) => {
 
     esp32Ws.on('error', (err) => {
         console.error('[ESP32 WS Error]:', err.message);
+    });
+});
+
+// ======================== TARAYICI MİKROFONU BAĞLANTISI (/mic) ========================
+wssBrowserMic.on('connection', (browserWs) => {
+    // Önceki bağlantıyı kapat (aynı anda tek mikrofon)
+    if (currentBrowserMicWs && currentBrowserMicWs !== browserWs) {
+        currentBrowserMicWs.terminate();
+    }
+    currentBrowserMicWs = browserWs;
+    uiLog('🎤 Tarayıcı mikrofonu bağlandı!');
+    broadcastStatus();
+
+    browserWs.on('message', (data, isBinary) => {
+        if (isBinary) {
+            handleBrowserAudioData(data);
+        }
+    });
+
+    browserWs.on('close', () => {
+        if (currentBrowserMicWs === browserWs) currentBrowserMicWs = null;
+        // Konuşma stream'i açıksa kapat
+        if (vadStreamActive) {
+            vadStreamActive = false;
+            vadSpeaking = false;
+            sendGemini({ realtimeInput: { activityEnd: {} } }, "activityEnd-micDisconnect");
+        }
+        uiLog('🎤 Tarayıcı mikrofonu bağlantısı kapandı.');
+        broadcastStatus();
+    });
+
+    browserWs.on('error', (err) => {
+        console.error('[Browser Mic WS Error]:', err.message);
     });
 });

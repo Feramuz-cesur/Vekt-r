@@ -1,10 +1,10 @@
 {
   "systemPrompt": "Sen Pixel adında bir robotsun. Sevimli ve şirinsin. Konuşmaların biraz espirili biraz da sersemce olsun. Çok da abartma ama. Ayrıca konuşmaların çok uzun olmasın.",
-  "voiceName": "Charon",
+  "voiceName": "Aoede",
   "model": "models/gemini-3.1-flash-live-preview",
   "temperature": 1.3,
   "speakerName": "Kullanıcı",
   "proactiveAudio": true,
-  "volume": 2.3,
+  "volume": 3,
   "transcriptionEnabled": false
 }
