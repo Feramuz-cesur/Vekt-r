@@ -364,11 +364,6 @@
                     <span id="battery-text" class="text-white font-bold font-tech">--%</span>
                 </div>
 
-                <!-- YENİ: PC IP Girişi -->
-                <div class="hidden sm:flex items-center border border-neon-purple/60 rounded bg-gray-900/60 px-[1vh] h-[4vh] ml-[1vh] shadow-[0_0_10px_rgba(188,19,254,0.15)]">
-                    <i class="fa-solid fa-server text-neon-purple text-[1.5vh] mr-[1vh]"></i>
-                    <input type="text" id="cfgAiServerIp" class="bg-transparent text-gray-200 w-[14vh] h-full text-[1.6vh] font-tech outline-none" placeholder="192.168.x.x" onchange="localStorage.setItem('aiServerIp', this.value)">
-                </div>
             </div>
 
             <!-- Orta: Kayıt ve Oynatma Butonları (Mutlak Merkezleme ve Büyütülmüş Fontlar) -->
@@ -609,39 +604,112 @@
         </div>
 
         <!-- Yapay Zeka Modu (Overlay) -->
-        <div id="ai-overlay"
-            class="hidden fixed inset-0 z-[100] bg-black/95 backdrop-blur-lg flex flex-col items-center justify-center pointer-events-auto">
-            <div class="relative flex flex-col items-center mt-[-5vh]">
-                <!-- AI Neon Halka Animasyonu -->
-                <div
-                    class="absolute inset-0 rounded-full border-[0.5vh] border-neon-purple blur-[8px] scale-[1.8] animate-ping opacity-60">
+        <div id="ai-overlay" class="hidden fixed inset-0 z-[100] bg-black/95 backdrop-blur-lg flex flex-col pointer-events-auto overflow-y-auto">
+
+            <!-- Ayarlar Paneli (API key yokken veya ayarlar butonuna basınca) -->
+            <div id="ai-settings-panel" class="flex flex-col items-center justify-start p-[3vh] w-full max-w-[95vw] mx-auto">
+                <div class="relative flex flex-col items-center mb-[2.5vh] mt-[2vh]">
+                    <div class="bg-gray-900 border-4 border-neon-purple rounded-full w-[10vh] h-[10vh] flex items-center justify-center shadow-[0_0_40px_rgba(188,19,254,0.7)] z-10 relative">
+                        <i class="fa-solid fa-robot text-[4vh] text-neon-purple"></i>
+                    </div>
                 </div>
-                <div
-                    class="absolute inset-0 rounded-full border-[0.5vh] border-neon-purple blur-[3px] scale-[1.3] animate-pulse">
+                <h2 class="text-[2.5vh] font-tech text-neon-purple text-center tracking-[0.3em] font-bold mb-[2.5vh]">AI AYARLARI</h2>
+
+                <!-- API Key -->
+                <div class="w-full mb-[2vh]">
+                    <label class="text-[1.4vh] text-gray-400 font-tech mb-[0.5vh] block">GEMİNİ API ANAHTARI</label>
+                    <div class="flex items-center border border-neon-purple/60 rounded bg-gray-900/60 px-[1.5vh] h-[5.5vh] gap-[1vh]">
+                        <i class="fa-solid fa-key text-neon-purple text-[1.8vh]"></i>
+                        <input type="password" id="geminiApiKey" class="bg-transparent text-gray-200 flex-1 h-full text-[1.8vh] font-tech outline-none" placeholder="AIza...">
+                        <button onclick="toggleApiKeyVisibility()" class="text-gray-400 hover:text-neon-purple transition-colors px-[0.5vh]">
+                            <i id="apiKeyEyeIcon" class="fa-solid fa-eye text-[1.8vh]"></i>
+                        </button>
+                    </div>
                 </div>
 
-                <!-- Merkez AI İkonu -->
-                <div
-                    class="bg-gray-900 border-4 border-neon-purple rounded-full w-[15vh] h-[15vh] flex items-center justify-center shadow-[0_0_60px_rgba(188,19,254,0.7)] z-10 relative">
-                    <i class="fa-solid fa-brain text-[7vh] text-neon-purple animate-pulse"></i>
+                <!-- System Prompt -->
+                <div class="w-full mb-[2vh]">
+                    <label class="text-[1.4vh] text-gray-400 font-tech mb-[0.5vh] block">KARAKTER / SİSTEM PROMPTU</label>
+                    <textarea id="geminiSystemPrompt" class="w-full bg-gray-900/60 border border-neon-purple/40 rounded text-gray-200 text-[1.6vh] p-[1.5vh] h-[12vh] resize-none outline-none focus:border-neon-purple" placeholder="Sen ... adında bir robotsun..."></textarea>
+                </div>
+
+                <!-- Ses + Konuşmacı Adı -->
+                <div class="w-full flex gap-[2vh] mb-[2vh]">
+                    <div class="flex-1">
+                        <label class="text-[1.4vh] text-gray-400 font-tech mb-[0.5vh] block">SES</label>
+                        <select id="geminiVoice" class="w-full bg-gray-900/60 border border-neon-purple/40 rounded text-gray-200 text-[1.5vh] px-[1.5vh] h-[5.5vh] outline-none">
+                            <option value="Aoede">Aoede (Kız)</option>
+                            <option value="Charon">Charon (Erkek)</option>
+                            <option value="Fenrir">Fenrir (Erkek)</option>
+                            <option value="Kore">Kore (Kız)</option>
+                            <option value="Puck">Puck (Erkek)</option>
+                            <option value="Leda">Leda (Kız)</option>
+                            <option value="Zephyr">Zephyr (Erkek)</option>
+                        </select>
+                    </div>
+                    <div class="flex-1">
+                        <label class="text-[1.4vh] text-gray-400 font-tech mb-[0.5vh] block">KONUŞMACI ADI</label>
+                        <div class="flex items-center border border-neon-purple/40 rounded bg-gray-900/60 px-[1.5vh] h-[5.5vh]">
+                            <input type="text" id="geminiSpeakerName" class="bg-transparent text-gray-200 flex-1 h-full text-[1.8vh] font-tech outline-none" placeholder="Kullanıcı">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sıcaklık + Model -->
+                <div class="w-full flex gap-[2vh] mb-[3vh]">
+                    <div class="flex-1">
+                        <label class="text-[1.4vh] text-gray-400 font-tech mb-[0.5vh] block">SICAKLIK: <span id="tempValue">1.0</span></label>
+                        <input type="range" id="geminiTemperature" min="0" max="2" step="0.1" value="1.0"
+                            oninput="document.getElementById('tempValue').innerText = parseFloat(this.value).toFixed(1)"
+                            class="w-full h-[1.5vh] bg-gray-700 rounded cursor-pointer accent-purple-600">
+                    </div>
+                    <div class="flex-1">
+                        <label class="text-[1.4vh] text-gray-400 font-tech mb-[0.5vh] block">MODEL</label>
+                        <select id="geminiModel" class="w-full bg-gray-900/60 border border-neon-purple/40 rounded text-gray-200 text-[1.3vh] px-[1vh] h-[5.5vh] outline-none">
+                            <option value="models/gemini-2.5-flash-native-audio-latest">2.5 Flash (Güncel)</option>
+                            <option value="models/gemini-2.0-flash-live-001">2.0 Flash Live</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Butonlar -->
+                <div class="w-full flex gap-[2vh]">
+                    <button onclick="setUIMode('manual')" class="flex-none flex items-center gap-[1vh] bg-red-900/40 hover:bg-red-600/60 border border-red-600 text-red-300 px-[3vh] py-[1.5vh] rounded-full font-tech text-[1.8vh] transition-all active:scale-95">
+                        <i class="fa-solid fa-xmark"></i> İPTAL
+                    </button>
+                    <button onclick="saveAiSettingsAndStart()" class="flex-1 flex items-center justify-center gap-[1vh] bg-neon-purple/20 hover:bg-neon-purple/40 border-2 border-neon-purple text-neon-purple px-[3vh] py-[1.5vh] rounded-full font-tech font-bold text-[2vh] transition-all active:scale-95 shadow-[0_0_20px_rgba(188,19,254,0.3)]">
+                        <i class="fa-solid fa-brain"></i> AI'Yİ BAŞLAT
+                    </button>
                 </div>
             </div>
 
-            <h2
-                class="text-[4vh] font-tech text-neon-purple text-center mt-[8vh] tracking-[0.5em] shadow-neon-purple drop-shadow-[0_0_15px_rgba(188,19,254,0.8)] font-bold">
-                A.I. AKTİF
-            </h2>
-            <p class="text-gray-300 mt-[2vh] font-tech text-[1.8vh] opacity-80 text-center px-[4vh] mb-[4vh]">
-                Robot dış sesleri dinliyor ve bulut ile haberleşiyor...
-            </p>
+            <!-- Aktif Oturum Paneli (oturum çalışırken gösterilir) -->
+            <div id="ai-active-panel" class="hidden fixed inset-0 flex flex-col items-center justify-center pointer-events-auto">
+                <div class="relative flex flex-col items-center">
+                    <div class="absolute inset-0 rounded-full border-[0.5vh] border-neon-purple blur-[8px] scale-[1.8] animate-ping opacity-60"></div>
+                    <div class="absolute inset-0 rounded-full border-[0.5vh] border-neon-purple blur-[3px] scale-[1.3] animate-pulse"></div>
+                    <div class="bg-gray-900 border-4 border-neon-purple rounded-full w-[15vh] h-[15vh] flex items-center justify-center shadow-[0_0_60px_rgba(188,19,254,0.7)] z-10 relative">
+                        <i class="fa-solid fa-brain text-[7vh] text-neon-purple animate-pulse"></i>
+                    </div>
+                </div>
+                <h2 class="text-[4vh] font-tech text-neon-purple text-center mt-[8vh] tracking-[0.5em] font-bold drop-shadow-[0_0_15px_rgba(188,19,254,0.8)]">A.I. AKTİF</h2>
+                <p id="ai-status-text" class="text-gray-300 mt-[2vh] font-tech text-[1.8vh] opacity-80 text-center px-[4vh] mb-[2vh]">Bağlanıyor...</p>
 
-            <!-- Kapatma Butonu -->
-            <button onclick="setUIMode('manual')"
-                class="group relative flex items-center gap-[1.5vh] bg-red-900/40 hover:bg-red-600 border-2 border-red-600 text-red-100 px-[4vh] py-[1.5vh] rounded-full font-tech font-bold text-[2vh] transition-all duration-300 active:scale-95 overflow-hidden shadow-[0_0_20px_rgba(220,38,38,0.4)]">
-                <div class="absolute inset-0 bg-red-500 opacity-0 group-hover:opacity-20 transition-opacity"></div>
-                <i class="fa-solid fa-power-off text-red-400 group-hover:text-white transition-colors text-[2.5vh]"></i>
-                <span class="tracking-wider">YAPAY ZEKAYI KAPAT</span>
-            </button>
+                <!-- Konuşma Geçmişi -->
+                <div id="ai-transcript" class="hidden w-[80vw] max-h-[18vh] overflow-y-auto bg-gray-900/60 border border-neon-purple/30 rounded p-[1.5vh] mb-[3vh] text-[1.4vh] font-tech"></div>
+
+                <!-- Butonlar -->
+                <div class="flex gap-[2vh]">
+                    <button onclick="showAiSettings()" class="flex items-center gap-[1vh] bg-gray-800 hover:bg-gray-700 border border-gray-600 text-gray-300 px-[3vh] py-[1.5vh] rounded-full font-tech text-[1.8vh] transition-all active:scale-95">
+                        <i class="fa-solid fa-gear"></i> AYARLAR
+                    </button>
+                    <button onclick="setUIMode('manual')" class="group relative flex items-center gap-[1.5vh] bg-red-900/40 hover:bg-red-600 border-2 border-red-600 text-red-100 px-[4vh] py-[1.5vh] rounded-full font-tech font-bold text-[2vh] transition-all active:scale-95 shadow-[0_0_20px_rgba(220,38,38,0.4)]">
+                        <i class="fa-solid fa-power-off text-red-400 group-hover:text-white text-[2.5vh]"></i>
+                        <span class="tracking-wider">KAPAT</span>
+                    </button>
+                </div>
+            </div>
+
         </div>
 
     </div>
@@ -668,9 +736,6 @@
             updateSliderVariables();
             updateSliderDisplays();
             refreshLightPowerButton();
-            // AI IP Guncellemesi
-            let savedIp = localStorage.getItem("aiServerIp") || "192.168.1.100";
-            document.getElementById('cfgAiServerIp').value = savedIp;
         }
 
         // Slider değişince değişkenleri güncelle
@@ -934,20 +999,21 @@
                 activeBtn.classList.remove('text-neon-purple', 'hover:text-black', 'border');
                 activeBtn.className += ' bg-neon-purple text-black shadow-[0_0_15px_#bc13fe] border-transparent';
 
+                isAIModeActive = true;
                 log("Mod: YAPAY ZEKA DEVREDE");
-                let userIp = document.getElementById('cfgAiServerIp').value.trim();
-                if (!userIp) {
-                    setUIMode('manual');
-                    log("Lütfen üst panele PC IP'si giriniz!");
+
+                if (websocket && websocket.readyState === WebSocket.OPEN) {
+                    websocket.send(JSON.stringify({ modeCommand: "AI" }));
+                }
+
+                const apiKey = localStorage.getItem('geminiApiKey');
+                if (!apiKey) {
+                    showAiSettings();
                 } else {
-                    localStorage.setItem("aiServerIp", userIp);
-                    if (websocket && websocket.readyState === WebSocket.OPEN) {
-                        websocket.send(JSON.stringify({
-                            modeCommand: "AI",
-                            serverIp: userIp
-                        }));
-                    }
-                    startBrowserMic(userIp);
+                    loadAiSettingsToForm();
+                    document.getElementById('ai-settings-panel').classList.add('hidden');
+                    document.getElementById('ai-active-panel').classList.remove('hidden');
+                    startAISession();
                 }
             } else {
                 const activeView = document.getElementById(`mode-${modeName}`);
@@ -965,78 +1031,412 @@
                     sendData();
                 }
 
-                stopBrowserMic();
+                isAIModeActive = false;
+                stopAISession();
                 if (websocket && websocket.readyState === WebSocket.OPEN) {
                     websocket.send(JSON.stringify({ modeCommand: "NORMAL" }));
                 }
             }
         }
 
-        // ======================== TARAYICI MİKROFONU ========================
-        let browserMicWs = null;
-        let browserAudioCtx = null;
-        let browserMicStream = null;
-        let browserMicProcessor = null;
+        // ======================== GEMİNİ AI DIREKT ========================
+        let geminiWs = null;
+        let aiMicStream = null;
+        let aiAudioCtx = null;
+        let aiMicProcessor = null;
+        let aiAudioQueue = [];
+        let aiAudioQueueRunning = false;
+        let aiPlaybackActive = false;
+        let aiMoveDurationTimer = null;
+        let aiCurrentArmAngle = 0;
+        let aiCurrentHeadAngle = 30;
+        let aiDefaultSpeed = 150;
 
-        async function startBrowserMic(serverIp) {
-            stopBrowserMic(); // Önceki bağlantıyı temizle
+        // VAD durumu
+        let vadSpeaking = false;
+        let vadSilenceMs = 0;
+        let vadNoiseFloor = 200;
 
-            // Güvenli bağlam kontrolü (getUserMedia sadece https:// veya localhost'ta çalışır)
+        const GEMINI_WS_BASE = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent';
+
+        function loadAiSettingsToForm() {
+            const defaults = {
+                geminiApiKey: '',
+                geminiSystemPrompt: 'Sen Pixel adında sevimli ve espirili bir robotsun. Konuşmaların kısa olsun.',
+                geminiVoice: 'Aoede',
+                geminiSpeakerName: 'Kullanıcı',
+                geminiTemperature: '1.0',
+                geminiModel: 'models/gemini-2.5-flash-native-audio-latest'
+            };
+            for (const [id, def] of Object.entries(defaults)) {
+                const el = document.getElementById(id);
+                if (el) el.value = localStorage.getItem(id) || def;
+            }
+            const tempEl = document.getElementById('geminiTemperature');
+            if (tempEl) document.getElementById('tempValue').innerText = parseFloat(tempEl.value).toFixed(1);
+        }
+
+        function saveAiSettingsToStorage() {
+            const ids = ['geminiApiKey', 'geminiSystemPrompt', 'geminiVoice', 'geminiSpeakerName', 'geminiTemperature', 'geminiModel'];
+            for (const id of ids) {
+                const el = document.getElementById(id);
+                if (el) localStorage.setItem(id, el.value);
+            }
+        }
+
+        function showAiSettings() {
+            stopAISession();
+            loadAiSettingsToForm();
+            document.getElementById('ai-settings-panel').classList.remove('hidden');
+            document.getElementById('ai-active-panel').classList.add('hidden');
+        }
+
+        function saveAiSettingsAndStart() {
+            const apiKey = document.getElementById('geminiApiKey').value.trim();
+            if (!apiKey) { log('Lütfen Gemini API anahtarını girin!'); return; }
+            saveAiSettingsToStorage();
+            document.getElementById('ai-settings-panel').classList.add('hidden');
+            document.getElementById('ai-active-panel').classList.remove('hidden');
+            startAISession();
+        }
+
+        function toggleApiKeyVisibility() {
+            const input = document.getElementById('geminiApiKey');
+            const icon = document.getElementById('apiKeyEyeIcon');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'fa-solid fa-eye-slash text-[1.8vh]';
+            } else {
+                input.type = 'password';
+                icon.className = 'fa-solid fa-eye text-[1.8vh]';
+            }
+        }
+
+        function setAiStatus(msg) {
+            const el = document.getElementById('ai-status-text');
+            if (el) el.innerText = msg;
+            log(msg);
+        }
+
+        function addTranscript(role, text) {
+            if (!text || !text.trim()) return;
+            const el = document.getElementById('ai-transcript');
+            if (!el) return;
+            el.classList.remove('hidden');
+            const line = document.createElement('div');
+            line.className = role === 'user' ? 'text-neon-blue mb-[0.5vh]' : 'text-neon-purple mb-[0.5vh]';
+            line.innerText = (role === 'user' ? '👤 ' : '🤖 ') + text.trim();
+            el.appendChild(line);
+            // Maksimum 20 satır tut
+            while (el.children.length > 20) el.removeChild(el.firstChild);
+            el.scrollTop = el.scrollHeight;
+        }
+
+        async function startAISession() {
+            const apiKey = localStorage.getItem('geminiApiKey');
+            if (!apiKey) { showAiSettings(); return; }
+
+            setAiStatus('Mikrofon izni isteniyor...');
+
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                log('HATA: Mikrofon erişimi için HTTPS gerekli! Chrome flags ile ekle: chrome://flags/#unsafely-treat-insecure-origin-as-secure');
-                console.error('[MIC] navigator.mediaDevices mevcut değil. Sayfa HTTP üzerinden açılıyor olabilir.');
+                setAiStatus('HATA: Mikrofon için HTTPS gerekli. chrome://flags ile http://robot.local ekleyin.');
                 return;
             }
 
             try {
-                log('Mikrofon izni isteniyor...');
-                browserMicStream = await navigator.mediaDevices.getUserMedia({
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        autoGainControl: true
-                    }
+                aiMicStream = await navigator.mediaDevices.getUserMedia({
+                    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
                 });
             } catch (err) {
-                log('Mikrofon hatasi: ' + err.name + ' - ' + err.message);
-                console.error('[MIC] getUserMedia hatası:', err);
+                setAiStatus('Mikrofon hatası: ' + err.name + ' - ' + err.message);
                 return;
             }
 
-            browserMicWs = new WebSocket(`ws://${serverIp}:8080/mic`);
-            browserMicWs.binaryType = 'arraybuffer';
+            setAiStatus('Gemini\'ye bağlanıyor...');
 
-            browserMicWs.onopen = () => {
-                log('Mikrofon PC ye bağlandı — dinleniyor...');
-                try {
-                    browserAudioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
-                    const source = browserAudioCtx.createMediaStreamSource(browserMicStream);
-                    // 4096 sample ≈ 256ms @ 16kHz — WiFi için iyi bir yığın boyutu
-                    browserMicProcessor = browserAudioCtx.createScriptProcessor(4096, 1, 1);
-                    browserMicProcessor.onaudioprocess = function(e) {
-                        if (!browserMicWs || browserMicWs.readyState !== WebSocket.OPEN) return;
-                        const float32 = e.inputBuffer.getChannelData(0);
-                        const int16 = new Int16Array(float32.length);
-                        for (let i = 0; i < float32.length; i++) {
-                            int16[i] = Math.max(-32768, Math.min(32767, Math.round(float32[i] * 32767)));
-                        }
-                        browserMicWs.send(int16.buffer);
-                    };
-                    source.connect(browserMicProcessor);
-                    browserMicProcessor.connect(browserAudioCtx.destination);
-                } catch (err) {
-                    log('Ses bağlamı hatası: ' + err.message);
-                }
+            const url = GEMINI_WS_BASE + '?key=' + apiKey;
+            geminiWs = new WebSocket(url);
+
+            geminiWs.onopen = () => {
+                const voice = localStorage.getItem('geminiVoice') || 'Aoede';
+                const model = localStorage.getItem('geminiModel') || 'models/gemini-2.5-flash-native-audio-latest';
+                const temp = parseFloat(localStorage.getItem('geminiTemperature') || '1.0');
+                const systemPrompt = localStorage.getItem('geminiSystemPrompt') || 'Sen yardımsever bir robotsun.';
+
+                const setup = {
+                    setup: {
+                        model,
+                        generationConfig: {
+                            temperature: temp,
+                            responseModalities: ['AUDIO'],
+                            speechConfig: {
+                                voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } }
+                            }
+                        },
+                        systemInstruction: { parts: [{ text: systemPrompt }] },
+                        realtimeInputConfig: { automaticActivityDetection: { disabled: true } },
+                        tools: [{ functionDeclarations: getToolDeclarations() }]
+                    }
+                };
+                geminiWs.send(JSON.stringify(setup));
             };
-            browserMicWs.onclose  = () => log('Mikrofon bağlantısı kapandı.');
-            browserMicWs.onerror  = () => log('Mikrofon bağlantı hatası!');
+
+            geminiWs.onmessage = handleGeminiMessage;
+            geminiWs.onerror = (e) => { setAiStatus('Gemini bağlantı hatası! Konsolu kontrol et.'); console.error('[Gemini WS Error]', e); };
+            geminiWs.onclose = (e) => { setAiStatus('Bağlantı kapandı (kod: ' + e.code + ' / reason: ' + (e.reason || 'yok') + ')'); console.warn('[Gemini WS Close]', e.code, e.reason); };
         }
 
-        function stopBrowserMic() {
-            if (browserMicProcessor) { browserMicProcessor.disconnect(); browserMicProcessor = null; }
-            if (browserAudioCtx)     { browserAudioCtx.close();          browserAudioCtx = null; }
-            if (browserMicStream)    { browserMicStream.getTracks().forEach(t => t.stop()); browserMicStream = null; }
-            if (browserMicWs)        { browserMicWs.close();              browserMicWs = null; }
+        function stopAISession() {
+            if (aiMicProcessor) { aiMicProcessor.disconnect(); aiMicProcessor = null; }
+            if (aiAudioCtx) { aiAudioCtx.close(); aiAudioCtx = null; }
+            if (aiMicStream) { aiMicStream.getTracks().forEach(t => t.stop()); aiMicStream = null; }
+            if (geminiWs) { geminiWs.close(); geminiWs = null; }
+            if (aiMoveDurationTimer) { clearTimeout(aiMoveDurationTimer); aiMoveDurationTimer = null; }
+            aiAudioQueue = [];
+            aiAudioQueueRunning = false;
+            aiPlaybackActive = false;
+            vadSpeaking = false; vadSilenceMs = 0; vadNoiseFloor = 200;
+            const transcriptEl = document.getElementById('ai-transcript');
+            if (transcriptEl) { transcriptEl.innerHTML = ''; transcriptEl.classList.add('hidden'); }
+        }
+
+        function handleGeminiMessage(event) {
+            let data;
+            try { data = JSON.parse(event.data); } catch(e) { return; }
+
+            if (data.setupComplete) {
+                setAiStatus('Hazır — konuşun!');
+                setupMicPipeline();
+            }
+
+            if (data.serverContent) {
+                if (data.serverContent.modelTurn && data.serverContent.modelTurn.parts) {
+                    for (const part of data.serverContent.modelTurn.parts) {
+                        if (part.inlineData && part.inlineData.mimeType && part.inlineData.mimeType.includes('audio')) {
+                            const pcm = decodeGeminiAudio(part.inlineData.mimeType, part.inlineData.data);
+                            if (pcm) enqueueAudioForEsp32(pcm);
+                        }
+                        if (part.text) addTranscript('assistant', part.text);
+                    }
+                }
+                if (data.serverContent.turnComplete) setAiStatus('Hazır — konuşun!');
+                if (data.serverContent.interrupted) { aiAudioQueue = []; aiPlaybackActive = false; }
+                if (data.serverContent.outputTranscription && data.serverContent.outputTranscription.text) {
+                    addTranscript('assistant', data.serverContent.outputTranscription.text);
+                }
+                if (data.serverContent.inputTranscription && data.serverContent.inputTranscription.text) {
+                    addTranscript('user', data.serverContent.inputTranscription.text);
+                }
+            }
+
+            if (data.toolCall && data.toolCall.functionCalls) handleToolCalls(data.toolCall.functionCalls);
+            if (data.error) { setAiStatus('Gemini hatası: ' + (data.error.message || 'bilinmeyen')); console.error('[Gemini Error]', data.error); }
+        }
+
+        function setupMicPipeline() {
+            try {
+                aiAudioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+                const source = aiAudioCtx.createMediaStreamSource(aiMicStream);
+                aiMicProcessor = aiAudioCtx.createScriptProcessor(4096, 1, 1);
+
+                aiMicProcessor.onaudioprocess = function(e) {
+                    if (!geminiWs || geminiWs.readyState !== WebSocket.OPEN) return;
+                    if (aiPlaybackActive) return;
+
+                    const float32 = e.inputBuffer.getChannelData(0);
+                    const int16 = new Int16Array(float32.length);
+                    for (let i = 0; i < float32.length; i++) {
+                        int16[i] = Math.max(-32768, Math.min(32767, Math.round(float32[i] * 32767)));
+                    }
+                    processVAD(int16);
+                };
+
+                source.connect(aiMicProcessor);
+                aiMicProcessor.connect(aiAudioCtx.destination);
+            } catch(err) {
+                setAiStatus('Ses bağlamı hatası: ' + err.message);
+            }
+        }
+
+        function processVAD(int16) {
+            let sum = 0;
+            for (let i = 0; i < int16.length; i++) sum += Math.abs(int16[i]);
+            const avg = sum / int16.length;
+            const chunkMs = (int16.length / 16000) * 1000;
+
+            if (!vadSpeaking) vadNoiseFloor = (vadNoiseFloor * 0.98) + (avg * 0.02);
+
+            const startThr = Math.max(150, vadNoiseFloor * 1.8);
+            const stopThr  = Math.max(100, vadNoiseFloor * 1.3);
+
+            if (!vadSpeaking && avg > startThr) {
+                vadSpeaking = true;
+                vadSilenceMs = 0;
+                if (geminiWs && geminiWs.readyState === WebSocket.OPEN) {
+                    geminiWs.send(JSON.stringify({ realtimeInput: { activityStart: {} } }));
+                }
+                setAiStatus('Dinleniyor...');
+            }
+
+            if (vadSpeaking) {
+                if (avg < stopThr) {
+                    vadSilenceMs += chunkMs;
+                    if (vadSilenceMs >= 800) {
+                        vadSpeaking = false;
+                        if (geminiWs && geminiWs.readyState === WebSocket.OPEN) {
+                            geminiWs.send(JSON.stringify({ realtimeInput: { activityEnd: {} } }));
+                        }
+                        setAiStatus('Düşünüyor...');
+                    }
+                } else {
+                    vadSilenceMs = 0;
+                }
+
+                // Sesi Gemini'ye gönder
+                if (geminiWs && geminiWs.readyState === WebSocket.OPEN) {
+                    // btoa için Uint8Array → binary string dönüşümü
+                    const bytes = new Uint8Array(int16.buffer);
+                    let binary = '';
+                    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+                    const base64 = btoa(binary);
+                    geminiWs.send(JSON.stringify({
+                        realtimeInput: { audio: { mimeType: 'audio/pcm;rate=16000', data: base64 } }
+                    }));
+                }
+            }
+        }
+
+        function decodeGeminiAudio(mimeType, base64Data) {
+            try {
+                const binaryStr = atob(base64Data);
+                const bytes = new Uint8Array(binaryStr.length);
+                for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+
+                if (mimeType.includes('audio/wav') || mimeType.includes('audio/x-wav')) {
+                    return bytes.length > 44 ? bytes.slice(44) : null;
+                }
+                if (mimeType.includes('audio/l16')) {
+                    const out = new Uint8Array(bytes.length);
+                    for (let i = 0; i < bytes.length - 1; i += 2) {
+                        out[i] = bytes[i + 1]; out[i + 1] = bytes[i];
+                    }
+                    return out;
+                }
+                return bytes; // audio/pcm
+            } catch(e) { console.error('[Audio Decode]', e); return null; }
+        }
+
+        function enqueueAudioForEsp32(pcmBytes) {
+            aiAudioQueue.push(pcmBytes);
+            if (!aiAudioQueueRunning) processAudioQueue();
+        }
+
+        function processAudioQueue() {
+            if (aiAudioQueue.length === 0) {
+                aiAudioQueueRunning = false;
+                aiPlaybackActive = false;
+                if (isAIModeActive) setAiStatus('Hazır — konuşun!');
+                return;
+            }
+            aiAudioQueueRunning = true;
+            aiPlaybackActive = true;
+            setAiStatus('Konuşuyor...');
+
+            const CHUNK = 4096;
+            const data = aiAudioQueue.shift();
+            let offset = 0;
+
+            function sendNextChunk() {
+                if (offset >= data.length) { processAudioQueue(); return; }
+                const end = Math.min(offset + CHUNK, data.length);
+                const chunk = data.slice(offset, end);
+                offset = end;
+                if (websocket && websocket.readyState === WebSocket.OPEN) {
+                    websocket.send(chunk.buffer);
+                }
+                const paceMs = (chunk.length / 2 / 24000) * 1000 * 0.95;
+                setTimeout(sendNextChunk, paceMs);
+            }
+            sendNextChunk();
+        }
+
+        function handleToolCalls(calls) {
+            const responses = [];
+            for (const call of calls) {
+                let result = { success: false };
+                if (call.name === 'move_robot') {
+                    const direction = call.args?.direction ?? 'STOP';
+                    const speed = call.args?.speed ?? aiDefaultSpeed;
+                    if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send(JSON.stringify({ direction, speed }));
+                    result = { success: true, direction, speed };
+                } else if (call.name === 'set_mood') {
+                    const mood = call.args?.mood ?? 'DEFAULT';
+                    if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send(JSON.stringify({ mood }));
+                    result = { success: true, mood };
+                } else if (call.name === 'set_lights') {
+                    const mode = call.args?.mode ?? 'OFF';
+                    const color = call.args?.color ?? '#ffffff';
+                    if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send(JSON.stringify({ lightMode: mode, color }));
+                    result = { success: true, mode, color };
+                } else if (call.name === 'play_dance') {
+                    const danceNum = call.args?.dance_number ?? 1;
+                    if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send(JSON.stringify({ mood: 'DANCE_' + danceNum }));
+                    result = { success: true, dance_number: danceNum };
+                } else if (call.name === 'control_servo') {
+                    const servo = call.args?.servo;
+                    const mode = call.args?.mode;
+                    const value = call.args?.value ?? 0;
+                    const maxVal = servo === 'arm' ? 180 : 60;
+                    let current = servo === 'arm' ? aiCurrentArmAngle : aiCurrentHeadAngle;
+                    let target;
+                    if (mode === 'absolute')      target = Math.max(0, Math.min(maxVal, value));
+                    else if (mode === 'relative') target = Math.max(0, Math.min(maxVal, current + value));
+                    else if (mode === 'min')      target = 0;
+                    else if (mode === 'max')      target = maxVal;
+                    else                          target = current;
+                    if (servo === 'arm') { aiCurrentArmAngle = target; if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send(JSON.stringify({ arm: target })); }
+                    else { aiCurrentHeadAngle = target; if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send(JSON.stringify({ head: target })); }
+                    result = { success: true, servo, target };
+                } else if (call.name === 'move_for_duration') {
+                    const direction = call.args?.direction ?? 'FORWARD';
+                    const duration_ms = Math.min(call.args?.duration_ms ?? 1000, 10000);
+                    const speed = call.args?.speed ?? aiDefaultSpeed;
+                    if (aiMoveDurationTimer) { clearTimeout(aiMoveDurationTimer); aiMoveDurationTimer = null; }
+                    if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send(JSON.stringify({ direction, speed }));
+                    aiMoveDurationTimer = setTimeout(() => {
+                        aiMoveDurationTimer = null;
+                        if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send(JSON.stringify({ direction: 'STOP', speed: 0 }));
+                    }, duration_ms);
+                    result = { success: true, direction, duration_ms, speed };
+                } else if (call.name === 'set_speed') {
+                    const pct = Math.max(0, Math.min(100, call.args?.percentage ?? 50));
+                    aiDefaultSpeed = Math.round((pct / 100) * 255);
+                    result = { success: true, percentage: pct };
+                }
+                responses.push({ id: call.id, name: call.name, response: { output: result } });
+            }
+            if (geminiWs && geminiWs.readyState === WebSocket.OPEN) {
+                geminiWs.send(JSON.stringify({ toolResponse: { functionResponses: responses } }));
+            }
+        }
+
+        function getToolDeclarations() {
+            return [
+                { name: 'move_robot', description: 'Robotu belirtilen yönde ve hızda hareket ettir',
+                  parameters: { type: 'object', properties: { direction: { type: 'string', enum: ['FORWARD','BACKWARD','LEFT','RIGHT','STOP'], description: 'Hareket yönü' }, speed: { type: 'integer', description: 'Hız (0-255)' } }, required: ['direction'] } },
+                { name: 'set_mood', description: 'Robotun yüz ifadesini ayarla',
+                  parameters: { type: 'object', properties: { mood: { type: 'string', enum: ['HAPPY','ANGRY','TIRED','CONFUSED','DEFAULT'], description: 'Duygu durumu' } }, required: ['mood'] } },
+                { name: 'set_lights', description: 'LED ışıklarını kontrol et',
+                  parameters: { type: 'object', properties: { mode: { type: 'string', enum: ['OFF','STATIC','RAINBOW','PULSE','POLICE'], description: 'Işık modu' }, color: { type: 'string', description: '#RRGGBB formatında renk' } }, required: ['mode'] } },
+                { name: 'play_dance', description: 'Robota dans sekansı yaptır (1-7)',
+                  parameters: { type: 'object', properties: { dance_number: { type: 'integer', description: 'Dans numarası (1-7)' } }, required: ['dance_number'] } },
+                { name: 'control_servo', description: 'Kol (arm) veya kafa (head) servosunu kontrol et',
+                  parameters: { type: 'object', properties: { servo: { type: 'string', enum: ['arm','head'] }, mode: { type: 'string', enum: ['absolute','relative','min','max'] }, value: { type: 'integer', description: 'Açı değeri veya delta' } }, required: ['servo','mode'] } },
+                { name: 'move_for_duration', description: 'Belirli süre hareket et, sonra dur',
+                  parameters: { type: 'object', properties: { direction: { type: 'string', enum: ['FORWARD','BACKWARD','LEFT','RIGHT'] }, duration_ms: { type: 'integer', description: 'Süre ms (max 10000)' }, speed: { type: 'integer', description: 'Hız (0-255)' } }, required: ['direction','duration_ms'] } },
+                { name: 'set_speed', description: 'Varsayılan hızı yüzde olarak ayarla',
+                  parameters: { type: 'object', properties: { percentage: { type: 'integer', description: 'Yüzde (0-100)' } }, required: ['percentage'] } }
+            ];
         }
 
         function resetBtnStyle(btnId, isAI) {

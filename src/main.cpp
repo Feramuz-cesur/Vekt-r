@@ -11,7 +11,7 @@
 #include <ESPAsyncWebServer.h>
 #include <WiFi.h>
 #include <Wire.h>
-#include <WebSocketsClient.h>
+#include <ESPmDNS.h>
 #include <driver/i2s.h>
 #include <driver/adc.h>
 #include <freertos/ringbuf.h>
@@ -68,8 +68,6 @@ const char *password = "NVArVrUNL3Ap";
 
 volatile bool displayLocked = false; // Ekran kilitli mi?
 
-// AI WebSocket İstemcisi
-WebSocketsClient aiClient;
 volatile bool isAIModeActive = false;
 RingbufHandle_t audio_ringbuf = NULL;
 volatile uint32_t speaker_sample_rate = SPEAKER_SAMPLE_RATE;
@@ -564,44 +562,35 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
     }
 
       if (myObj.hasOwnProperty("modeCommand")) {
-      String modeCmd = (const char *)myObj["modeCommand"];
-      if (modeCmd == "AI") {
-        isAIModeActive = true;
-        speakerTestPending = true; // AI moduna giriste hoparlor/pin kontrolu icin kisa bip
-
-        // AI Moduna geçildiğinde RGB Mor pulse yapılsın
-        lightMode = "PULSE";
-        selectedColor = pixels.Color(188, 19, 254);
-        
-        // Eger kullanici arayuzden serverIp yolladiysa onu kullan
-        String targetIp = "192.168.1.100"; // Default
-        if (myObj.hasOwnProperty("serverIp")) {
-          targetIp = (const char *)myObj["serverIp"];
+        String modeCmd = (const char *)myObj["modeCommand"];
+        if (modeCmd == "AI") {
+          isAIModeActive = true;
+          speakerTestPending = true;
+          lightMode = "PULSE";
+          selectedColor = pixels.Color(188, 19, 254);
+          Serial.println("AI Moduna Gecildi!");
+        } else if (modeCmd == "NORMAL") {
+          isAIModeActive = false;
+          lightMode = "OFF";
+          Serial.println("Normal Moda Donuldu!");
         }
-
-        Serial.print("AI Moduna Gecildi! Baglanilan Sunucu: ");
-        Serial.println(targetIp);
-
-        if(!aiClient.isConnected()) {
-          aiClient.begin(targetIp, 8080, "/");
-        } else {
-          aiClient.sendTXT("{\"command\": \"START_AI\"}");
-        }
-      } else if (modeCmd == "NORMAL") {
-        isAIModeActive = false;
-        lightMode = "OFF";
-        // Node.js'i tetikle
-        if(aiClient.isConnected()) aiClient.sendTXT("{\"command\": \"STOP_AI\"}");
-        Serial.println("Normal Moda Donuldu!");
       }
-    }
   }
 }
 
 void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
              AwsEventType type, void *arg, uint8_t *data, size_t len) {
-  if (type == WS_EVT_DATA)
-    handleWebSocketMessage(arg, data, len);
+  if (type == WS_EVT_DATA) {
+    AwsFrameInfo *info = (AwsFrameInfo *)arg;
+    if (info->opcode == WS_BINARY) {
+      // Tarayıcıdan gelen AI ses verisi doğrudan ring buffer'a
+      if (isAIModeActive && audio_ringbuf != NULL) {
+        xRingbufferSend(audio_ringbuf, data, len, pdMS_TO_TICKS(10));
+      }
+    } else {
+      handleWebSocketMessage(arg, data, len);
+    }
+  }
 }
 
 // =========================================================================
@@ -621,109 +610,6 @@ void Task_Gozler(void *parameter) {
   }
 }
 
-// AI WebSocket Event Handler
-void aiWebSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
-  switch(type) {
-    case WStype_DISCONNECTED:
-      Serial.println("[AI] Baglanti Koptu!");
-      break;
-    case WStype_CONNECTED:
-      Serial.printf("[AI] Baglandi: %s\n", payload);
-      // Eger baglanti kuruldugunda AI Modu aciksa, Node.js'e hemen baslama emri ver.
-      if (isAIModeActive) {
-          aiClient.sendTXT("{\"command\": \"START_AI\"}");
-      }
-      break;
-    case WStype_TEXT: {
-      if (payload == NULL || length == 0) break;
-      char *buf = (char *)malloc(length + 1);
-      if (!buf) break;
-      memcpy(buf, payload, length);
-      buf[length] = '\0';
-
-      JSONVar obj = JSON.parse(buf);
-      free(buf);
-
-      if (JSON.typeof(obj) == "undefined") break;
-      if (obj.hasOwnProperty("type")) {
-        String t = (const char *)obj["type"];
-        if (t == "audio_out_format" && obj.hasOwnProperty("rate")) {
-          int rate = (int)obj["rate"];
-          if (rate >= 8000 && rate <= 48000) {
-            speaker_sample_rate = (uint32_t)rate;
-            i2s_set_clk(I2S_SPEAKER_PORT, speaker_sample_rate,
-                        I2S_BITS_PER_SAMPLE_16BIT, I2S_CHANNEL_STEREO);
-            Serial.printf("[AI] Speaker rate guncellendi: %lu Hz\n",
-                          (unsigned long)speaker_sample_rate);
-          }
-        } else if (t == "server_command" && obj.hasOwnProperty("modeCommand")) {
-          // Sunucudan gelen AI mod komutu (Dashboard "Başlat"/"Durdur")
-          String modeCmd = (const char *)obj["modeCommand"];
-          if (modeCmd == "AI") {
-            isAIModeActive = true;
-            speakerTestPending = true;
-            lightMode = "PULSE";
-            selectedColor = pixels.Color(188, 19, 254);
-            Serial.println("[AI] Sunucu komutuyla AI Modu AKTIF!");
-          } else if (modeCmd == "NORMAL") {
-            isAIModeActive = false;
-            lightMode = "OFF";
-            Serial.println("[AI] Sunucu komutuyla Normal Moda donuldu.");
-          }
-        }
-      }
-      // AI'nin tool calling'den gelen robot kontrol komutlari (type alani olmayan duz JSON)
-      if (obj.hasOwnProperty("direction") && obj.hasOwnProperty("speed")) {
-        String dir = (const char *)obj["direction"];
-        int spd = (int)obj["speed"];
-        if (dir == "FORWARD") ileri(spd);
-        else if (dir == "BACKWARD") geri(spd);
-        else if (dir == "RIGHT") sag(spd);
-        else if (dir == "LEFT") sol(spd);
-        else if (dir == "STOP") dur();
-      }
-      if (obj.hasOwnProperty("mood")) {
-        String mood = (const char *)obj["mood"];
-        if (mood == "HAPPY") { eyes.setMood(HAPPY); eyes.anim_laugh(); myDFPlayer.play(1); }
-        else if (mood == "ANGRY") { eyes.setMood(ANGRY); myDFPlayer.play(2); }
-        else if (mood == "TIRED") { eyes.setMood(TIRED); myDFPlayer.play(3); }
-        else if (mood == "CONFUSED") { eyes.setMood(DEFAULT); eyes.anim_confused(); myDFPlayer.play(4); }
-        else if (mood == "DEFAULT") eyes.setMood(DEFAULT);
-        else if (mood.startsWith("DANCE_")) {
-          int dNum = mood.charAt(6) - '0';
-          danceTrigger = dNum;
-        }
-      }
-      if (obj.hasOwnProperty("lightMode")) {
-        lightMode = (const char *)obj["lightMode"];
-        if (obj.hasOwnProperty("color")) {
-          String hexColor = (const char *)obj["color"];
-          if (hexColor.length() == 7) {
-            long number = strtol(&hexColor[1], NULL, 16);
-            int r = number >> 16;
-            int g = number >> 8 & 0xFF;
-            int b = number & 0xFF;
-            selectedColor = pixels.Color(r, g, b);
-          }
-        }
-      }
-      if (obj.hasOwnProperty("arm")) {
-        servo1.write((int)obj["arm"]);
-      }
-      if (obj.hasOwnProperty("head")) {
-        servo2.write(map((int)obj["head"], 0, 60, 60, 0));
-      }
-      break;
-    }
-    case WStype_BIN:
-      // I2S Amfi (MAX98357A) kullanarak NodeJS'ten gelen PCM16 verisi yazilacak
-      if (isAIModeActive && audio_ringbuf != NULL) {
-          // pdMS_TO_TICKS(10): Buffer doluysa 10ms bekle, aninda atma (ses bozulmasi onlenir)
-          xRingbufferSend(audio_ringbuf, payload, length, pdMS_TO_TICKS(10)); 
-      }
-      break;
-  }
-}
 
 static void playSpeakerTestBeep() {
   // Kablolama/pin dogrulama icin kisa bip (PCM16, stereo)
@@ -804,24 +690,7 @@ void Task_Network(void *parameter) {
   for (;;) {
     ws.cleanupClients();
     ArduinoOTA.handle();
-    // aiClient.loop() artik ozel Task_AI_Network gorevinde calistiriliyor
     vTaskDelay(10 / portTICK_PERIOD_MS);
-  }
-}
-
-// AI WebSocket iletisimi icin ozel gorev
-// Core 0'da yuksek oncelikle calisir, ses verisinin kesintisiz akmasini saglar.
-// Eskiden Task_Network icinde 10ms aralikla ve OTA/cleanup ile paylasimli calisiyordu,
-// bu da ses akisinda 500ms-1s'lik boşluklara sebep oluyordu.
-void Task_AI_Network(void *parameter) {
-  for (;;) {
-    if (isAIModeActive) {
-      aiClient.loop();
-      vTaskDelay(pdMS_TO_TICKS(2)); // AI aktif: 2ms aralikla cok sik polling
-    } else {
-      aiClient.loop(); // AI kapali: baglanti canli kalsin ama seyrek
-      vTaskDelay(pdMS_TO_TICKS(50));
-    }
   }
 }
 
@@ -1078,6 +947,10 @@ void setup() {
   Serial.println("");
   Serial.println(WiFi.localIP());
 
+  if (MDNS.begin("robot")) {
+    Serial.println("mDNS: http://robot.local");
+  }
+
   // --- NTP SAAT AYARI ---
   // GMT_OFFSET = 10800 (Türkiye için 3 saat x 3600 sn)
   // DAYLIGHT_OFFSET = 0 (Türkiye'de yaz saati ukygulaması sabit)
@@ -1093,18 +966,10 @@ void setup() {
   server.begin();
   ArduinoOTA.begin();
 
-  // AI Client Baslatma (Sadece altyapi konfigürasyonu)
-  // 192.168.1.100 bilgisayarinizin local IP si varsayilmistir, guncellenmeli.
-  aiClient.onEvent(aiWebSocketEvent);
-  aiClient.begin("192.168.1.100", 8080, "/"); 
-  aiClient.setReconnectInterval(5000);
-
   xTaskCreatePinnedToCore(Task_Gozler, "TaskGozler", 10000, NULL, 2, NULL, 1);
   xTaskCreatePinnedToCore(Task_Network, "TaskNetwork", 10000, NULL, 1, NULL, 0);
   xTaskCreatePinnedToCore(Task_Mantik, "TaskMantik", 10000, NULL, 1, NULL, 1);
-  xTaskCreatePinnedToCore(Task_AI_Speaker, "TaskAISpeaker", 10000, NULL, 2, NULL, 1); // Hoparloru bagimsiz isleyen kilit kirici
-  // AI WebSocket ozel gorevi: Core 0'da Prio=2, ses verisini hizli alir (OTA/cleanup'tan bagimsiz)
-  xTaskCreatePinnedToCore(Task_AI_Network, "TaskAINet", 4096, NULL, 2, NULL, 0);
+  xTaskCreatePinnedToCore(Task_AI_Speaker, "TaskAISpeaker", 10000, NULL, 2, NULL, 1);
 
   myDFPlayer.play(5);
 }
