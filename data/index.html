@@ -743,7 +743,33 @@
                 localStorage.setItem('geminiModel', 'models/gemini-3.1-flash-live-preview');
                 console.log('[Init] Eski model adı düzeltildi:', cachedModel, '->', 'models/gemini-3.1-flash-live-preview');
             }
+
+            // Ekranın kapanmasını engelle (Wake Lock API)
+            requestWakeLock();
         }
+
+        // --- EKRAN UYANIK TUTMA (WAKE LOCK) ---
+        let wakeLock = null;
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('[WakeLock] Ekran uyanık tutulacak.');
+                    wakeLock.addEventListener('release', () => {
+                        console.log('[WakeLock] Serbest bırakıldı.');
+                    });
+                }
+            } catch (err) {
+                console.warn('[WakeLock] İstek başarısız:', err.message);
+            }
+        }
+
+        // Sekme tekrar görünür olunca wake lock'u yeniden al
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                requestWakeLock();
+            }
+        });
 
         // Slider değişince değişkenleri güncelle
         function updateSliderVariables() {
