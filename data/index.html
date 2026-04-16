@@ -666,8 +666,8 @@
                     <div class="flex-1">
                         <label class="text-[1.4vh] text-gray-400 font-tech mb-[0.5vh] block">MODEL</label>
                         <select id="geminiModel" class="w-full bg-gray-900/60 border border-neon-purple/40 rounded text-gray-200 text-[1.3vh] px-[1vh] h-[5.5vh] outline-none">
-                            <option value="models/gemini-2.5-flash-native-audio-latest">2.5 Flash (Güncel)</option>
-                            <option value="models/gemini-2.0-flash-live-001">2.0 Flash Live</option>
+                            <option value="models/gemini-3.1-flash-live-preview">3.1 Flash Live (Güncel)</option>
+                            <option value="models/gemini-2.5-flash-native-audio-latest">2.5 Flash Native Audio</option>
                         </select>
                     </div>
                 </div>
@@ -736,6 +736,13 @@
             updateSliderVariables();
             updateSliderDisplays();
             refreshLightPowerButton();
+
+            // Eski/geçersiz model adı localStorage'da kalmışsa düzelt
+            const cachedModel = localStorage.getItem('geminiModel');
+            if (cachedModel && !cachedModel.includes('3.1-flash-live')) {
+                localStorage.setItem('geminiModel', 'models/gemini-3.1-flash-live-preview');
+                console.log('[Init] Eski model adı düzeltildi:', cachedModel, '->', 'models/gemini-3.1-flash-live-preview');
+            }
         }
 
         // Slider değişince değişkenleri güncelle
@@ -1066,7 +1073,7 @@
                 geminiVoice: 'Aoede',
                 geminiSpeakerName: 'Kullanıcı',
                 geminiTemperature: '1.0',
-                geminiModel: 'models/gemini-2.5-flash-native-audio-latest'
+                geminiModel: 'models/gemini-3.1-flash-live-preview'
             };
             for (const [id, def] of Object.entries(defaults)) {
                 const el = document.getElementById(id);
@@ -1155,11 +1162,22 @@
             setAiStatus('Gemini\'ye bağlanıyor...');
 
             const url = GEMINI_WS_BASE + '?key=' + apiKey;
+            console.log('[Gemini] WebSocket açılıyor:', url.replace(apiKey, '***'));
             geminiWs = new WebSocket(url);
+            geminiWs.binaryType = 'arraybuffer'; // Blob yerine ArrayBuffer olarak al
+
+            // 15 saniye içinde setupComplete gelmezse timeout ver
+            let setupTimeout = setTimeout(() => {
+                if (geminiWs && geminiWs.readyState === WebSocket.OPEN) {
+                    setAiStatus('HATA: Gemini setup yanıtı gelmedi (15sn timeout). API key veya model adını kontrol edin.');
+                    console.error('[Gemini] Setup timeout - sunucu setupComplete göndermedi');
+                }
+            }, 15000);
 
             geminiWs.onopen = () => {
+                console.log('[Gemini] WebSocket AÇILDI, setup mesajı gönderiliyor...');
                 const voice = localStorage.getItem('geminiVoice') || 'Aoede';
-                const model = localStorage.getItem('geminiModel') || 'models/gemini-2.5-flash-native-audio-latest';
+                const model = localStorage.getItem('geminiModel') || 'models/gemini-3.1-flash-live-preview';
                 const temp = parseFloat(localStorage.getItem('geminiTemperature') || '1.0');
                 const systemPrompt = localStorage.getItem('geminiSystemPrompt') || 'Sen yardımsever bir robotsun.';
 
@@ -1178,12 +1196,17 @@
                         tools: [{ functionDeclarations: getToolDeclarations() }]
                     }
                 };
+                console.log('[Gemini] Setup gönderiliyor, model:', model, 'ses:', voice);
                 geminiWs.send(JSON.stringify(setup));
+                setAiStatus('Setup gönderildi, yanıt bekleniyor...');
             };
 
-            geminiWs.onmessage = handleGeminiMessage;
-            geminiWs.onerror = (e) => { setAiStatus('Gemini bağlantı hatası! Konsolu kontrol et.'); console.error('[Gemini WS Error]', e); };
-            geminiWs.onclose = (e) => { setAiStatus('Bağlantı kapandı (kod: ' + e.code + ' / reason: ' + (e.reason || 'yok') + ')'); console.warn('[Gemini WS Close]', e.code, e.reason); };
+            geminiWs.onmessage = (event) => {
+                clearTimeout(setupTimeout); // Setup yanıtı geldi, timeout iptal
+                handleGeminiMessage(event);
+            };
+            geminiWs.onerror = (e) => { clearTimeout(setupTimeout); setAiStatus('Gemini bağlantı hatası! Konsolu kontrol et.'); console.error('[Gemini WS Error]', e); };
+            geminiWs.onclose = (e) => { clearTimeout(setupTimeout); setAiStatus('Bağlantı kapandı (kod: ' + e.code + ' / reason: ' + (e.reason || 'yok') + ')'); console.warn('[Gemini WS Close]', e.code, e.reason); };
         }
 
         function stopAISession() {
@@ -1200,9 +1223,32 @@
             if (transcriptEl) { transcriptEl.innerHTML = ''; transcriptEl.classList.add('hidden'); }
         }
 
-        function handleGeminiMessage(event) {
+        async function handleGeminiMessage(event) {
+            let rawText;
+
+            // Gelen veriyi text'e çevir (string, ArrayBuffer veya Blob olabilir)
+            if (typeof event.data === 'string') {
+                rawText = event.data;
+            } else if (event.data instanceof ArrayBuffer) {
+                rawText = new TextDecoder('utf-8').decode(event.data);
+            } else if (event.data instanceof Blob) {
+                rawText = await event.data.text();
+            } else {
+                console.warn('[Gemini] Bilinmeyen mesaj türü:', typeof event.data);
+                return;
+            }
+
+            console.log('[Gemini] Ham yanıt:', rawText.substring(0, 500));
+
             let data;
-            try { data = JSON.parse(event.data); } catch(e) { return; }
+            try {
+                data = JSON.parse(rawText);
+                console.log('[Gemini] Gelen mesaj anahtarları:', Object.keys(data));
+            } catch(e) {
+                console.error('[Gemini] JSON parse hatası. Ham veri:', rawText);
+                setAiStatus('Sunucu beklenmeyen yanıt döndü: ' + rawText.substring(0, 100));
+                return;
+            }
 
             if (data.setupComplete) {
                 setAiStatus('Hazır — konuşun!');
@@ -1364,9 +1410,10 @@
             const responses = [];
             for (const call of calls) {
                 let result = { success: false };
+                console.log('[AI Tool Call]', call.name, call.args);
                 if (call.name === 'move_robot') {
                     const direction = call.args?.direction ?? 'STOP';
-                    const speed = call.args?.speed ?? aiDefaultSpeed;
+                    const speed = String(call.args?.speed ?? aiDefaultSpeed);
                     if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send(JSON.stringify({ direction, speed }));
                     result = { success: true, direction, speed };
                 } else if (call.name === 'set_mood') {
@@ -1394,18 +1441,18 @@
                     else if (mode === 'min')      target = 0;
                     else if (mode === 'max')      target = maxVal;
                     else                          target = current;
-                    if (servo === 'arm') { aiCurrentArmAngle = target; if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send(JSON.stringify({ arm: target })); }
-                    else { aiCurrentHeadAngle = target; if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send(JSON.stringify({ head: target })); }
+                    if (servo === 'arm') { aiCurrentArmAngle = target; if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send(JSON.stringify({ arm: String(target) })); }
+                    else { aiCurrentHeadAngle = target; if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send(JSON.stringify({ head: String(target) })); }
                     result = { success: true, servo, target };
                 } else if (call.name === 'move_for_duration') {
                     const direction = call.args?.direction ?? 'FORWARD';
                     const duration_ms = Math.min(call.args?.duration_ms ?? 1000, 10000);
-                    const speed = call.args?.speed ?? aiDefaultSpeed;
+                    const speed = String(call.args?.speed ?? aiDefaultSpeed);
                     if (aiMoveDurationTimer) { clearTimeout(aiMoveDurationTimer); aiMoveDurationTimer = null; }
                     if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send(JSON.stringify({ direction, speed }));
                     aiMoveDurationTimer = setTimeout(() => {
                         aiMoveDurationTimer = null;
-                        if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send(JSON.stringify({ direction: 'STOP', speed: 0 }));
+                        if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send(JSON.stringify({ direction: 'STOP', speed: '0' }));
                     }, duration_ms);
                     result = { success: true, direction, duration_ms, speed };
                 } else if (call.name === 'set_speed') {

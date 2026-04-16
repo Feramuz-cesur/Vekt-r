@@ -447,31 +447,49 @@ void dance_6() { danceTrigger = 0; }
 void dance_7() { danceTrigger = 0; }
 
 // --- WEBSOCKET HANDLERS ---
+// Yardımcı: JSON değerini int'e güvenli çevir (string veya number olabilir)
+int jsonToInt(JSONVar &obj, const char* key) {
+  if (JSON.typeof(obj[key]) == "number") {
+    return (int)obj[key];
+  }
+  // String olarak gelmiş olabilir (web arayüzü slider'lardan)
+  return atoi((const char *)obj[key]);
+}
+
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
   AwsFrameInfo *info = (AwsFrameInfo *)arg;
   if (info->final && info->index == 0 && info->len == len &&
       info->opcode == WS_TEXT) {
-    data[len] = 0;
-    JSONVar myObj = JSON.parse((char *)data);
+
+    // Güvenli null-termination: Veriyi yerel buffer'a kopyala
+    // (data[len]=0 yazmak buffer overflow riski taşır)
+    char* jsonStr = (char*)malloc(len + 1);
+    if (!jsonStr) return; // Bellek yetersiz
+    memcpy(jsonStr, data, len);
+    jsonStr[len] = 0;
+
+    JSONVar myObj = JSON.parse(jsonStr);
+    free(jsonStr); // Artık ihtiyaç yok
+
     if (JSON.typeof(myObj) == "undefined")
       return;
 
     // Gelen veri kontrolü (Veri eksikse çökmesin diye kontrol ekliyoruz)
     if (myObj.hasOwnProperty("arm")) {
       disableClockMode(); // Saat modunu boz
-      int arm = atoi((const char *)myObj["arm"]);
+      int arm = jsonToInt(myObj, "arm");
       servo1.write(arm);
     }
     if (myObj.hasOwnProperty("head")) {
       disableClockMode(); // Saat modunu boz
-      int head = atoi((const char *)myObj["head"]);
+      int head = jsonToInt(myObj, "head");
       servo2.write(map(head, 0, 60, 60, 0));
     }
 
-    // Motor Kontrolü
-    if (myObj.hasOwnProperty("direction") && myObj.hasOwnProperty("speed")) {
+    // Motor Kontrolü — direction varsa speed opsiyonel (AI function call sadece direction gönderebilir)
+    if (myObj.hasOwnProperty("direction")) {
       String direction = (const char *)myObj["direction"];
-      int speed = atoi((const char *)myObj["speed"]);
+      int speed = myObj.hasOwnProperty("speed") ? jsonToInt(myObj, "speed") : 150; // Varsayılan hız
       if (direction != "STOP")
         disableClockMode(); // Sadece yön değiştiğinde boz
 
@@ -490,7 +508,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
     // Ses Kontrolü
     if (myObj.hasOwnProperty("volume")) {
       disableClockMode(); // Saat modunu boz
-      int vol = atoi((const char *)myObj["volume"]);
+      int vol = jsonToInt(myObj, "volume");
       if (vol >= 0 && vol <= 30) {
         myDFPlayer.volume(vol);
         Serial.print("Ses seviyesi ayarlandı: ");
