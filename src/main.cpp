@@ -130,6 +130,30 @@ void dur() {
   analogWrite(IN4, 0);
 }
 
+// --- TANK DRIVE (Bireysel Motor Kontrolü) ---
+// v: -255..255  |  pozitif = ileri, negatif = geri
+void setMotorSol(int v) {
+  v = constrain(v, -255, 255);
+  if (v >= 0) {
+    digitalWrite(IN1, LOW);
+    analogWrite(IN2, v);
+  } else {
+    digitalWrite(IN1, HIGH);
+    analogWrite(IN2, 254 - abs(v));
+  }
+}
+
+void setMotorSag(int v) {
+  v = constrain(v, -255, 255);
+  if (v >= 0) {
+    digitalWrite(IN3, LOW);
+    analogWrite(IN4, v);
+  } else {
+    digitalWrite(IN3, HIGH);
+    analogWrite(IN4, 254 - abs(v));
+  }
+}
+
 // --- SERVO FONKSİYONU ---
 
 /**
@@ -486,12 +510,22 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       servo2.write(map(head, 0, 60, 60, 0));
     }
 
-    // Motor Kontrolü — direction varsa speed opsiyonel (AI function call sadece direction gönderebilir)
+    // Tank Drive — Joystick'ten gelen bireysel sol/sağ motor hızları
+    // leftSpeed / rightSpeed: -255..255 (pozitif=ileri, negatif=geri)
+    if (myObj.hasOwnProperty("leftSpeed") || myObj.hasOwnProperty("rightSpeed")) {
+      disableClockMode();
+      int leftSpeed  = myObj.hasOwnProperty("leftSpeed")  ? jsonToInt(myObj, "leftSpeed")  : 0;
+      int rightSpeed = myObj.hasOwnProperty("rightSpeed") ? jsonToInt(myObj, "rightSpeed") : 0;
+      setMotorSol(leftSpeed);
+      setMotorSag(rightSpeed);
+    }
+
+    // Klasik Yön Kontrolü — AI function call ve playback uyumu için korundu
     if (myObj.hasOwnProperty("direction")) {
       String direction = (const char *)myObj["direction"];
-      int speed = myObj.hasOwnProperty("speed") ? jsonToInt(myObj, "speed") : 150; // Varsayılan hız
+      int speed = myObj.hasOwnProperty("speed") ? jsonToInt(myObj, "speed") : 150;
       if (direction != "STOP")
-        disableClockMode(); // Sadece yön değiştiğinde boz
+        disableClockMode();
 
       if (direction == "FORWARD")
         ileri(speed);

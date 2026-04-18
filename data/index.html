@@ -444,39 +444,24 @@
                 <div
                     class="w-1/2 bg-panel-bg rounded-lg border border-gray-800 flex items-center justify-center relative p-[2vh]">
                     <span class="absolute top-[1vh] left-[2vh] text-[2vh] text-gray-500 font-tech">HAREKET</span>
-                    <div class="grid grid-cols-3 gap-[2vh] p-[2vh] bg-gray-900/50 rounded-full border border-gray-700">
-                        <div></div>
-                        <button id="btn-forward"
-                            class="w-[18vh] h-[18vh] bg-gray-800 rounded-xl border-2 border-neon-blue text-neon-blue neon-btn flex items-center justify-center text-[6vh]"
-                            onmousedown="updateDirection('FORWARD')" onmouseup="updateDirection('STOP')"
-                            ontouchstart="updateDirection('FORWARD')" ontouchend="updateDirection('STOP')">
-                            <i class="fa-solid fa-arrow-up"></i>
-                        </button>
-                        <div></div>
-                        <button id="btn-left"
-                            class="w-[18vh] h-[18vh] bg-gray-800 rounded-xl border-2 border-neon-blue text-neon-blue neon-btn flex items-center justify-center text-[6vh]"
-                            onmousedown="updateDirection('LEFT')" onmouseup="updateDirection('STOP')"
-                            ontouchstart="updateDirection('LEFT')" ontouchend="updateDirection('STOP')">
-                            <i class="fa-solid fa-arrow-left"></i>
-                        </button>
-                        <div
-                            class="w-[18vh] h-[18vh] bg-black rounded-full flex items-center justify-center border border-gray-700">
-                            <i class="fa-solid fa-crosshairs text-gray-600 text-[5vh]"></i>
+                    <!-- Joystick -->
+                    <div id="joystick-base" class="relative bg-gray-900/50 rounded-full border-2 border-neon-blue/40 flex items-center justify-center select-none shadow-[0_0_25px_rgba(0,243,255,0.12)]" style="width: 30vh; height: 30vh; touch-action: none; cursor: grab;">
+                        <!-- Playback uyumu için gizli butonlar -->
+                        <button id="btn-forward"  class="hidden"></button>
+                        <button id="btn-backward" class="hidden"></button>
+                        <button id="btn-left"     class="hidden"></button>
+                        <button id="btn-right"    class="hidden"></button>
+                        <!-- Yön ok göstergeleri -->
+                        <i class="fa-solid fa-chevron-up   absolute text-neon-blue/35 pointer-events-none" style="top:1.8vh;    font-size:2.2vh;"></i>
+                        <i class="fa-solid fa-chevron-down absolute text-neon-blue/35 pointer-events-none" style="bottom:1.8vh; font-size:2.2vh;"></i>
+                        <i class="fa-solid fa-chevron-left absolute text-neon-blue/35 pointer-events-none" style="left:1.8vh;   font-size:2.2vh;"></i>
+                        <i class="fa-solid fa-chevron-right absolute text-neon-blue/35 pointer-events-none" style="right:1.8vh; font-size:2.2vh;"></i>
+                        <!-- İç halka -->
+                        <div class="absolute rounded-full border border-neon-blue/10 pointer-events-none" style="width:55%;height:55%;"></div>
+                        <!-- Topuz -->
+                        <div id="joystick-knob" class="absolute rounded-full bg-gray-800 border-2 border-neon-blue flex items-center justify-center pointer-events-none" style="width:12vh;height:12vh;box-shadow:0 0 16px rgba(0,243,255,0.55);">
+                            <i class="fa-solid fa-crosshairs text-neon-blue" style="font-size:3.5vh;"></i>
                         </div>
-                        <button id="btn-right"
-                            class="w-[18vh] h-[18vh] bg-gray-800 rounded-xl border-2 border-neon-blue text-neon-blue neon-btn flex items-center justify-center text-[6vh]"
-                            onmousedown="updateDirection('RIGHT')" onmouseup="updateDirection('STOP')"
-                            ontouchstart="updateDirection('RIGHT')" ontouchend="updateDirection('STOP')">
-                            <i class="fa-solid fa-arrow-right"></i>
-                        </button>
-                        <div></div>
-                        <button id="btn-backward"
-                            class="w-[18vh] h-[18vh] bg-gray-800 rounded-xl border-2 border-neon-blue text-neon-blue neon-btn flex items-center justify-center text-[6vh]"
-                            onmousedown="updateDirection('BACKWARD')" onmouseup="updateDirection('STOP')"
-                            ontouchstart="updateDirection('BACKWARD')" ontouchend="updateDirection('STOP')">
-                            <i class="fa-solid fa-arrow-down"></i>
-                        </button>
-                        <div></div>
                     </div>
                 </div>
 
@@ -1715,21 +1700,15 @@
         }
 
         // 5. Oynatma Mantığı
-        function highlightPlaybackButtons(direction, mood) {
-            // Yön butonlarının aktifliğini temizle
-            document.querySelectorAll('.neon-btn').forEach(btn => btn.classList.remove('active'));
+        function highlightPlaybackButtons(dir, mood) {
+            // Joystick topuzunu oynatma sırasında hareket ettir
+            moveJoystickKnob(dir || 'STOP');
 
             // Mod butonlarının aktifliğini temizle
             document.querySelectorAll('[onclick^="updateMood"]').forEach(btn => {
                 btn.style.transform = '';
                 btn.style.boxShadow = '';
             });
-
-            // Gelen yöne göre butonu aktif yap
-            if (direction && direction !== 'STOP') {
-                const dirBtn = document.getElementById('btn-' + direction.toLowerCase());
-                if (dirBtn) dirBtn.classList.add('active');
-            }
 
             // Gelen moda göre butonu aktif yap
             if (mood && mood !== 'DEFAULT') {
@@ -1760,35 +1739,28 @@
                 let timeoutId = setTimeout(() => {
                     if (!isPlaying) return; // Oynatma durdurulmuşsa işleme
 
-                    // ESP'ye C++ Tarafının anladığı formatta veriyi bas:
-                    // timeOffset gibi parametreler gitmesin diye süzüyoruz
-                    let espData = {
-                        arm: packet.arm,
-                        head: packet.head,
-                        speed: packet.speed,
-                        mood: packet.mood,
-                        direction: packet.direction
-                    };
+                    // timeOffset hariç tüm alanları ESP'ye gönder
+                    // (joystick tank verisi veya klasik direction/speed — her ikisini destekler)
+                    const { timeOffset: _t, ...espData } = packet;
 
-                    // Konsola yaz ki oynatırken ne gönderdiğimizi görelim
                     console.log("[OYNATILIYOR] ESP'ye Giden:", espData);
 
                     if (websocket && websocket.readyState === WebSocket.OPEN) {
                         websocket.send(JSON.stringify(espData));
                     }
 
-                    // Arayüzdeki slider'ları da o komuta uygun olarak GÜNCELLE
-                    // ki sanki hayalet bir el kullanıyormuş gibi hissiyat versin:
-                    document.getElementById('armSlider').value = packet.arm;
-                    document.getElementById('headSlider').value = packet.head;
-                    document.getElementById('speedSlider').value = packet.speed;
-                    currentArm = packet.arm;
-                    currentHead = packet.head;
-                    currentSpeed = packet.speed;
+                    // Arayüzdeki slider'ları güncelle
+                    if (packet.arm   !== undefined) { document.getElementById('armSlider').value   = packet.arm;   currentArm   = packet.arm;   }
+                    if (packet.head  !== undefined) { document.getElementById('headSlider').value  = packet.head;  currentHead  = packet.head;  }
+                    if (packet.speed !== undefined) { document.getElementById('speedSlider').value = packet.speed; currentSpeed = packet.speed; }
                     updateSliderDisplays();
 
-                    // Butonların görsel durumlarını güncelle
-                    highlightPlaybackButtons(packet.direction, packet.mood);
+                    // Joystick topuzunu güncelle
+                    if (packet.leftSpeed !== undefined) {
+                        moveJoystickKnob(null, packet.leftSpeed, packet.rightSpeed);
+                    } else {
+                        highlightPlaybackButtons(packet.direction, packet.mood);
+                    }
 
                 }, packet.timeOffset);
 
@@ -1826,6 +1798,153 @@
             highlightPlaybackButtons('STOP', 'DEFAULT');
 
             log("Oynatma İptal Edildi/Bitti.");
+        }
+
+        // ==========================================
+        // JOYSTICK — TANK DRIVE (DİFERANSİYEL KARIŞIM)
+        // ==========================================
+        (function initJoystick() {
+            const base = document.getElementById('joystick-base');
+            const knob = document.getElementById('joystick-knob');
+            if (!base || !knob) return;
+
+            let active = false;
+            let cx = 0, cy = 0;
+            const DEAD_ZONE = 0.10; // %10 merkez ölü bölge
+
+            function getMaxRadius() { return base.offsetWidth * 0.38; }
+
+            function getEventXY(e) {
+                const src = e.touches ? e.touches[0] : e;
+                return { x: src.clientX, y: src.clientY };
+            }
+
+            // Tank (diferansiyel) karıştırma
+            // Y ekseni: ileri/geri   X ekseni: dönüş
+            // Sol motor  = Y + X
+            // Sağ motor  = Y - X
+            // Sonra normalize (taşma önleme) → currentSpeed ile ölçekle
+            function tankMix(dx, dy, maxR) {
+                let nx =  dx / maxR;   // -1..1, pozitif = sağa
+                let ny = -dy / maxR;   // -1..1, pozitif = ileri
+
+                const magnitude = Math.sqrt(nx * nx + ny * ny);
+                if (magnitude < DEAD_ZONE) return { left: 0, right: 0 };
+
+                let left  = ny + nx;
+                let right = ny - nx;
+
+                // -1..1 aralığına normalize et (diagonal taşma önleme)
+                const maxMag = Math.max(Math.abs(left), Math.abs(right), 1.0);
+                left  /= maxMag;
+                right /= maxMag;
+
+                // currentSpeed slider değeriyle ölçekle
+                const maxSpd = Math.max(1, parseInt(currentSpeed || 200));
+                return {
+                    left:  Math.round(left  * maxSpd),
+                    right: Math.round(right * maxSpd)
+                };
+            }
+
+            function moveKnob(dx, dy, animate) {
+                knob.style.transition = animate ? 'transform 0.16s ease' : 'none';
+                knob.style.transform  = `translate(${dx}px, ${dy}px)`;
+            }
+
+            function onStart(e) {
+                e.preventDefault();
+                active = true;
+                const rect = base.getBoundingClientRect();
+                cx = rect.left + rect.width  / 2;
+                cy = rect.top  + rect.height / 2;
+                onMove(e);
+            }
+
+            function onMove(e) {
+                if (!active) return;
+                e.preventDefault();
+                const { x, y } = getEventXY(e);
+                let dx = x - cx, dy = y - cy;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const maxR = getMaxRadius();
+                if (dist > maxR) { dx = dx / dist * maxR; dy = dy / dist * maxR; }
+                moveKnob(dx, dy, false);
+                const motors = tankMix(dx, dy, maxR);
+                sendJoystickData(motors.left, motors.right);
+            }
+
+            function onEnd(e) {
+                if (!active) return;
+                active = false;
+                moveKnob(0, 0, true);
+                sendJoystickData(0, 0);
+            }
+
+            base.addEventListener('touchstart',  onStart, { passive: false });
+            base.addEventListener('touchmove',   onMove,  { passive: false });
+            base.addEventListener('touchend',    onEnd,   { passive: false });
+            base.addEventListener('touchcancel', onEnd,   { passive: false });
+            base.addEventListener('mousedown',   onStart);
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup',   onEnd);
+        })();
+
+        // Joystick'ten gelen sol/sağ motor hızlarını ESP'ye gönder
+        // (-maxSpeed..maxSpeed arası; pozitif = ileri, negatif = geri)
+        function sendJoystickData(leftSpeed, rightSpeed) {
+            // Kayıt ve log için direction türet
+            if (Math.abs(leftSpeed) < 15 && Math.abs(rightSpeed) < 15) {
+                direction = 'STOP';
+            } else if (leftSpeed >= 0 && rightSpeed >= 0) {
+                direction = leftSpeed >= rightSpeed ? 'FORWARD' : 'FORWARD';
+            } else if (leftSpeed <= 0 && rightSpeed <= 0) {
+                direction = 'BACKWARD';
+            } else if (leftSpeed > 0 && rightSpeed <= 0) {
+                direction = 'RIGHT';
+            } else {
+                direction = 'LEFT';
+            }
+
+            const data = {
+                leftSpeed,
+                rightSpeed,
+                arm:  currentArm,
+                head: currentHead
+            };
+
+            if (typeof recordDataPacket === 'function') recordDataPacket(data);
+
+            console.log("ESP'ye Giden Veri (Tank):", data);
+            if (websocket && websocket.readyState === WebSocket.OPEN) {
+                websocket.send(JSON.stringify(data));
+            }
+        }
+
+        // Playback sırasında joystick topuzunu konumlandır
+        // Tank verisi (leftSpeed/rightSpeed) varsa gerçek pozisyonu hesapla
+        function moveJoystickKnob(dir, leftSpeed, rightSpeed) {
+            const knob = document.getElementById('joystick-knob');
+            const base = document.getElementById('joystick-base');
+            if (!knob || !base) return;
+            const r = base.offsetWidth * 0.38;
+
+            let dx = 0, dy = 0;
+            if (leftSpeed !== undefined && rightSpeed !== undefined) {
+                // Ters tank karıştırma → joystick koordinatına çevir
+                const maxSpd = Math.max(1, parseInt(currentSpeed || 200));
+                const nl = leftSpeed  / maxSpd;
+                const nr = rightSpeed / maxSpd;
+                const ny = (nl + nr) / 2;  // ileri bileşeni
+                const nx = (nl - nr) / 2;  // dönüş bileşeni
+                dx =  nx * r * 0.75;
+                dy = -ny * r * 0.75;
+            } else {
+                const map = { FORWARD: [0, -r * 0.65], BACKWARD: [0, r * 0.65], LEFT: [-r * 0.65, 0], RIGHT: [r * 0.65, 0], STOP: [0, 0] };
+                [dx, dy] = map[dir] ?? [0, 0];
+            }
+            knob.style.transition = 'transform 0.12s ease';
+            knob.style.transform  = `translate(${dx}px, ${dy}px)`;
         }
 
     </script>
