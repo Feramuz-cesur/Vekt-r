@@ -1,4 +1,5 @@
 #include "DFRobotDFPlayerMini.h"
+#include <math.h>
 #include "SPIFFS.h"
 #include "time.h"
 #include <Adafruit_GFX.h>
@@ -72,6 +73,7 @@ volatile bool isAIModeActive = false;
 RingbufHandle_t audio_ringbuf = NULL;
 volatile uint32_t speaker_sample_rate = SPEAKER_SAMPLE_RATE;
 volatile bool speakerTestPending = false;
+volatile float aiSpeakerGain = 2.0f; // I2S çıkış kazancı (1.0 = orijinal, 2.0 = x2)
 
 // Görevler arasında veri paylaşımı
 volatile int danceTrigger = 0;
@@ -720,8 +722,12 @@ void Task_AI_Speaker(void *parameter) {
           while(offset < num_samples) {
               int chunk = min(512, num_samples - offset);
               for(int i = 0; i < chunk; i++) {
-                  // Gelen ham sesi hic carpmadan direkt stereo buffer'a kopyala
-                  int16_t s = pcm_mono[offset + i];
+                  // Yazılımsal I2S kazancı: tanh yumuşak sınırlayıcı
+                  float norm = pcm_mono[offset + i] / 32767.0f;
+                  float amplified = norm * aiSpeakerGain;
+                  // tanh ile yumuşak doyum (-1..1 arası)
+                  float sat = amplified / sqrtf(1.0f + amplified * amplified); // hızlı tanh yaklaşımı
+                  int16_t s = (int16_t)(sat * 32767.0f);
                   stereo_buffer[i * 2]     = s; // Left
                   stereo_buffer[i * 2 + 1] = s; // Right
               }

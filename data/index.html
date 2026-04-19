@@ -105,6 +105,41 @@
             box-shadow: 0 0 6px rgba(0, 243, 255, 0.3);
         }
 
+        /* --- AI Ayarlar Slider --- */
+        .ai-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 0.8vh;
+            border-radius: 0.4vh;
+            background: linear-gradient(90deg, rgba(188,19,254,0.15), rgba(188,19,254,0.5));
+            outline: none;
+            cursor: pointer;
+        }
+
+        .ai-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 2.8vh;
+            width: 2.8vh;
+            border-radius: 50%;
+            background: #1a1a2e;
+            border: 0.4vh solid #bc13fe;
+            box-shadow: 0 0 10px rgba(188,19,254,0.9), inset 0 0 4px rgba(188,19,254,0.3);
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+
+        .ai-slider:active::-webkit-slider-thumb {
+            transform: scale(1.2);
+            box-shadow: 0 0 18px rgba(188,19,254,1);
+        }
+
+        .ai-slider::-webkit-slider-runnable-track {
+            height: 0.8vh;
+            border-radius: 0.4vh;
+        }
+
         /* --- Dikey Slider --- */
         .vertical-slider-container {
             position: relative;
@@ -440,27 +475,80 @@
 
             <!-- 1. MANUEL PANEL -->
             <div id="mode-manual" class="w-full h-full flex gap-[2vh]">
-                <!-- Sol: Joystick -->
+                <!-- Sol: Hareket -->
                 <div
                     class="w-1/2 bg-panel-bg rounded-lg border border-gray-800 flex items-center justify-center relative p-[2vh]">
                     <span class="absolute top-[1vh] left-[2vh] text-[2vh] text-gray-500 font-tech">HAREKET</span>
-                    <!-- Joystick -->
-                    <div id="joystick-base" class="relative bg-gray-900/50 rounded-full border-2 border-neon-blue/40 flex items-center justify-center select-none shadow-[0_0_25px_rgba(0,243,255,0.12)]" style="width: 30vh; height: 30vh; touch-action: none; cursor: grab;">
-                        <!-- Playback uyumu için gizli butonlar -->
-                        <button id="btn-forward"  class="hidden"></button>
-                        <button id="btn-backward" class="hidden"></button>
-                        <button id="btn-left"     class="hidden"></button>
-                        <button id="btn-right"    class="hidden"></button>
-                        <!-- Yön ok göstergeleri -->
-                        <i class="fa-solid fa-chevron-up   absolute text-neon-blue/35 pointer-events-none" style="top:1.8vh;    font-size:2.2vh;"></i>
-                        <i class="fa-solid fa-chevron-down absolute text-neon-blue/35 pointer-events-none" style="bottom:1.8vh; font-size:2.2vh;"></i>
-                        <i class="fa-solid fa-chevron-left absolute text-neon-blue/35 pointer-events-none" style="left:1.8vh;   font-size:2.2vh;"></i>
-                        <i class="fa-solid fa-chevron-right absolute text-neon-blue/35 pointer-events-none" style="right:1.8vh; font-size:2.2vh;"></i>
-                        <!-- İç halka -->
-                        <div class="absolute rounded-full border border-neon-blue/10 pointer-events-none" style="width:55%;height:55%;"></div>
-                        <!-- Topuz -->
-                        <div id="joystick-knob" class="absolute rounded-full bg-gray-800 border-2 border-neon-blue flex items-center justify-center pointer-events-none" style="width:12vh;height:12vh;box-shadow:0 0 16px rgba(0,243,255,0.55);">
-                            <i class="fa-solid fa-crosshairs text-neon-blue" style="font-size:3.5vh;"></i>
+
+                    <!-- Kontrol Tipi Toggle (sağ üst köşe) -->
+                    <button id="btn-toggle-control" onclick="toggleControlMode()"
+                        class="absolute top-[1vh] right-[1.5vh] z-10 bg-gray-800 border border-neon-blue/50 text-neon-blue w-[6vh] h-[6vh] rounded-lg flex items-center justify-center transition-all hover:bg-neon-blue/20 active:scale-90 shadow-[0_0_8px_rgba(0,243,255,0.15)]"
+                        title="Yön Tuşlarına Geç">
+                        <i id="icon-toggle-control" class="fa-solid fa-arrows-up-down-left-right text-[2.2vh]"></i>
+                    </button>
+
+                    <!-- Playback uyumu için gizli butonlar (DOM'da kalmalı) -->
+                    <button id="btn-forward"  class="hidden"></button>
+                    <button id="btn-backward" class="hidden"></button>
+                    <button id="btn-left"     class="hidden"></button>
+                    <button id="btn-right"    class="hidden"></button>
+
+                    <!-- Joystick Container (varsayılan görünür) -->
+                    <div id="joystick-container" class="flex items-center justify-center">
+                        <div id="joystick-base"
+                            class="relative bg-gray-900/50 rounded-full border-2 border-neon-blue/40 flex items-center justify-center select-none shadow-[0_0_30px_rgba(0,243,255,0.15)]"
+                            style="width: 46vh; height: 46vh; touch-action: none; cursor: grab;">
+                            <!-- Yön ok göstergeleri -->
+                            <i class="fa-solid fa-chevron-up   absolute text-neon-blue/35 pointer-events-none" style="top:2.2vh;    font-size:2.6vh;"></i>
+                            <i class="fa-solid fa-chevron-down absolute text-neon-blue/35 pointer-events-none" style="bottom:2.2vh; font-size:2.6vh;"></i>
+                            <i class="fa-solid fa-chevron-left absolute text-neon-blue/35 pointer-events-none" style="left:2.2vh;   font-size:2.6vh;"></i>
+                            <i class="fa-solid fa-chevron-right absolute text-neon-blue/35 pointer-events-none" style="right:2.2vh; font-size:2.6vh;"></i>
+                            <!-- İç halkalar -->
+                            <div class="absolute rounded-full border border-neon-blue/10 pointer-events-none" style="width:55%;height:55%;"></div>
+                            <div class="absolute rounded-full border border-neon-blue/5 pointer-events-none" style="width:28%;height:28%;"></div>
+                            <!-- Topuz -->
+                            <div id="joystick-knob"
+                                class="absolute rounded-full bg-gray-800 border-2 border-neon-blue flex items-center justify-center pointer-events-none"
+                                style="width:16vh;height:16vh;box-shadow:0 0 22px rgba(0,243,255,0.6);">
+                                <i class="fa-solid fa-crosshairs text-neon-blue" style="font-size:4.5vh;"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Yön Tuşları Container (toggle ile açılır) -->
+                    <div id="arrow-buttons-container" class="hidden">
+                        <div class="grid grid-cols-3 gap-[2vh] p-[2vh] bg-gray-900/50 rounded-full border border-gray-700">
+                            <div></div>
+                            <button
+                                class="w-[18vh] h-[18vh] bg-gray-800 rounded-xl border-2 border-neon-blue text-neon-blue neon-btn flex items-center justify-center text-[6vh]"
+                                onmousedown="updateDirection('FORWARD')" onmouseup="updateDirection('STOP')"
+                                ontouchstart="updateDirection('FORWARD')" ontouchend="updateDirection('STOP')">
+                                <i class="fa-solid fa-arrow-up"></i>
+                            </button>
+                            <div></div>
+                            <button
+                                class="w-[18vh] h-[18vh] bg-gray-800 rounded-xl border-2 border-neon-blue text-neon-blue neon-btn flex items-center justify-center text-[6vh]"
+                                onmousedown="updateDirection('LEFT')" onmouseup="updateDirection('STOP')"
+                                ontouchstart="updateDirection('LEFT')" ontouchend="updateDirection('STOP')">
+                                <i class="fa-solid fa-arrow-left"></i>
+                            </button>
+                            <div class="w-[18vh] h-[18vh] bg-black rounded-full flex items-center justify-center border border-gray-700">
+                                <i class="fa-solid fa-crosshairs text-gray-600 text-[5vh]"></i>
+                            </div>
+                            <button
+                                class="w-[18vh] h-[18vh] bg-gray-800 rounded-xl border-2 border-neon-blue text-neon-blue neon-btn flex items-center justify-center text-[6vh]"
+                                onmousedown="updateDirection('RIGHT')" onmouseup="updateDirection('STOP')"
+                                ontouchstart="updateDirection('RIGHT')" ontouchend="updateDirection('STOP')">
+                                <i class="fa-solid fa-arrow-right"></i>
+                            </button>
+                            <div></div>
+                            <button
+                                class="w-[18vh] h-[18vh] bg-gray-800 rounded-xl border-2 border-neon-blue text-neon-blue neon-btn flex items-center justify-center text-[6vh]"
+                                onmousedown="updateDirection('BACKWARD')" onmouseup="updateDirection('STOP')"
+                                ontouchstart="updateDirection('BACKWARD')" ontouchend="updateDirection('STOP')">
+                                <i class="fa-solid fa-arrow-down"></i>
+                            </button>
+                            <div></div>
                         </div>
                     </div>
                 </div>
@@ -593,36 +681,41 @@
 
             <!-- Ayarlar Paneli (API key yokken veya ayarlar butonuna basınca) -->
             <div id="ai-settings-panel" class="flex flex-col items-center justify-start p-[3vh] w-full max-w-[95vw] mx-auto">
-                <div class="relative flex flex-col items-center mb-[2.5vh] mt-[2vh]">
-                    <div class="bg-gray-900 border-4 border-neon-purple rounded-full w-[10vh] h-[10vh] flex items-center justify-center shadow-[0_0_40px_rgba(188,19,254,0.7)] z-10 relative">
-                        <i class="fa-solid fa-robot text-[4vh] text-neon-purple"></i>
+
+                <!-- Başlık -->
+                <div class="flex items-center gap-[2vh] mb-[2.5vh] mt-[1vh] w-full">
+                    <div class="bg-gray-900 border-2 border-neon-purple rounded-full w-[8vh] h-[8vh] flex items-center justify-center shadow-[0_0_30px_rgba(188,19,254,0.6)] shrink-0">
+                        <i class="fa-solid fa-robot text-[3.5vh] text-neon-purple"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-[2.2vh] font-tech text-neon-purple tracking-[0.3em] font-bold leading-tight">AI AYARLARI</h2>
+                        <p class="text-[1.3vh] text-gray-500 font-tech mt-[0.3vh]">Gemini Live API Yapılandırması</p>
                     </div>
                 </div>
-                <h2 class="text-[2.5vh] font-tech text-neon-purple text-center tracking-[0.3em] font-bold mb-[2.5vh]">AI AYARLARI</h2>
 
                 <!-- API Key -->
-                <div class="w-full mb-[2vh]">
-                    <label class="text-[1.4vh] text-gray-400 font-tech mb-[0.5vh] block">GEMİNİ API ANAHTARI</label>
-                    <div class="flex items-center border border-neon-purple/60 rounded bg-gray-900/60 px-[1.5vh] h-[5.5vh] gap-[1vh]">
-                        <i class="fa-solid fa-key text-neon-purple text-[1.8vh]"></i>
+                <div class="w-full mb-[1.8vh]">
+                    <label class="text-[1.3vh] text-gray-400 font-tech mb-[0.5vh] block tracking-widest">GEMİNİ API ANAHTARI</label>
+                    <div class="flex items-center border border-neon-purple/60 rounded-lg bg-gray-900/60 px-[1.5vh] h-[5.5vh] gap-[1vh] focus-within:border-neon-purple transition-colors">
+                        <i class="fa-solid fa-key text-neon-purple/70 text-[1.8vh]"></i>
                         <input type="password" id="geminiApiKey" class="bg-transparent text-gray-200 flex-1 h-full text-[1.8vh] font-tech outline-none" placeholder="AIza...">
-                        <button onclick="toggleApiKeyVisibility()" class="text-gray-400 hover:text-neon-purple transition-colors px-[0.5vh]">
+                        <button onclick="toggleApiKeyVisibility()" class="text-gray-500 hover:text-neon-purple transition-colors px-[0.5vh]">
                             <i id="apiKeyEyeIcon" class="fa-solid fa-eye text-[1.8vh]"></i>
                         </button>
                     </div>
                 </div>
 
                 <!-- System Prompt -->
-                <div class="w-full mb-[2vh]">
-                    <label class="text-[1.4vh] text-gray-400 font-tech mb-[0.5vh] block">KARAKTER / SİSTEM PROMPTU</label>
-                    <textarea id="geminiSystemPrompt" class="w-full bg-gray-900/60 border border-neon-purple/40 rounded text-gray-200 text-[1.6vh] p-[1.5vh] h-[12vh] resize-none outline-none focus:border-neon-purple" placeholder="Sen ... adında bir robotsun..."></textarea>
+                <div class="w-full mb-[1.8vh]">
+                    <label class="text-[1.3vh] text-gray-400 font-tech mb-[0.5vh] block tracking-widest">KARAKTER / SİSTEM PROMPTU</label>
+                    <textarea id="geminiSystemPrompt" class="w-full bg-gray-900/60 border border-neon-purple/30 rounded-lg text-gray-200 text-[1.6vh] p-[1.5vh] h-[10vh] resize-none outline-none focus:border-neon-purple/70 transition-colors" placeholder="Sen ... adında bir robotsun..."></textarea>
                 </div>
 
-                <!-- Ses + Konuşmacı Adı -->
-                <div class="w-full flex gap-[2vh] mb-[2vh]">
-                    <div class="flex-1">
-                        <label class="text-[1.4vh] text-gray-400 font-tech mb-[0.5vh] block">SES</label>
-                        <select id="geminiVoice" class="w-full bg-gray-900/60 border border-neon-purple/40 rounded text-gray-200 text-[1.5vh] px-[1.5vh] h-[5.5vh] outline-none">
+                <!-- Ses + Konuşmacı Adı + Model (3 kolon) -->
+                <div class="w-full grid grid-cols-3 gap-[1.5vh] mb-[1.8vh]">
+                    <div>
+                        <label class="text-[1.3vh] text-gray-400 font-tech mb-[0.5vh] block tracking-widest">SES</label>
+                        <select id="geminiVoice" class="w-full bg-gray-900/60 border border-neon-purple/30 rounded-lg text-gray-200 text-[1.4vh] px-[1.2vh] h-[5.5vh] outline-none focus:border-neon-purple/70 transition-colors">
                             <option value="Aoede">Aoede (Kız)</option>
                             <option value="Charon">Charon (Erkek)</option>
                             <option value="Fenrir">Fenrir (Erkek)</option>
@@ -632,29 +725,60 @@
                             <option value="Zephyr">Zephyr (Erkek)</option>
                         </select>
                     </div>
-                    <div class="flex-1">
-                        <label class="text-[1.4vh] text-gray-400 font-tech mb-[0.5vh] block">KONUŞMACI ADI</label>
-                        <div class="flex items-center border border-neon-purple/40 rounded bg-gray-900/60 px-[1.5vh] h-[5.5vh]">
-                            <input type="text" id="geminiSpeakerName" class="bg-transparent text-gray-200 flex-1 h-full text-[1.8vh] font-tech outline-none" placeholder="Kullanıcı">
+                    <div>
+                        <label class="text-[1.3vh] text-gray-400 font-tech mb-[0.5vh] block tracking-widest">KONUŞMACI ADI</label>
+                        <div class="flex items-center border border-neon-purple/30 rounded-lg bg-gray-900/60 px-[1.2vh] h-[5.5vh] focus-within:border-neon-purple/70 transition-colors">
+                            <input type="text" id="geminiSpeakerName" class="bg-transparent text-gray-200 flex-1 h-full text-[1.6vh] font-tech outline-none" placeholder="Kullanıcı">
                         </div>
                     </div>
-                </div>
-
-                <!-- Sıcaklık + Model -->
-                <div class="w-full flex gap-[2vh] mb-[3vh]">
-                    <div class="flex-1">
-                        <label class="text-[1.4vh] text-gray-400 font-tech mb-[0.5vh] block">SICAKLIK: <span id="tempValue">1.0</span></label>
-                        <input type="range" id="geminiTemperature" min="0" max="2" step="0.1" value="1.0"
-                            oninput="document.getElementById('tempValue').innerText = parseFloat(this.value).toFixed(1)"
-                            class="w-full h-[1.5vh] bg-gray-700 rounded cursor-pointer accent-purple-600">
-                    </div>
-                    <div class="flex-1">
-                        <label class="text-[1.4vh] text-gray-400 font-tech mb-[0.5vh] block">MODEL</label>
-                        <select id="geminiModel" class="w-full bg-gray-900/60 border border-neon-purple/40 rounded text-gray-200 text-[1.3vh] px-[1vh] h-[5.5vh] outline-none">
+                    <div>
+                        <label class="text-[1.3vh] text-gray-400 font-tech mb-[0.5vh] block tracking-widest">MODEL</label>
+                        <select id="geminiModel" class="w-full bg-gray-900/60 border border-neon-purple/30 rounded-lg text-gray-200 text-[1.2vh] px-[1.2vh] h-[5.5vh] outline-none focus:border-neon-purple/70 transition-colors">
                             <option value="models/gemini-3.1-flash-live-preview">3.1 Flash Live (Güncel)</option>
                             <option value="models/gemini-2.5-flash-native-audio-latest">2.5 Flash Native Audio</option>
                         </select>
                     </div>
+                </div>
+
+                <!-- Sliderlar: Sıcaklık + AI Ses Seviyesi (2 kolon) -->
+                <div class="w-full grid grid-cols-2 gap-[1.5vh] mb-[2.5vh]">
+
+                    <!-- Sıcaklık Slider -->
+                    <div class="bg-gray-900/60 border border-neon-purple/20 rounded-xl p-[1.8vh] flex flex-col gap-[1vh]">
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center gap-[0.8vh]">
+                                <i class="fa-solid fa-temperature-half text-neon-purple text-[1.8vh]"></i>
+                                <span class="text-[1.3vh] text-gray-400 font-tech tracking-widest">SICAKLIK</span>
+                            </div>
+                            <span id="tempValue" class="text-[2.2vh] font-tech font-bold text-neon-purple bg-neon-purple/10 px-[1vh] py-[0.2vh] rounded border border-neon-purple/30">1.0</span>
+                        </div>
+                        <input type="range" id="geminiTemperature" min="0" max="2" step="0.1" value="1.0"
+                            oninput="document.getElementById('tempValue').innerText = parseFloat(this.value).toFixed(1)"
+                            class="ai-slider">
+                        <div class="flex justify-between">
+                            <span class="text-[1.1vh] text-gray-600 font-tech">SADE</span>
+                            <span class="text-[1.1vh] text-gray-600 font-tech">YARATICI</span>
+                        </div>
+                    </div>
+
+                    <!-- AI Ses Kazancı Slider -->
+                    <div class="bg-gray-900/60 border border-neon-purple/20 rounded-xl p-[1.8vh] flex flex-col gap-[1vh]">
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center gap-[0.8vh]">
+                                <i class="fa-solid fa-volume-high text-neon-purple text-[1.8vh]"></i>
+                                <span class="text-[1.3vh] text-gray-400 font-tech tracking-widest">AI SES</span>
+                            </div>
+                            <span id="aiGainValue" class="text-[2.2vh] font-tech font-bold text-neon-purple bg-neon-purple/10 px-[1vh] py-[0.2vh] rounded border border-neon-purple/30">150%</span>
+                        </div>
+                        <input type="range" id="aiVolumeSlider" min="50" max="800" step="10" value="250"
+                            oninput="updateAiGain(this.value)"
+                            class="ai-slider">
+                        <div class="flex justify-between">
+                            <span class="text-[1.1vh] text-gray-600 font-tech">DÜŞÜK</span>
+                            <span class="text-[1.1vh] text-gray-600 font-tech">YÜKSEK</span>
+                        </div>
+                    </div>
+
                 </div>
 
                 <!-- Butonlar -->
@@ -721,6 +845,10 @@
             updateSliderVariables();
             updateSliderDisplays();
             refreshLightPowerButton();
+
+            // AI ses kazancını localStorage'dan yükle
+            const savedGain = localStorage.getItem('aiVolumeSlider');
+            if (savedGain) aiVolumeGain = parseInt(savedGain) / 100;
 
             // Eski/geçersiz model adı localStorage'da kalmışsa düzelt
             const cachedModel = localStorage.getItem('geminiModel');
@@ -1070,6 +1198,9 @@
         let aiCurrentHeadAngle = 30;
         let aiDefaultSpeed = 150;
 
+        // AI ses kazancı: 1.0 = orijinal, 2.5 = %250 (tanh soft limiter ile)
+        let aiVolumeGain = 2.5;
+
         // VAD durumu
         let vadSpeaking = false;
         let vadSilenceMs = 0;
@@ -1084,7 +1215,8 @@
                 geminiVoice: 'Aoede',
                 geminiSpeakerName: 'Kullanıcı',
                 geminiTemperature: '1.0',
-                geminiModel: 'models/gemini-3.1-flash-live-preview'
+                geminiModel: 'models/gemini-3.1-flash-live-preview',
+                aiVolumeSlider: '250'
             };
             for (const [id, def] of Object.entries(defaults)) {
                 const el = document.getElementById(id);
@@ -1092,14 +1224,45 @@
             }
             const tempEl = document.getElementById('geminiTemperature');
             if (tempEl) document.getElementById('tempValue').innerText = parseFloat(tempEl.value).toFixed(1);
+
+            // Gain slider değerini ve göstergesini güncelle
+            const gainEl = document.getElementById('aiVolumeSlider');
+            if (gainEl) {
+                aiVolumeGain = parseInt(gainEl.value) / 100;
+                const gainDisp = document.getElementById('aiGainValue');
+                if (gainDisp) gainDisp.innerText = gainEl.value + '%';
+            }
         }
 
         function saveAiSettingsToStorage() {
-            const ids = ['geminiApiKey', 'geminiSystemPrompt', 'geminiVoice', 'geminiSpeakerName', 'geminiTemperature', 'geminiModel'];
+            const ids = ['geminiApiKey', 'geminiSystemPrompt', 'geminiVoice', 'geminiSpeakerName', 'geminiTemperature', 'geminiModel', 'aiVolumeSlider'];
             for (const id of ids) {
                 const el = document.getElementById(id);
                 if (el) localStorage.setItem(id, el.value);
             }
+        }
+
+        function updateAiGain(value) {
+            aiVolumeGain = parseInt(value) / 100;
+            const disp = document.getElementById('aiGainValue');
+            if (disp) disp.innerText = value + '%';
+            localStorage.setItem('aiVolumeSlider', value);
+        }
+
+        // PCM16 LE bayt dizisine tanh yumuşak sınırlayıcı + kazanç uygular.
+        // Hard-clip yerine tanh: sinyal ±32767 sınırına yumuşakça doyar,
+        // yüksek gain'de bozulma olmadan algılanan ses seviyesi artar.
+        function applyGainToPCM(pcmBytes, gain) {
+            if (Math.abs(gain - 1.0) < 0.01) return pcmBytes;
+            const int16 = new Int16Array(pcmBytes.buffer, pcmBytes.byteOffset, Math.floor(pcmBytes.length / 2));
+            const out = new Int16Array(int16.length);
+            const MAX = 32767;
+            for (let i = 0; i < int16.length; i++) {
+                // Normalize → kazanç uygula → tanh ile yumuşak doyum → geri ölçekle
+                const x = (int16[i] / MAX) * gain;
+                out[i] = Math.round(Math.tanh(x) * MAX);
+            }
+            return new Uint8Array(out.buffer);
         }
 
         function showAiSettings() {
@@ -1384,7 +1547,8 @@
         }
 
         function enqueueAudioForEsp32(pcmBytes) {
-            aiAudioQueue.push(pcmBytes);
+            const boosted = applyGainToPCM(pcmBytes, aiVolumeGain);
+            aiAudioQueue.push(boosted);
             if (!aiAudioQueueRunning) processAudioQueue();
         }
 
@@ -1798,6 +1962,37 @@
             highlightPlaybackButtons('STOP', 'DEFAULT');
 
             log("Oynatma İptal Edildi/Bitti.");
+        }
+
+        // ==========================================
+        // KONTROL TİPİ TOGGLE (Joystick ↔ Yön Tuşları)
+        // ==========================================
+        let useJoystick = true;
+
+        function toggleControlMode() {
+            useJoystick = !useJoystick;
+            const joystickCont = document.getElementById('joystick-container');
+            const arrowCont    = document.getElementById('arrow-buttons-container');
+            const icon         = document.getElementById('icon-toggle-control');
+            const btn          = document.getElementById('btn-toggle-control');
+
+            if (useJoystick) {
+                joystickCont.classList.remove('hidden');
+                arrowCont.classList.add('hidden');
+                icon.className = 'fa-solid fa-arrows-up-down-left-right text-[2.2vh]';
+                btn.title = 'Yön Tuşlarına Geç';
+                log('Kontrol: Joystick');
+            } else {
+                joystickCont.classList.add('hidden');
+                arrowCont.classList.remove('hidden');
+                icon.className = 'fa-solid fa-gamepad text-[2.2vh]';
+                btn.title = "Joystick'e Geç";
+                // Motorları durdur
+                if (websocket && websocket.readyState === WebSocket.OPEN) {
+                    websocket.send(JSON.stringify({ leftSpeed: 0, rightSpeed: 0 }));
+                }
+                log('Kontrol: Yön Tuşları');
+            }
         }
 
         // ==========================================
