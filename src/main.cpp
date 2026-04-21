@@ -13,6 +13,8 @@
 #include <WiFi.h>
 #include <Wire.h>
 #include <ESPmDNS.h>
+#include <DNSServer.h>
+#include <ESPAsyncWiFiManager.h>
 #include <driver/i2s.h>
 #include <driver/adc.h>
 #include <freertos/ringbuf.h>
@@ -64,8 +66,12 @@ AsyncWebSocket ws("/ws");
 Adafruit_NeoPixel pixels(NUMPIXELS, RGB_PIN, NEO_GRB + NEO_KHZ800);
 
 // --- GLOBAL DEĞİŞKENLER ---
-const char *ssid = "FiberHGW_TPB9C0";
-const char *password = "NVArVrUNL3Ap";
+// WiFi: artık WiFiManager ile yönetiliyor; ilk açılışta AP modu açılır,
+// kullanıcı 192.168.4.1 üzerinden ağ seçer; sonraki açılışlarda STA modunda
+// otomatik bağlanır. "Vector_Setup" SSID, "12345678" şifresi varsayılan.
+#define AP_SSID "Vector_Setup"
+#define AP_PASS "12345678"
+volatile bool resetWifiPending = false; // WS'den "forgetWifi" gelince true
 
 volatile bool displayLocked = false; // Ekran kilitli mi?
 
@@ -612,6 +618,12 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       String cmd = (const char *)myObj["command"];
       if (cmd == "showClock") {
         enableClockMode();
+      } else if (cmd == "forgetWifi") {
+        // Kullanıcı UI'dan "Ağı Unut"a bastı: kreden temizleyip resetle.
+        // Asenkron yapıyoruz ki WS yanıtı bitebilsin, sonra Task_Mantik
+        // güvenli bir noktada gerçekleştirsin.
+        resetWifiPending = true;
+        Serial.println("[WiFi] forgetWifi istendi.");
       }
     }
 
@@ -906,6 +918,19 @@ void Task_Mantik(void *parameter) {
       }
     }
 
+    // *** 6. WIFI'Yİ UNUT İSTEĞİ ***
+    // Kullanıcı UI'dan istedi: kayıtlı krendi sil ve cihazı yeniden başlat;
+    // sonraki açılışta WiFiManager AP modunu açacak.
+    if (resetWifiPending) {
+      resetWifiPending = false;
+      ekranaYaz("WiFi Sifirlandi", "Yeniden basliyor");
+      // ESP NVS'deki WiFi kredilerini sil (true, true = erase ap+sta).
+      // Sonraki açılışta AsyncWiFiManager kayıt bulamayıp AP modunu açar.
+      WiFi.disconnect(true, true);
+      vTaskDelay(800 / portTICK_PERIOD_MS);
+      ESP.restart();
+    }
+
     vTaskDelay(20 / portTICK_PERIOD_MS); // Döngü hızı (50 fps)
   }
 }
@@ -983,16 +1008,38 @@ void setup() {
   if (!SPIFFS.begin(true))
     Serial.println("SPIFFS Error");
 
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
-
   // Açılış efekti (Kırmızı Yükleniyor)
   pixels.fill(pixels.Color(255, 0, 0));
   pixels.show();
 
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+  // --- AsyncWiFiManager: AP -> STA otomatik geçiş ---
+  // (ESPAsyncWebServer ile çakışmaması için tzapu/WiFiManager yerine async fork
+  // kullanılıyor.) Kayıtlı kreden bağlanmayı dener; başarısız/yoksa
+  // "Vector_Setup" SSID ile AP açar ve captive portal sunar. Kullanıcı ağı
+  // seçip şifreyi girince STA'ya geçer ve autoConnect döner.
+  DNSServer dns;
+  AsyncWiFiManager wm(&server, &dns);
+  wm.setConfigPortalTimeout(180); // 3 dakika kullanıcı işlem yapmazsa AP kapanır
+  wm.setConnectTimeout(20);       // STA denemesi için 20 sn
+
+  // Captive portal (AP) modu açılınca ekrana SSID ve IP yaz
+  wm.setAPCallback([](AsyncWiFiManager *mgr) {
+    pixels.fill(pixels.Color(0, 0, 255)); // AP modu = Mavi
+    pixels.show();
+    String ssidLine = "AP: " + mgr->getConfigPortalSSID();
+    ekranaYaz(ssidLine, "IP: 192.168.4.1");
+    Serial.println("[WiFi] AP modu acildi: " + mgr->getConfigPortalSSID());
+  });
+
+  bool connected = wm.autoConnect(AP_SSID, AP_PASS);
+
+  if (!connected) {
+    // Süre doldu, bağlanamadı — kullanıcının yeniden denemesi için reboot
+    ekranaYaz("WiFi Hatasi", "Yeniden basliyor");
+    pixels.fill(pixels.Color(255, 0, 0));
+    pixels.show();
+    delay(2000);
+    ESP.restart();
   }
 
   // Bağlanınca Yeşil

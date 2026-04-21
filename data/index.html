@@ -510,6 +510,13 @@
                     <i class="fa-solid fa-lightbulb text-[2.5vh]"></i>
                 </button>
 
+                <!-- *** WIFI UNUT BUTONU *** -->
+                <button onclick="forgetWifi()"
+                    class="bg-gray-800 border border-purple-500 text-purple-300 hover:text-white hover:bg-purple-600/50 w-[6vh] h-[5vh] rounded text-[2vh] flex items-center justify-center transition-all shadow-[0_0_10px_#a855f7] mr-[1vh] active:scale-90"
+                    title="Wi-Fi Ağını Unut (Cihaz AP Moduna Geçer)">
+                    <i class="fa-solid fa-wifi text-[2.5vh]"></i>
+                </button>
+
                 <!-- Mod Seçici -->
                 <div class="flex bg-gray-900 rounded-lg p-[0.5vh] gap-[0.5vh]">
                     <button onclick="setUIMode('manual')" id="btn-manual"
@@ -1165,6 +1172,25 @@
                 websocket.send(JSON.stringify(data));
             }
             log("Komut: Saat Istendi");
+        }
+
+        // Kayıtlı Wi-Fi'yi unut: ESP yeniden başlar, AP modunda "Vector_Setup"
+        // SSID ile karşılar; telefondan ona bağlanıp 192.168.4.1 üzerinden
+        // yeni ağ seçilebilir.
+        function forgetWifi() {
+            const ok = confirm(
+                "Wi-Fi ayarları silinecek ve cihaz yeniden başlayacak.\n\n" +
+                "Sonra telefonunuzdan 'Vector_Setup' ağına bağlanın\n" +
+                "(şifre: 12345678) ve 192.168.4.1 adresinden yeni ağı seçin.\n\n" +
+                "Devam edilsin mi?"
+            );
+            if (!ok) return;
+            if (websocket && websocket.readyState === WebSocket.OPEN) {
+                websocket.send(JSON.stringify({ command: "forgetWifi" }));
+                log("Komut: Wi-Fi unutuluyor, cihaz yeniden baslatiliyor...");
+            } else {
+                alert("Cihaz bağlı değil — komut gönderilemedi.");
+            }
         }
 
         // Normal Slider ve Hareket Fonksiyonu
