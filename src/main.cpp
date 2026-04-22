@@ -14,7 +14,6 @@
 #include <Wire.h>
 #include <ESPmDNS.h>
 #include <DNSServer.h>
-#include <ESPAsyncWiFiManager.h>
 #include <driver/i2s.h>
 #include <driver/adc.h>
 #include <freertos/ringbuf.h>
@@ -66,12 +65,13 @@ AsyncWebSocket ws("/ws");
 Adafruit_NeoPixel pixels(NUMPIXELS, RGB_PIN, NEO_GRB + NEO_KHZ800);
 
 // --- GLOBAL DEĞİŞKENLER ---
-// WiFi: artık WiFiManager ile yönetiliyor; ilk açılışta AP modu açılır,
-// kullanıcı 192.168.4.1 üzerinden ağ seçer; sonraki açılışlarda STA modunda
-// otomatik bağlanır. "Vector_Setup" SSID, "12345678" şifresi varsayılan.
 #define AP_SSID "Vector_Setup"
 #define AP_PASS "12345678"
 volatile bool resetWifiPending = false; // WS'den "forgetWifi" gelince true
+volatile bool rebootPending = false;    // WiFi şifresi kaydedildikten sonra yeniden başlatmak için
+
+bool isAPMode = false;
+DNSServer dnsServer;
 
 volatile bool displayLocked = false; // Ekran kilitli mi?
 
@@ -664,8 +664,8 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
 // =========================================================================
 void Task_Gozler(void *parameter) {
   for (;;) {
-    // EĞER EKRAN KİLİTLİYSE (IPveya Saat YAZIYORSA) BURADA BEKLE VE ÇİZİM YAPMA
-    if (displayLocked) {
+    // EĞER EKRAN KİLİTLİYSE (IPveya Saat YAZIYORSA) VEYA AP MODUNDAYSAN BURADA BEKLE VE ÇİZİM YAPMA
+    if (displayLocked || isAPMode) {
       vTaskDelay(100 / portTICK_PERIOD_MS);
       continue;
     }
@@ -758,6 +758,9 @@ void Task_AI_Speaker(void *parameter) {
 
 void Task_Network(void *parameter) {
   for (;;) {
+    if (isAPMode) {
+      dnsServer.processNextRequest();
+    }
     ws.cleanupClients();
     ArduinoOTA.handle();
     vTaskDelay(10 / portTICK_PERIOD_MS);
@@ -919,15 +922,18 @@ void Task_Mantik(void *parameter) {
     }
 
     // *** 6. WIFI'Yİ UNUT İSTEĞİ ***
-    // Kullanıcı UI'dan istedi: kayıtlı krendi sil ve cihazı yeniden başlat;
-    // sonraki açılışta WiFiManager AP modunu açacak.
     if (resetWifiPending) {
       resetWifiPending = false;
       ekranaYaz("WiFi Sifirlandi", "Yeniden basliyor");
-      // ESP NVS'deki WiFi kredilerini sil (true, true = erase ap+sta).
-      // Sonraki açılışta AsyncWiFiManager kayıt bulamayıp AP modunu açar.
       WiFi.disconnect(true, true);
       vTaskDelay(800 / portTICK_PERIOD_MS);
+      ESP.restart();
+    }
+
+    if (rebootPending) {
+      rebootPending = false;
+      ekranaYaz("Aga Baglaniliyor", "Yeniden basliyor");
+      vTaskDelay(1000 / portTICK_PERIOD_MS);
       ESP.restart();
     }
 
@@ -1012,58 +1018,109 @@ void setup() {
   pixels.fill(pixels.Color(255, 0, 0));
   pixels.show();
 
-  // --- AsyncWiFiManager: AP -> STA otomatik geçiş ---
-  // (ESPAsyncWebServer ile çakışmaması için tzapu/WiFiManager yerine async fork
-  // kullanılıyor.) Kayıtlı kreden bağlanmayı dener; başarısız/yoksa
-  // "Vector_Setup" SSID ile AP açar ve captive portal sunar. Kullanıcı ağı
-  // seçip şifreyi girince STA'ya geçer ve autoConnect döner.
-  DNSServer dns;
-  AsyncWiFiManager wm(&server, &dns);
-  wm.setConfigPortalTimeout(180); // 3 dakika kullanıcı işlem yapmazsa AP kapanır
-  wm.setConnectTimeout(20);       // STA denemesi için 20 sn
+  // --- KENDİ AP-STA YÖNETİMİMİZ ---
+  WiFi.mode(WIFI_STA);
+  WiFi.begin();
 
-  // Captive portal (AP) modu açılınca ekrana SSID ve IP yaz
-  wm.setAPCallback([](AsyncWiFiManager *mgr) {
-    pixels.fill(pixels.Color(0, 0, 255)); // AP modu = Mavi
+  int retries = 0;
+  while (WiFi.status() != WL_CONNECTED && retries < 20) {
+    retries++;
+    ekranaYaz("Baglaniliyor...", String(retries) + ". Deneme");
+    delay(500);
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    isAPMode = false;
+    pixels.fill(pixels.Color(0, 255, 0));
     pixels.show();
-    String ssidLine = "AP: " + mgr->getConfigPortalSSID();
-    ekranaYaz(ssidLine, "IP: 192.168.4.1");
-    Serial.println("[WiFi] AP modu acildi: " + mgr->getConfigPortalSSID());
+    delay(500);
+    pixels.clear();
+    pixels.show();
+
+    Serial.println("");
+    Serial.println(WiFi.localIP());
+    showIpAddressFor3Seconds();
+    delay(IP_SHOW_DURATION_MS);
+  } else {
+    ekranaYaz("Baglanilamadi!", "AP'ye Geciliyor");
+    delay(2000);
+
+    isAPMode = true;
+    WiFi.mode(WIFI_AP);
+    WiFi.softAP(AP_SSID, AP_PASS);
+
+    dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
+    dnsServer.start(53, "*", WiFi.softAPIP());
+
+    pixels.fill(pixels.Color(0, 0, 255));
+    pixels.show();
+    ekranaYaz(String("Ag:") + AP_SSID, String("Sifre:") + AP_PASS);
+    Serial.println("[WiFi] AP modu acildi: " + String(AP_SSID));
+  }
+
+  if (!isAPMode) {
+    if (MDNS.begin("robot")) {
+      Serial.println("mDNS: http://robot.local");
+    }
+    // NTP sadece internet varken çalışır
+    configTime(10800, 0, "pool.ntp.org", "time.nist.gov");
+    Serial.println("NTP Saati ayarlandi.");
+  }
+
+  // --- API ROUTELARI (WIFI SETUP İÇİN) ---
+  server.on("/api/wifi-scan", HTTP_GET, [](AsyncWebServerRequest *request){
+    int n = WiFi.scanComplete();
+    if (n == WIFI_SCAN_FAILED) {
+      WiFi.scanNetworks(true); // Asenkron tarama baslat
+      request->send(202, "application/json", "[]");
+    } else if (n == WIFI_SCAN_RUNNING) {
+      request->send(202, "application/json", "[]");
+    } else {
+      String json = "[";
+      for (int i = 0; i < n; ++i) {
+        if (i > 0) json += ",";
+        json += "{";
+        json += "\"ssid\":\"" + WiFi.SSID(i) + "\",";
+        json += "\"rssi\":" + String(WiFi.RSSI(i)) + ",";
+        json += "\"secure\":" + String((WiFi.encryptionType(i) == WIFI_AUTH_OPEN) ? "false" : "true");
+        json += "}";
+      }
+      json += "]";
+      request->send(200, "application/json", json);
+      WiFi.scanDelete(); // Bir sonraki istek icin resetle
+    }
   });
 
-  bool connected = wm.autoConnect(AP_SSID, AP_PASS);
+  server.on("/api/wifi-connect", HTTP_POST, [](AsyncWebServerRequest *request){
+    if(request->hasParam("ssid", true) && request->hasParam("pass", true)){
+      String ssid = request->getParam("ssid", true)->value();
+      String pass = request->getParam("pass", true)->value();
+      
+      WiFi.begin(ssid.c_str(), pass.c_str());
+      request->send(200, "text/plain", "OK");
+      rebootPending = true; // Reboot edilecek ama bilgiler SİLİNMEYECEK
+    } else {
+      request->send(400, "text/plain", "Bad Request");
+    }
+  });
 
-  if (!connected) {
-    // Süre doldu, bağlanamadı — kullanıcının yeniden denemesi için reboot
-    ekranaYaz("WiFi Hatasi", "Yeniden basliyor");
-    pixels.fill(pixels.Color(255, 0, 0));
-    pixels.show();
-    delay(2000);
-    ESP.restart();
-  }
+  // Captive Portal yonlendirmesi
+  server.onNotFound([](AsyncWebServerRequest *request) {
+    if (isAPMode) {
+      request->redirect("http://192.168.4.1/wifi.html");
+    } else {
+      request->send(404, "text/plain", "Not found");
+    }
+  });
 
-  // Bağlanınca Yeşil
-  pixels.fill(pixels.Color(0, 255, 0));
-  pixels.show();
-  delay(500);
-  pixels.clear();
-  pixels.show();
-
-  Serial.println("");
-  Serial.println(WiFi.localIP());
-
-  if (MDNS.begin("robot")) {
-    Serial.println("mDNS: http://robot.local");
-  }
-
-  // --- NTP SAAT AYARI ---
-  // GMT_OFFSET = 10800 (Türkiye için 3 saat x 3600 sn)
-  // DAYLIGHT_OFFSET = 0 (Türkiye'de yaz saati ukygulaması sabit)
-  configTime(10800, 0, "pool.ntp.org", "time.nist.gov");
-  Serial.println("NTP Saati ayarlandi.");
-
-  showIpAddressFor3Seconds();
-  delay(IP_SHOW_DURATION_MS);
+  // Root URL: AP modunda wifi.html, STA modunda index.html goster
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    if (isAPMode) {
+      request->send(SPIFFS, "/wifi.html", "text/html");
+    } else {
+      request->send(SPIFFS, "/index.html", "text/html");
+    }
+  });
 
   ws.onEvent(onEvent);
   server.addHandler(&ws);
