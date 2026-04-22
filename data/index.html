@@ -821,8 +821,8 @@
                             </div>
                         </div>
 
-                        <!-- Ses + Konuşmacı + Model -->
-                        <div class="grid grid-cols-3 gap-[1.1vh]">
+                        <!-- Ses + Model -->
+                        <div class="grid grid-cols-2 gap-[1.1vh]">
                             <div>
                                 <label class="text-[1.05vh] text-gray-500 font-tech mb-[0.6vh] block tracking-widest">SES</label>
                                 <select id="geminiVoice" class="w-full bg-white/[0.03] border border-neon-purple/25 rounded-xl text-gray-200 text-[1.3vh] px-[1.1vh] h-[5vh] outline-none focus:border-neon-purple/60 transition-colors cursor-pointer">
@@ -834,12 +834,6 @@
                                     <option value="Leda">Leda (Kız)</option>
                                     <option value="Zephyr">Zephyr (Erkek)</option>
                                 </select>
-                            </div>
-                            <div>
-                                <label class="text-[1.05vh] text-gray-500 font-tech mb-[0.6vh] block tracking-widest">KONUŞMACI</label>
-                                <div class="flex items-center border border-neon-purple/25 rounded-xl bg-white/[0.03] px-[1.1vh] h-[5vh] focus-within:border-neon-purple/60 transition-colors">
-                                    <input type="text" id="geminiSpeakerName" class="bg-transparent text-gray-200 flex-1 h-full text-[1.4vh] font-tech outline-none" placeholder="Kullanıcı">
-                                </div>
                             </div>
                             <div>
                                 <label class="text-[1.05vh] text-gray-500 font-tech mb-[0.6vh] block tracking-widest">MODEL</label>
@@ -1357,7 +1351,6 @@
                 geminiApiKey: '',
                 geminiSystemPrompt: 'Sen Pixel adında sevimli ve espirili bir robotsun. Konuşmaların kısa olsun.',
                 geminiVoice: 'Aoede',
-                geminiSpeakerName: 'Kullanıcı',
                 geminiTemperature: '1.0',
                 geminiModel: 'models/gemini-3.1-flash-live-preview',
                 aiVolumeSlider: '100'
@@ -1383,7 +1376,7 @@
         }
 
         function saveAiSettingsToStorage() {
-            const ids = ['geminiApiKey', 'geminiSystemPrompt', 'geminiVoice', 'geminiSpeakerName', 'geminiTemperature', 'geminiModel', 'aiVolumeSlider'];
+            const ids = ['geminiApiKey', 'geminiSystemPrompt', 'geminiVoice', 'geminiTemperature', 'geminiModel', 'aiVolumeSlider'];
             for (const id of ids) {
                 const el = document.getElementById(id);
                 if (el) localStorage.setItem(id, el.value);
