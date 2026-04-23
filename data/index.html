@@ -1283,6 +1283,30 @@
                     'px-[2vh] py-[1vh] rounded text-[2vh] font-bold transition-all text-gray-400 hover:text-white';
             });
 
+            // Kayıt/Oynatma kontrollerini sadece manuel modda göster
+            const recControls = document.getElementById('record-controls');
+            if (recControls) {
+                if (modeName === 'manual') {
+                    recControls.classList.remove('hidden');
+                } else {
+                    recControls.classList.add('hidden');
+                }
+            }
+
+            // Mod değişince aktif kayıt/oynatmayı durdur
+            if (modeName !== 'manual') {
+                if (typeof isRecording !== 'undefined' && isRecording) {
+                    isRecording = false;
+                    clearInterval(recordTimerInterval);
+                    log('Mod değişti — kayıt durduruldu.');
+                    updateRecordingUI();
+                }
+                if (typeof isPlaying !== 'undefined' && isPlaying) {
+                    stopPlayback();
+                    log('Mod değişti — oynatma durduruldu.');
+                }
+            }
+
             isAIModeActive = (modeName === 'ai');
             const activeBtn = document.getElementById(`btn-${modeName}`);
 
