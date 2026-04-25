@@ -79,7 +79,12 @@ volatile bool isAIModeActive = false;
 RingbufHandle_t audio_ringbuf = NULL;
 volatile uint32_t speaker_sample_rate = SPEAKER_SAMPLE_RATE;
 volatile bool speakerTestPending = false;
-volatile float aiSpeakerGain = 2.0f; // I2S çıkış kazancı (1.0 = orijinal, 2.0 = x2)
+// 8Ω 1W hoparlör için güvenli dijital tepe sınırı.
+// MAX98357A varsayılan 9dB kazançta 5V'tan 8Ω'a tam ölçek -> ~1.8W (hoparlörün 1.8 katı!).
+// 22000'e (~-3.5dBFS, ~0.8W) bağlayarak hoparlörü 1W çalışma sınırının altında tutuyoruz.
+// Tarayıcı tarafında da aynı sınır uygulanıyor; bu burada ikinci savunma katmanı.
+static const int16_t SPEAKER_SAFE_PEAK = 22000;
+volatile float aiSpeakerGain = 1.0f; // I2S kazancı: 1.0 = pass-through; ses kontrolü tarayıcıda
 
 // Görevler arasında veri paylaşımı
 volatile int danceTrigger = 0;
@@ -734,12 +739,13 @@ void Task_AI_Speaker(void *parameter) {
           while(offset < num_samples) {
               int chunk = min(512, num_samples - offset);
               for(int i = 0; i < chunk; i++) {
-                  // Yazılımsal I2S kazancı: tanh yumuşak sınırlayıcı
+                  // Kazanç + tanh yumuşak doyum + SPEAKER_SAFE_PEAK ile zirve sınırı.
+                  // sat fonksiyonu -1..1 aralığında doyduğundan çıkış ±SPEAKER_SAFE_PEAK'i
+                  // hiçbir koşulda geçemez. Hoparlör 1W güvenli sınırının altında kalır.
                   float norm = pcm_mono[offset + i] / 32767.0f;
                   float amplified = norm * aiSpeakerGain;
-                  // tanh ile yumuşak doyum (-1..1 arası)
-                  float sat = amplified / sqrtf(1.0f + amplified * amplified); // hızlı tanh yaklaşımı
-                  int16_t s = (int16_t)(sat * 32767.0f);
+                  float sat = amplified / sqrtf(1.0f + amplified * amplified); // hızlı tanh
+                  int16_t s = (int16_t)(sat * (float)SPEAKER_SAFE_PEAK);
                   stereo_buffer[i * 2]     = s; // Left
                   stereo_buffer[i * 2 + 1] = s; // Right
               }

@@ -904,6 +904,21 @@
                             </button>
                         </div>
                     </div>
+
+                    <!-- Robot Ses Efekt Sliderları -->
+                    <div class="mt-[2.5vh] w-full max-w-[38vh] bg-gray-900/60 border border-neon-purple/25 rounded-xl px-[2vh] py-[1.5vh]">
+                        <div class="text-[1.2vh] font-tech text-neon-purple/50 tracking-[0.25em] mb-[1.4vh] text-center">ROBOT SES EFEKTİ</div>
+                        <div class="flex items-center gap-[1.2vh] mb-[1.4vh]">
+                            <span class="text-[1.25vh] font-tech text-gray-500 w-[8.5vh] shrink-0">RING MOD</span>
+                            <input type="range" id="robotRingSlider" class="ai-slider flex-1" min="0" max="200" step="5" value="0">
+                            <span id="robotRingVal" class="text-[1.3vh] font-tech text-neon-purple w-[5.5vh] text-right shrink-0">OFF</span>
+                        </div>
+                        <div class="flex items-center gap-[1.2vh]">
+                            <span class="text-[1.25vh] font-tech text-gray-500 w-[8.5vh] shrink-0">BITCRUSH</span>
+                            <input type="range" id="robotBitsSlider" class="ai-slider flex-1" min="4" max="16" step="1" value="16">
+                            <span id="robotBitsVal" class="text-[1.3vh] font-tech text-neon-purple w-[5.5vh] text-right shrink-0">OFF</span>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Sağ: Sohbet Paneli -->
@@ -967,6 +982,7 @@
             updateSliderVariables();
             updateSliderDisplays();
             refreshLightPowerButton();
+            initRobotSliders();
 
             // AI ses kazancını localStorage'dan yükle
             const savedGain = localStorage.getItem('aiVolumeSlider');
@@ -1423,18 +1439,90 @@
             el.style.background = `linear-gradient(to right, #9d4edd ${pct}%, rgba(157,78,221,0.15) ${pct}%)`;
         }
 
-        // PCM16 LE bayt dizisine tanh yumuşak sınırlayıcı + kazanç uygular.
-        // Hard-clip yerine tanh: sinyal ±32767 sınırına yumuşakça doyar,
-        // yüksek gain'de bozulma olmadan algılanan ses seviyesi artar.
-        function applyGainToPCM(pcmBytes, gain) {
-            if (Math.abs(gain - 1.0) < 0.01) return pcmBytes;
+        // Robot ses efekti parametreleri
+        let robotRingFreq = 0;   // Hz, 0 = kapalı
+        let robotBits = 16;      // bit derinliği, 16 = kapalı
+        let robotRingSamplePos = 0; // ring mod için kümülatif örnek sayacı
+
+        function initRobotSliders() {
+            const ringSlider = document.getElementById('robotRingSlider');
+            const bitsSlider = document.getElementById('robotBitsSlider');
+            const ringVal = document.getElementById('robotRingVal');
+            const bitsVal = document.getElementById('robotBitsVal');
+
+            function updateBg(el) {
+                const pct = (el.value - el.min) / (el.max - el.min) * 100;
+                el.style.background = `linear-gradient(to right, #9d4edd ${pct}%, rgba(157,78,221,0.15) ${pct}%)`;
+            }
+
+            ringSlider.addEventListener('input', () => {
+                robotRingFreq = parseInt(ringSlider.value);
+                robotRingSamplePos = 0;
+                ringVal.textContent = robotRingFreq === 0 ? 'OFF' : robotRingFreq + ' Hz';
+                updateBg(ringSlider);
+            });
+
+            bitsSlider.addEventListener('input', () => {
+                robotBits = parseInt(bitsSlider.value);
+                bitsVal.textContent = robotBits === 16 ? 'OFF' : robotBits + ' bit';
+                updateBg(bitsSlider);
+            });
+
+            updateBg(ringSlider);
+            updateBg(bitsSlider);
+        }
+
+        // Ring modulator + bitcrusher efektini PCM16 verisine uygular.
+        function applyRobotEffect(pcmBytes) {
+            if (robotRingFreq === 0 && robotBits >= 16) return pcmBytes;
             const int16 = new Int16Array(pcmBytes.buffer, pcmBytes.byteOffset, Math.floor(pcmBytes.length / 2));
             const out = new Int16Array(int16.length);
+            const SR = 24000;
+            const TWO_PI_OVER_SR = (2 * Math.PI) / SR;
             const MAX = 32767;
+            const step = robotBits < 16 ? MAX / Math.pow(2, robotBits - 1) : 0;
             for (let i = 0; i < int16.length; i++) {
-                // Normalize → kazanç uygula → tanh ile yumuşak doyum → geri ölçekle
-                const x = (int16[i] / MAX) * gain;
-                out[i] = Math.round(Math.tanh(x) * MAX);
+                let s = int16[i];
+                if (robotRingFreq > 0) {
+                    s = Math.round(s * Math.sin(TWO_PI_OVER_SR * robotRingFreq * robotRingSamplePos));
+                }
+                if (step > 0) {
+                    s = Math.round(s / step) * step;
+                    s = Math.max(-32768, Math.min(32767, s));
+                }
+                out[i] = s;
+                robotRingSamplePos++;
+            }
+            return new Uint8Array(out.buffer);
+        }
+
+        // 8Ω 1W hoparlör için güvenli dijital tepe sınırı.
+        // MAX98357A varsayılan 9dB kazançta 5V'tan 8Ω'a tam ölçek (±32767) verirken
+        // ~1.8W üretir; bu 1W'lık hoparlörü zorlar/patlatır. Tepeyi 22000'e (~-3.5dBFS,
+        // ~0.8W) bağlayarak hoparlörün güvenli çalışma bölgesinde kalmasını sağlıyoruz.
+        const SPEAKER_SAFE_PEAK = 22000;
+
+        // PCM16 LE bayt dizisine kazanç + hoparlör koruma limiter'ı uygular.
+        // %70 SAFE_PEAK'e kadar sinyal LİNEER geçer (volume kaybı olmaz), üstü tanh ile
+        // yumuşakça SAFE_PEAK'e doyar. Bu sayede slider ne kadar yüksek olursa olsun
+        // tepe değer ±SAFE_PEAK'i ASLA aşamaz; hoparlör 1W sınırının dışına çıkmaz.
+        function applyGainToPCM(pcmBytes, gain) {
+            const int16 = new Int16Array(pcmBytes.buffer, pcmBytes.byteOffset, Math.floor(pcmBytes.length / 2));
+            const out = new Int16Array(int16.length);
+            const SAFE = SPEAKER_SAFE_PEAK;
+            const KNEE = SAFE * 0.7;       // 15400'a kadar lineer
+            const RANGE = SAFE - KNEE;     // 6600'lük yumuşak sıkıştırma bölgesi
+            for (let i = 0; i < int16.length; i++) {
+                const amplified = int16[i] * gain;
+                const abs = amplified < 0 ? -amplified : amplified;
+                if (abs <= KNEE) {
+                    out[i] = Math.round(amplified);
+                } else {
+                    const sign = amplified < 0 ? -1 : 1;
+                    const excess = (abs - KNEE) / RANGE;
+                    // tanh asimptotik olarak 1'e gider → çıkış SAFE'i geçemez.
+                    out[i] = Math.round(sign * (KNEE + RANGE * Math.tanh(excess)));
+                }
             }
             return new Uint8Array(out.buffer);
         }
@@ -1804,8 +1892,11 @@
         }
 
         function enqueueAudioForEsp32(pcmBytes) {
-            const boosted = applyGainToPCM(pcmBytes, aiVolumeGain);
-            aiAudioQueue.push(boosted);
+            // Sıralama önemli: önce robot efekti, sonra kazanç+güvenli limiter.
+            // Limiter'ın bitcrusher'ın yarattığı sert harmonikleri de yumuşatması için.
+            const withEffect = applyRobotEffect(pcmBytes);
+            const safeOut = applyGainToPCM(withEffect, aiVolumeGain);
+            aiAudioQueue.push(safeOut);
             if (!aiAudioQueueRunning) processAudioQueue();
         }
 
