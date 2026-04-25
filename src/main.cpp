@@ -111,6 +111,56 @@ int pixelCycle = 0;
 int pixelBrightness = 0;
 bool breathingUp = true;
 
+// =================================================================
+// AI HAREKET KALİBRASYONU
+// AI fonksiyon çağrılarından gelen 1-5 hız seviyesi ve birim (cm, mm,
+// derece) değerlerinin fiziksel karşılıklarını burada ayarla.
+// Tarayıcı sadece seviye + birim gönderir; tüm dönüşümler burada yapılır.
+// =================================================================
+
+// Motor PWM tablosu: hız seviyesi 1-5 -> 0-254 PWM (doğrusal)
+// Hız 1 = ~%20 (51), Hız 5 = max (254)
+// Düşük seviyelerde motor statik sürtünmeyi yenemeyebilir; gerekirse
+// 1 ve 2'yi yukarı çek (örn. {0, 90, 130, 170, 210, 254}).
+static const int MOTOR_PWM_LEVEL[6] = {0, 51, 101, 152, 203, 254};
+
+// Servo hareket hızı: hız seviyesi 1-5 -> servoGit() iç ölçeği 1-10
+static const int SERVO_SPEED_LEVEL[6] = {0, 2, 4, 6, 8, 10};
+
+// Kol mm-açı dönüşümü (lineer):
+//   ARM_FULL_MM mm fiziksel kalkış = ARM_FULL_ANGLE derece servo açısı
+// Örn. 110mm -> 70°. Mekanik kalibrasyon için bu iki sayıyı değiştir.
+static const float ARM_FULL_MM = 110.0f;
+static const float ARM_FULL_ANGLE = 70.0f;
+
+// Düz hareket: her hız seviyesi için cm/saniye.
+// Süre = mesafe_cm / cm_per_sec.
+// Örn. hız 4'te 10cm -> 10/22 = 454ms
+// Kalibrasyon: gerçek robotu sabit zeminde ölç, değerleri güncelle.
+static const float MOVE_CM_PER_SEC[6] = {0.0f, 4.0f, 9.0f, 15.0f, 22.0f, 30.0f};
+
+// Dönüş: her hız seviyesi için derece/saniye.
+// Süre = derece / deg_per_sec.
+// Örn. hız 4'te 90° -> 1000ms; hız 2'de 90° -> 2000ms
+static const float TURN_DEG_PER_SEC[6] = {0.0f, 22.5f, 45.0f, 67.5f, 90.0f, 112.5f};
+
+// Varsayılan hız seviyesi (AI komutu speed_level vermezse)
+static const int DEFAULT_SPEED_LEVEL = 3;
+
+// Kafa için logik açı aralığı (mevcut UI ile aynı: 0..60)
+static const int HEAD_LOGIC_MAX = 60;
+
+// AI zamanlanmış hareket bitiş zamanı (move_distance, turn_degrees,
+// timed_move için). Task_Mantik bu zaman dolduğunda dur() çağırır.
+volatile unsigned long timedMoveStopAt = 0;
+volatile bool timedMoveActive = false;
+
+// Hız seviyesini 1-5'e kıs (0 veya geçersiz -> varsayılan)
+static inline int clampSpeedLevel(int lvl) {
+  if (lvl < 1 || lvl > 5) return DEFAULT_SPEED_LEVEL;
+  return lvl;
+}
+
 // --- MOTOR FONKSİYONLARI ---
 void ileri(int pwm) {
   digitalWrite(IN1, LOW);
@@ -533,7 +583,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       setMotorSag(rightSpeed);
     }
 
-    // Klasik Yön Kontrolü — AI function call ve playback uyumu için korundu
+    // Klasik Yön Kontrolü — Manuel UI ve playback uyumu için korundu
     if (myObj.hasOwnProperty("direction")) {
       String direction = (const char *)myObj["direction"];
       int speed = myObj.hasOwnProperty("speed") ? jsonToInt(myObj, "speed") : 150;
@@ -550,6 +600,135 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
         sol(speed);
       else if (direction == "STOP")
         dur();
+    }
+
+    // ===============================================================
+    // AI SEMANTİK KOMUTLARI (1-5 hız seviyesi + cm/mm/derece birimleri)
+    // Tarayıcı sadece niyeti gönderir, dönüşümler burada yapılır.
+    // ===============================================================
+
+    // AI servo (yumuşak hareket): kol veya kafa, açı veya mm cinsinden
+    //   {"aiServo":"arm","target_angle":40,"speed_level":3}
+    //   {"aiServo":"arm","target_mm":80,"speed_level":3}
+    //   {"aiServo":"head","target_angle":30,"speed_level":3}
+    if (myObj.hasOwnProperty("aiServo")) {
+      disableClockMode();
+      String s = (const char *)myObj["aiServo"];
+      int level = clampSpeedLevel(
+          myObj.hasOwnProperty("speed_level") ? jsonToInt(myObj, "speed_level")
+                                              : DEFAULT_SPEED_LEVEL);
+      int hiz = SERVO_SPEED_LEVEL[level];
+      bool hasTarget = false;
+      int target = 0;
+      if (myObj.hasOwnProperty("target_mm")) {
+        float mm = (float)jsonToInt(myObj, "target_mm");
+        target = (int)roundf(mm / ARM_FULL_MM * ARM_FULL_ANGLE);
+        hasTarget = true;
+      } else if (myObj.hasOwnProperty("target_angle")) {
+        target = jsonToInt(myObj, "target_angle");
+        hasTarget = true;
+      }
+      if (hasTarget) {
+        if (s == "arm") {
+          target = constrain(target, 0, (int)ARM_FULL_ANGLE);
+          servoGit(servo1, target, hiz);
+        } else if (s == "head") {
+          target = constrain(target, 0, HEAD_LOGIC_MAX);
+          servoGit(servo2, map(target, 0, HEAD_LOGIC_MAX, HEAD_LOGIC_MAX, 0),
+                   hiz);
+        }
+      }
+    }
+
+    // AI anlık motor: {"aiMove":"FORWARD","speed_level":3}
+    // STOP da burada işlenir; bekleyen zamanlanmış hareketi iptal eder.
+    if (myObj.hasOwnProperty("aiMove")) {
+      String d = (const char *)myObj["aiMove"];
+      if (d != "STOP")
+        disableClockMode();
+      int level = clampSpeedLevel(
+          myObj.hasOwnProperty("speed_level") ? jsonToInt(myObj, "speed_level")
+                                              : DEFAULT_SPEED_LEVEL);
+      int pwm = MOTOR_PWM_LEVEL[level];
+      timedMoveActive = false; // varsa zamanlayıcı iptal
+      if (d == "FORWARD")
+        ileri(pwm);
+      else if (d == "BACKWARD")
+        geri(pwm);
+      else if (d == "RIGHT")
+        sag(pwm);
+      else if (d == "LEFT")
+        sol(pwm);
+      else if (d == "STOP")
+        dur();
+    }
+
+    // AI mesafeli düz hareket: {"aiMoveDistance":"FORWARD","distance_cm":10,"speed_level":4}
+    // CPP süreyi cm/cm_per_sec ile hesaplar, otomatik durur.
+    if (myObj.hasOwnProperty("aiMoveDistance")) {
+      disableClockMode();
+      String d = (const char *)myObj["aiMoveDistance"];
+      float cm = (float)jsonToInt(myObj, "distance_cm");
+      int level = clampSpeedLevel(
+          myObj.hasOwnProperty("speed_level") ? jsonToInt(myObj, "speed_level")
+                                              : DEFAULT_SPEED_LEVEL);
+      int pwm = MOTOR_PWM_LEVEL[level];
+      float cmps = MOVE_CM_PER_SEC[level];
+      if (cmps > 0.01f && cm > 0.0f && (d == "FORWARD" || d == "BACKWARD")) {
+        unsigned long duration = (unsigned long)(cm / cmps * 1000.0f);
+        if (duration < 50UL) duration = 50UL;
+        if (duration > 10000UL) duration = 10000UL;
+        if (d == "FORWARD") ileri(pwm);
+        else                geri(pwm);
+        timedMoveStopAt = millis() + duration;
+        timedMoveActive = true;
+      }
+    }
+
+    // AI dereceli dönüş: {"aiTurn":"LEFT","degrees":90,"speed_level":4}
+    // CPP süreyi deg/deg_per_sec ile hesaplar, otomatik durur.
+    if (myObj.hasOwnProperty("aiTurn")) {
+      disableClockMode();
+      String d = (const char *)myObj["aiTurn"];
+      float deg = (float)jsonToInt(myObj, "degrees");
+      int level = clampSpeedLevel(
+          myObj.hasOwnProperty("speed_level") ? jsonToInt(myObj, "speed_level")
+                                              : DEFAULT_SPEED_LEVEL);
+      int pwm = MOTOR_PWM_LEVEL[level];
+      float dps = TURN_DEG_PER_SEC[level];
+      if (dps > 0.01f && deg > 0.0f && (d == "LEFT" || d == "RIGHT")) {
+        unsigned long duration = (unsigned long)(deg / dps * 1000.0f);
+        if (duration < 50UL) duration = 50UL;
+        if (duration > 10000UL) duration = 10000UL;
+        if (d == "LEFT") sol(pwm);
+        else             sag(pwm);
+        timedMoveStopAt = millis() + duration;
+        timedMoveActive = true;
+      }
+    }
+
+    // AI süreli hareket: {"aiTimedMove":"FORWARD","duration_ms":1500,"speed_level":3}
+    // Belirtilen süre boyunca hareket et, sonra dur.
+    if (myObj.hasOwnProperty("aiTimedMove")) {
+      disableClockMode();
+      String d = (const char *)myObj["aiTimedMove"];
+      unsigned long duration =
+          (unsigned long)jsonToInt(myObj, "duration_ms");
+      int level = clampSpeedLevel(
+          myObj.hasOwnProperty("speed_level") ? jsonToInt(myObj, "speed_level")
+                                              : DEFAULT_SPEED_LEVEL);
+      int pwm = MOTOR_PWM_LEVEL[level];
+      if (duration < 50UL) duration = 50UL;
+      if (duration > 10000UL) duration = 10000UL;
+      if (d == "FORWARD")       ileri(pwm);
+      else if (d == "BACKWARD") geri(pwm);
+      else if (d == "LEFT")     sol(pwm);
+      else if (d == "RIGHT")    sag(pwm);
+      else                      duration = 0;
+      if (duration > 0) {
+        timedMoveStopAt = millis() + duration;
+        timedMoveActive = true;
+      }
     }
 
     // Ses Kontrolü
@@ -776,6 +955,13 @@ void Task_Network(void *parameter) {
 void Task_Mantik(void *parameter) {
   for (;;) {
     unsigned long currentMillis = millis();
+
+    // 0. AI Zamanlanmış Hareket Sonu (move_distance / turn_degrees /
+    //    timed_move). Süre dolduğunda motorları durdur.
+    if (timedMoveActive && (long)(currentMillis - timedMoveStopAt) >= 0) {
+      timedMoveActive = false;
+      dur();
+    }
 
     // 1. Dokunmatik
     if (digitalRead(THC_PIN)) {

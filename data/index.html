@@ -1378,10 +1378,8 @@
         let aiAudioQueue = [];
         let aiAudioQueueRunning = false;
         let aiPlaybackActive = false;
-        let aiMoveDurationTimer = null;
         let aiCurrentArmAngle = 0;
         let aiCurrentHeadAngle = 30;
-        let aiDefaultSpeed = 150;
 
         // AI ses kazancı: 1.0 = orijinal (%100), max %300
         let aiVolumeGain = 1.0;
@@ -1715,7 +1713,6 @@
             if (aiAudioCtx) { aiAudioCtx.close(); aiAudioCtx = null; }
             if (aiMicStream) { aiMicStream.getTracks().forEach(t => t.stop()); aiMicStream = null; }
             if (geminiWs) { geminiWs.close(); geminiWs = null; }
-            if (aiMoveDurationTimer) { clearTimeout(aiMoveDurationTimer); aiMoveDurationTimer = null; }
             aiAudioQueue = [];
             aiAudioQueueRunning = false;
             aiPlaybackActive = false;
@@ -1929,60 +1926,110 @@
             sendNextChunk();
         }
 
+        // AI komutlarındaki hız seviyesini 1-5'e kıs (geçersiz/eksik -> 3)
+        function clampSpeedLevel(lvl) {
+            const n = parseInt(lvl);
+            if (!Number.isFinite(n) || n < 1 || n > 5) return 3;
+            return n;
+        }
+
+        // Kol logik açı aralığı 0-70°, kafa 0-60°. mm sadece kol için: 0-110mm.
+        // Bu sınırlar firmware ile aynı (ARM_FULL_ANGLE / ARM_FULL_MM / HEAD_LOGIC_MAX).
+        const ARM_MAX_ANGLE = 70;
+        const HEAD_MAX_ANGLE = 60;
+        const ARM_MAX_MM = 110;
+
         function handleToolCalls(calls) {
             const responses = [];
+            const wsSend = (obj) => {
+                if (websocket && websocket.readyState === WebSocket.OPEN)
+                    websocket.send(JSON.stringify(obj));
+            };
+
             for (const call of calls) {
                 let result = { success: false };
                 console.log('[AI Tool Call]', call.name, call.args);
+
                 if (call.name === 'move_robot') {
                     const direction = call.args?.direction ?? 'STOP';
-                    const speed = String(call.args?.speed ?? aiDefaultSpeed);
-                    if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send(JSON.stringify({ direction, speed }));
-                    result = { success: true, direction, speed };
-                } else if (call.name === 'set_mood') {
-                    const mood = call.args?.mood ?? 'DEFAULT';
-                    if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send(JSON.stringify({ mood }));
-                    result = { success: true, mood };
-                } else if (call.name === 'set_lights') {
-                    const mode = call.args?.mode ?? 'OFF';
-                    const color = call.args?.color ?? '#ffffff';
-                    if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send(JSON.stringify({ lightMode: mode, color }));
-                    result = { success: true, mode, color };
-                } else if (call.name === 'play_dance') {
-                    const danceNum = call.args?.dance_number ?? 1;
-                    if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send(JSON.stringify({ mood: 'DANCE_' + danceNum }));
-                    result = { success: true, dance_number: danceNum };
-                } else if (call.name === 'control_servo') {
+                    const speed_level = clampSpeedLevel(call.args?.speed_level);
+                    wsSend({ aiMove: direction, speed_level });
+                    result = { success: true, direction, speed_level };
+                }
+                else if (call.name === 'move_distance') {
+                    const direction = call.args?.direction ?? 'FORWARD';
+                    const distance_cm = Math.max(1, Math.min(300, parseInt(call.args?.distance_cm ?? 10)));
+                    const speed_level = clampSpeedLevel(call.args?.speed_level);
+                    wsSend({ aiMoveDistance: direction, distance_cm, speed_level });
+                    result = { success: true, direction, distance_cm, speed_level };
+                }
+                else if (call.name === 'turn_degrees') {
+                    const direction = call.args?.direction ?? 'LEFT';
+                    const degrees = Math.max(1, Math.min(720, parseInt(call.args?.degrees ?? 90)));
+                    const speed_level = clampSpeedLevel(call.args?.speed_level);
+                    wsSend({ aiTurn: direction, degrees, speed_level });
+                    result = { success: true, direction, degrees, speed_level };
+                }
+                else if (call.name === 'move_for_duration') {
+                    const direction = call.args?.direction ?? 'FORWARD';
+                    const duration_ms = Math.max(50, Math.min(10000, parseInt(call.args?.duration_ms ?? 1000)));
+                    const speed_level = clampSpeedLevel(call.args?.speed_level);
+                    wsSend({ aiTimedMove: direction, duration_ms, speed_level });
+                    result = { success: true, direction, duration_ms, speed_level };
+                }
+                else if (call.name === 'control_servo') {
                     const servo = call.args?.servo;
                     const mode = call.args?.mode;
-                    const value = call.args?.value ?? 0;
-                    const maxVal = servo === 'arm' ? 70 : 60;
-                    let current = servo === 'arm' ? aiCurrentArmAngle : aiCurrentHeadAngle;
-                    let target;
-                    if (mode === 'absolute')      target = Math.max(0, Math.min(maxVal, value));
-                    else if (mode === 'relative') target = Math.max(0, Math.min(maxVal, current + value));
-                    else if (mode === 'min')      target = 0;
-                    else if (mode === 'max')      target = maxVal;
-                    else                          target = current;
-                    if (servo === 'arm') { aiCurrentArmAngle = target; if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send(JSON.stringify({ arm: String(target) })); }
-                    else { aiCurrentHeadAngle = target; if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send(JSON.stringify({ head: String(target) })); }
-                    result = { success: true, servo, target };
-                } else if (call.name === 'move_for_duration') {
-                    const direction = call.args?.direction ?? 'FORWARD';
-                    const duration_ms = Math.min(call.args?.duration_ms ?? 1000, 10000);
-                    const speed = String(call.args?.speed ?? aiDefaultSpeed);
-                    if (aiMoveDurationTimer) { clearTimeout(aiMoveDurationTimer); aiMoveDurationTimer = null; }
-                    if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send(JSON.stringify({ direction, speed }));
-                    aiMoveDurationTimer = setTimeout(() => {
-                        aiMoveDurationTimer = null;
-                        if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send(JSON.stringify({ direction: 'STOP', speed: '0' }));
-                    }, duration_ms);
-                    result = { success: true, direction, duration_ms, speed };
-                } else if (call.name === 'set_speed') {
-                    const pct = Math.max(0, Math.min(100, call.args?.percentage ?? 50));
-                    aiDefaultSpeed = Math.round((pct / 100) * 255);
-                    result = { success: true, percentage: pct };
+                    const value = parseInt(call.args?.value ?? 0);
+                    const unit = (call.args?.unit ?? 'angle');
+                    const speed_level = clampSpeedLevel(call.args?.speed_level);
+                    const maxAngle = servo === 'arm' ? ARM_MAX_ANGLE : HEAD_MAX_ANGLE;
+                    const current = servo === 'arm' ? aiCurrentArmAngle : aiCurrentHeadAngle;
+
+                    if (unit === 'mm' && servo === 'arm') {
+                        // mm girişi: dönüşüm CPP'de yapılıyor, biz sadece mm ve hızı yolluyoruz.
+                        let mm;
+                        const currentMM = (current / ARM_MAX_ANGLE) * ARM_MAX_MM;
+                        if      (mode === 'absolute') mm = Math.max(0, Math.min(ARM_MAX_MM, value));
+                        else if (mode === 'relative') mm = Math.max(0, Math.min(ARM_MAX_MM, currentMM + value));
+                        else if (mode === 'min')      mm = 0;
+                        else if (mode === 'max')      mm = ARM_MAX_MM;
+                        else                          mm = currentMM;
+                        mm = Math.round(mm);
+                        // Yerel açı tahminini de güncelle (relative hesapları için)
+                        aiCurrentArmAngle = Math.round((mm / ARM_MAX_MM) * ARM_MAX_ANGLE);
+                        wsSend({ aiServo: 'arm', target_mm: mm, speed_level });
+                        result = { success: true, servo, target_mm: mm, speed_level };
+                    } else {
+                        let target;
+                        if      (mode === 'absolute') target = Math.max(0, Math.min(maxAngle, value));
+                        else if (mode === 'relative') target = Math.max(0, Math.min(maxAngle, current + value));
+                        else if (mode === 'min')      target = 0;
+                        else if (mode === 'max')      target = maxAngle;
+                        else                          target = current;
+                        if (servo === 'arm') aiCurrentArmAngle = target;
+                        else                 aiCurrentHeadAngle = target;
+                        wsSend({ aiServo: servo, target_angle: target, speed_level });
+                        result = { success: true, servo, target_angle: target, speed_level };
+                    }
                 }
+                else if (call.name === 'set_mood') {
+                    const mood = call.args?.mood ?? 'DEFAULT';
+                    wsSend({ mood });
+                    result = { success: true, mood };
+                }
+                else if (call.name === 'set_lights') {
+                    const mode = call.args?.mode ?? 'OFF';
+                    const color = call.args?.color ?? '#ffffff';
+                    wsSend({ lightMode: mode, color });
+                    result = { success: true, mode, color };
+                }
+                else if (call.name === 'play_dance') {
+                    const danceNum = call.args?.dance_number ?? 1;
+                    wsSend({ mood: 'DANCE_' + danceNum });
+                    result = { success: true, dance_number: danceNum };
+                }
+
                 responses.push({ id: call.id, name: call.name, response: { output: result } });
             }
             if (geminiWs && geminiWs.readyState === WebSocket.OPEN) {
@@ -1991,21 +2038,47 @@
         }
 
         function getToolDeclarations() {
+            // Tüm hareket/servo komutları speed_level: 1-5 ölçeğini kullanır.
+            // 1 = en yavaş, 3 = varsayılan, 5 = en hızlı.
+            // Mesafe/açı/mm dönüşümleri firmware tarafında yapılır.
             return [
-                { name: 'move_robot', description: 'Robotu belirtilen yönde ve hızda hareket ettir',
-                  parameters: { type: 'object', properties: { direction: { type: 'string', enum: ['FORWARD','BACKWARD','LEFT','RIGHT','STOP'], description: 'Hareket yönü' }, speed: { type: 'integer', description: 'Hız (0-255)' } }, required: ['direction'] } },
+                { name: 'move_robot', description: 'Robotu anlık olarak belirtilen yönde hareket ettir veya durdur. STOP komutu gelene kadar hareket sürer.',
+                  parameters: { type: 'object', properties: {
+                      direction: { type: 'string', enum: ['FORWARD','BACKWARD','LEFT','RIGHT','STOP'], description: 'Hareket yönü' },
+                      speed_level: { type: 'integer', description: 'Hız seviyesi 1-5 (varsayılan 3)' }
+                  }, required: ['direction'] } },
+                { name: 'move_distance', description: 'Belirtilen mesafede ileri veya geri git, sonra otomatik dur.',
+                  parameters: { type: 'object', properties: {
+                      direction: { type: 'string', enum: ['FORWARD','BACKWARD'] },
+                      distance_cm: { type: 'integer', description: 'Mesafe cm cinsinden (1-300)' },
+                      speed_level: { type: 'integer', description: 'Hız seviyesi 1-5 (varsayılan 3)' }
+                  }, required: ['direction','distance_cm'] } },
+                { name: 'turn_degrees', description: 'Belirtilen derecede sağa veya sola dön, sonra otomatik dur.',
+                  parameters: { type: 'object', properties: {
+                      direction: { type: 'string', enum: ['LEFT','RIGHT'] },
+                      degrees: { type: 'integer', description: 'Dönüş açısı derece (1-720)' },
+                      speed_level: { type: 'integer', description: 'Hız seviyesi 1-5 (varsayılan 3)' }
+                  }, required: ['direction','degrees'] } },
+                { name: 'move_for_duration', description: 'Belirli süre boyunca hareket et, sonra otomatik dur.',
+                  parameters: { type: 'object', properties: {
+                      direction: { type: 'string', enum: ['FORWARD','BACKWARD','LEFT','RIGHT'] },
+                      duration_ms: { type: 'integer', description: 'Süre ms (50-10000)' },
+                      speed_level: { type: 'integer', description: 'Hız seviyesi 1-5 (varsayılan 3)' }
+                  }, required: ['direction','duration_ms'] } },
+                { name: 'control_servo', description: 'Kol veya kafa servosunu yumuşak hareketle kontrol et. Kol için unit=mm kullanılabilir (0-110mm).',
+                  parameters: { type: 'object', properties: {
+                      servo: { type: 'string', enum: ['arm','head'] },
+                      mode: { type: 'string', enum: ['absolute','relative','min','max'], description: 'absolute: hedef değere git, relative: mevcut konumdan ekle/çıkar' },
+                      value: { type: 'integer', description: 'Hedef değer (absolute) veya delta (relative). Birim, unit parametresi ile belirlenir.' },
+                      unit: { type: 'string', enum: ['angle','mm'], description: 'Birim: angle (derece, varsayılan) veya mm (sadece kol için 0-110mm)' },
+                      speed_level: { type: 'integer', description: 'Hız seviyesi 1-5 (varsayılan 3)' }
+                  }, required: ['servo','mode'] } },
                 { name: 'set_mood', description: 'Robotun yüz ifadesini ayarla',
-                  parameters: { type: 'object', properties: { mood: { type: 'string', enum: ['HAPPY','ANGRY','TIRED','CONFUSED','DEFAULT'], description: 'Duygu durumu' } }, required: ['mood'] } },
+                  parameters: { type: 'object', properties: { mood: { type: 'string', enum: ['HAPPY','ANGRY','TIRED','CONFUSED','DEFAULT'] } }, required: ['mood'] } },
                 { name: 'set_lights', description: 'LED ışıklarını kontrol et',
-                  parameters: { type: 'object', properties: { mode: { type: 'string', enum: ['OFF','STATIC','RAINBOW','PULSE','POLICE'], description: 'Işık modu' }, color: { type: 'string', description: '#RRGGBB formatında renk' } }, required: ['mode'] } },
+                  parameters: { type: 'object', properties: { mode: { type: 'string', enum: ['OFF','STATIC','RAINBOW','PULSE','POLICE'] }, color: { type: 'string', description: '#RRGGBB formatında renk' } }, required: ['mode'] } },
                 { name: 'play_dance', description: 'Robota dans sekansı yaptır (1-7)',
-                  parameters: { type: 'object', properties: { dance_number: { type: 'integer', description: 'Dans numarası (1-7)' } }, required: ['dance_number'] } },
-                { name: 'control_servo', description: 'Kol (arm) veya kafa (head) servosunu kontrol et',
-                  parameters: { type: 'object', properties: { servo: { type: 'string', enum: ['arm','head'] }, mode: { type: 'string', enum: ['absolute','relative','min','max'] }, value: { type: 'integer', description: 'Açı değeri veya delta' } }, required: ['servo','mode'] } },
-                { name: 'move_for_duration', description: 'Belirli süre hareket et, sonra dur',
-                  parameters: { type: 'object', properties: { direction: { type: 'string', enum: ['FORWARD','BACKWARD','LEFT','RIGHT'] }, duration_ms: { type: 'integer', description: 'Süre ms (max 10000)' }, speed: { type: 'integer', description: 'Hız (0-255)' } }, required: ['direction','duration_ms'] } },
-                { name: 'set_speed', description: 'Varsayılan hızı yüzde olarak ayarla',
-                  parameters: { type: 'object', properties: { percentage: { type: 'integer', description: 'Yüzde (0-100)' } }, required: ['percentage'] } }
+                  parameters: { type: 'object', properties: { dance_number: { type: 'integer', description: 'Dans numarası 1-7' } }, required: ['dance_number'] } }
             ];
         }
 
