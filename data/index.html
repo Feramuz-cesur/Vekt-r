@@ -436,6 +436,44 @@
         </div>
     </div>
 
+    <!-- AI VOICE PICKER MODAL -->
+    <div id="ai-voice-modal"
+        class="hidden fixed inset-0 z-[120] bg-black/90 flex items-center justify-center backdrop-blur-sm transition-opacity duration-300">
+        <div
+            class="bg-gray-900 border-2 border-neon-purple rounded-2xl p-[3vh] w-[78vh] flex flex-col shadow-[0_0_50px_rgba(188,19,254,0.25)] relative">
+
+            <button onclick="closeVoiceModal()"
+                class="absolute top-[2vh] right-[2vh] text-gray-400 hover:text-white text-[4vh] w-[6vh] h-[6vh] flex items-center justify-center rounded-full hover:bg-gray-800 transition-colors">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <h2 class="text-[3.2vh] font-tech text-neon-purple mb-[3vh] flex items-center gap-[1.5vh] tracking-widest">
+                <i class="fa-solid fa-microphone"></i> SES SEÇ
+            </h2>
+
+            <div id="ai-voice-grid" class="grid grid-cols-2 gap-[1.4vh]"></div>
+        </div>
+    </div>
+
+    <!-- AI MODEL PICKER MODAL -->
+    <div id="ai-model-modal"
+        class="hidden fixed inset-0 z-[120] bg-black/90 flex items-center justify-center backdrop-blur-sm transition-opacity duration-300">
+        <div
+            class="bg-gray-900 border-2 border-neon-purple rounded-2xl p-[3vh] w-[78vh] flex flex-col shadow-[0_0_50px_rgba(188,19,254,0.25)] relative">
+
+            <button onclick="closeModelModal()"
+                class="absolute top-[2vh] right-[2vh] text-gray-400 hover:text-white text-[4vh] w-[6vh] h-[6vh] flex items-center justify-center rounded-full hover:bg-gray-800 transition-colors">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <h2 class="text-[3.2vh] font-tech text-neon-purple mb-[3vh] flex items-center gap-[1.5vh] tracking-widest">
+                <i class="fa-solid fa-microchip"></i> MODEL SEÇ
+            </h2>
+
+            <div id="ai-model-list" class="flex flex-col gap-[1.4vh]"></div>
+        </div>
+    </div>
+
     <!-- WIFI UNUT MODAL -->
     <div id="wifi-forget-modal"
         class="hidden fixed inset-0 z-[110] bg-black/90 flex items-center justify-center backdrop-blur-sm transition-opacity duration-300">
@@ -804,22 +842,27 @@
                         <div class="grid grid-cols-2 gap-[1.2vh]">
                             <div>
                                 <label class="text-[1.85vh] text-gray-400 font-tech mb-[0.8vh] block tracking-widest">SES</label>
-                                <select id="geminiVoice" class="w-full bg-gray-900/50 border border-gray-700 rounded-xl text-gray-200 text-[1.85vh] px-[1.2vh] h-[6vh] outline-none focus:border-neon-purple/60 transition-colors cursor-pointer">
-                                    <option value="Aoede">Aoede (Kız)</option>
-                                    <option value="Charon">Charon (Erkek)</option>
-                                    <option value="Fenrir">Fenrir (Erkek)</option>
-                                    <option value="Kore">Kore (Kız)</option>
-                                    <option value="Puck">Puck (Erkek)</option>
-                                    <option value="Leda">Leda (Kız)</option>
-                                    <option value="Zephyr">Zephyr (Erkek)</option>
-                                </select>
+                                <input type="hidden" id="geminiVoice" value="Aoede">
+                                <button type="button" onclick="openVoiceModal()"
+                                    class="w-full bg-gray-900/50 border border-gray-700 hover:border-neon-purple/60 rounded-xl text-gray-200 text-[1.85vh] px-[1.4vh] h-[6vh] outline-none transition-colors cursor-pointer flex items-center justify-between gap-[1vh]">
+                                    <span class="flex items-center gap-[1vh] min-w-0">
+                                        <i id="voicePickIcon" class="fa-solid fa-venus text-pink-400 text-[1.9vh] shrink-0"></i>
+                                        <span id="voicePickLabel" class="font-tech truncate">Aoede</span>
+                                    </span>
+                                    <i class="fa-solid fa-chevron-down text-neon-purple/70 text-[1.6vh] shrink-0"></i>
+                                </button>
                             </div>
                             <div>
                                 <label class="text-[1.85vh] text-gray-400 font-tech mb-[0.8vh] block tracking-widest">MODEL</label>
-                                <select id="geminiModel" class="w-full bg-gray-900/50 border border-gray-700 rounded-xl text-gray-200 text-[1.85vh] px-[1.2vh] h-[6vh] outline-none focus:border-neon-purple/60 transition-colors cursor-pointer">
-                                    <option value="models/gemini-3.1-flash-live-preview">3.1 Flash Live</option>
-                                    <option value="models/gemini-2.5-flash-native-audio-latest">2.5 Flash Audio</option>
-                                </select>
+                                <input type="hidden" id="geminiModel" value="models/gemini-3.1-flash-live-preview">
+                                <button type="button" onclick="openModelModal()"
+                                    class="w-full bg-gray-900/50 border border-gray-700 hover:border-neon-purple/60 rounded-xl text-gray-200 text-[1.85vh] px-[1.4vh] h-[6vh] outline-none transition-colors cursor-pointer flex items-center justify-between gap-[1vh]">
+                                    <span class="flex items-center gap-[1vh] min-w-0">
+                                        <i class="fa-solid fa-microchip text-neon-purple text-[1.9vh] shrink-0"></i>
+                                        <span id="modelPickLabel" class="font-tech truncate">3.1 Flash Live</span>
+                                    </span>
+                                    <i class="fa-solid fa-chevron-down text-neon-purple/70 text-[1.6vh] shrink-0"></i>
+                                </button>
                             </div>
                         </div>
 
@@ -828,7 +871,7 @@
                             <div class="bg-gray-900/50 border border-gray-700 rounded-xl px-[1.6vh] py-[1.4vh] flex flex-col gap-[1.2vh]">
                                 <div class="flex justify-between items-center">
                                     <div class="flex items-center gap-[0.8vh]">
-                                        <i class="fa-solid fa-temperature-half text-neon-purple text-[2vh]"></i>
+                                        <i class="fa-solid fa-brain text-neon-purple text-[2vh]"></i>
                                         <span class="text-[1.7vh] text-gray-400 font-tech tracking-widest">SICAKLIK</span>
                                     </div>
                                     <span id="tempValue" class="text-[2.2vh] font-tech font-bold text-neon-purple">1.0</span>
@@ -1131,6 +1174,130 @@
             }
         }
 
+        // *** AI VOICE / MODEL PICKER MODAL ***
+        const AI_VOICE_OPTIONS = [
+            { value: 'Aoede',   label: 'Aoede',   gender: 'F' },
+            { value: 'Kore',    label: 'Kore',    gender: 'F' },
+            { value: 'Leda',    label: 'Leda',    gender: 'F' },
+            { value: 'Charon',  label: 'Charon',  gender: 'M' },
+            { value: 'Fenrir',  label: 'Fenrir',  gender: 'M' },
+            { value: 'Puck',    label: 'Puck',    gender: 'M' },
+            { value: 'Zephyr',  label: 'Zephyr',  gender: 'M' },
+        ];
+        const AI_MODEL_OPTIONS = [
+            {
+                value: 'models/gemini-3.1-flash-live-preview',
+                label: '3.1 Flash Live',
+                desc:  'En yeni, hızlı ve doğal — varsayılan.',
+                icon:  'fa-bolt'
+            },
+            {
+                value: 'models/gemini-2.5-flash-native-audio-latest',
+                label: '2.5 Flash Audio',
+                desc:  'Yerel ses modeli — daha sıcak tını.',
+                icon:  'fa-music'
+            },
+        ];
+
+        function refreshVoicePickerLabel() {
+            const v = document.getElementById('geminiVoice').value || 'Aoede';
+            const opt = AI_VOICE_OPTIONS.find(o => o.value === v) || AI_VOICE_OPTIONS[0];
+            document.getElementById('voicePickLabel').innerText = opt.label;
+            const icon = document.getElementById('voicePickIcon');
+            icon.className = (opt.gender === 'F'
+                ? 'fa-solid fa-venus text-pink-400'
+                : 'fa-solid fa-mars text-cyan-400'
+            ) + ' text-[1.9vh] shrink-0';
+        }
+
+        function refreshModelPickerLabel() {
+            const v = document.getElementById('geminiModel').value || AI_MODEL_OPTIONS[0].value;
+            const opt = AI_MODEL_OPTIONS.find(o => o.value === v) || AI_MODEL_OPTIONS[0];
+            document.getElementById('modelPickLabel').innerText = opt.label;
+        }
+
+        function openVoiceModal() {
+            const grid = document.getElementById('ai-voice-grid');
+            const current = document.getElementById('geminiVoice').value;
+            grid.innerHTML = AI_VOICE_OPTIONS.map(o => {
+                const selected = o.value === current;
+                const genderIcon = o.gender === 'F'
+                    ? '<i class="fa-solid fa-venus text-pink-400 text-[2.2vh]"></i>'
+                    : '<i class="fa-solid fa-mars text-cyan-400 text-[2.2vh]"></i>';
+                const genderLabel = o.gender === 'F' ? 'Kız Ses' : 'Erkek Ses';
+                const ring = selected
+                    ? 'border-neon-purple bg-neon-purple/15 shadow-[0_0_20px_rgba(188,19,254,0.35)]'
+                    : 'border-gray-700 hover:border-neon-purple/60 bg-gray-900/40';
+                const check = selected
+                    ? '<i class="fa-solid fa-circle-check text-neon-purple text-[2.4vh]"></i>'
+                    : '<i class="fa-regular fa-circle text-gray-600 text-[2.4vh]"></i>';
+                return `
+                    <button type="button" onclick="selectVoice('${o.value}')"
+                        class="flex items-center gap-[1.5vh] border-2 ${ring} rounded-xl px-[1.8vh] py-[1.6vh] transition-all active:scale-[0.98] text-left">
+                        <div class="w-[5vh] h-[5vh] rounded-full bg-gray-800 flex items-center justify-center shrink-0">
+                            ${genderIcon}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-[2vh] font-tech text-gray-100 font-bold truncate">${o.label}</div>
+                            <div class="text-[1.4vh] font-tech text-gray-500 tracking-wider">${genderLabel}</div>
+                        </div>
+                        ${check}
+                    </button>
+                `;
+            }).join('');
+            document.getElementById('ai-voice-modal').classList.remove('hidden');
+        }
+
+        function closeVoiceModal() {
+            document.getElementById('ai-voice-modal').classList.add('hidden');
+        }
+
+        function selectVoice(value) {
+            document.getElementById('geminiVoice').value = value;
+            localStorage.setItem('geminiVoice', value);
+            refreshVoicePickerLabel();
+            closeVoiceModal();
+        }
+
+        function openModelModal() {
+            const list = document.getElementById('ai-model-list');
+            const current = document.getElementById('geminiModel').value;
+            list.innerHTML = AI_MODEL_OPTIONS.map(o => {
+                const selected = o.value === current;
+                const ring = selected
+                    ? 'border-neon-purple bg-neon-purple/15 shadow-[0_0_20px_rgba(188,19,254,0.35)]'
+                    : 'border-gray-700 hover:border-neon-purple/60 bg-gray-900/40';
+                const check = selected
+                    ? '<i class="fa-solid fa-circle-check text-neon-purple text-[2.6vh]"></i>'
+                    : '<i class="fa-regular fa-circle text-gray-600 text-[2.6vh]"></i>';
+                return `
+                    <button type="button" onclick="selectModel('${o.value}')"
+                        class="flex items-center gap-[2vh] border-2 ${ring} rounded-xl px-[2vh] py-[1.8vh] transition-all active:scale-[0.99] text-left">
+                        <div class="w-[6vh] h-[6vh] rounded-xl bg-gray-800 flex items-center justify-center shrink-0">
+                            <i class="fa-solid ${o.icon} text-neon-purple text-[2.6vh]"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-[2.1vh] font-tech text-gray-100 font-bold">${o.label}</div>
+                            <div class="text-[1.5vh] font-tech text-gray-500 mt-[0.3vh]">${o.desc}</div>
+                        </div>
+                        ${check}
+                    </button>
+                `;
+            }).join('');
+            document.getElementById('ai-model-modal').classList.remove('hidden');
+        }
+
+        function closeModelModal() {
+            document.getElementById('ai-model-modal').classList.add('hidden');
+        }
+
+        function selectModel(value) {
+            document.getElementById('geminiModel').value = value;
+            localStorage.setItem('geminiModel', value);
+            refreshModelPickerLabel();
+            closeModelModal();
+        }
+
         // *** VOLUME MODAL FONKSİYONLARI ***
         function toggleVolumeModal() {
             const modal = document.getElementById('volume-modal');
@@ -1408,6 +1575,9 @@
                 if (gainDisp) gainDisp.innerText = gainEl.value + '%';
                 setAiSliderFill(gainEl);
             }
+
+            refreshVoicePickerLabel();
+            refreshModelPickerLabel();
         }
 
         function saveAiSettingsToStorage() {
