@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Vector V2 - Wi-Fi Kurulumu</title>
+    <title>Pixel - Wi-Fi Kurulumu</title>
     <style>
         /* PURE CSS FOR OFFLINE AP MODE */
         :root {
@@ -140,7 +140,7 @@
 
     <div class="container" id="main-container">
         <h1>WI-FI BAĞLANTISI</h1>
-        <p>Vector V2'yi ağınıza bağlayın</p>
+        <p>Pixel'i ağınıza bağlayın</p>
 
         <button class="btn-scan" id="btn-scan" onclick="scanWifi()">Ağları Tara</button>
         
@@ -237,7 +237,7 @@
             const pass = document.getElementById('wifi-pass').value;
             
             // UI Güncelle
-            document.getElementById('connect-form').innerHTML = '<h3 style="color:var(--neon-green)">Bağlanılıyor...</h3><p style="margin-top:15px; color:#fff;">Robot yeniden başlatılacak. Lütfen ana Wi-Fi ağınıza geçip Vector V2 arayüzüne veya <b>http://robot.local</b> adresine tekrar bağlanın.</p>';
+            document.getElementById('connect-form').innerHTML = '<h3 style="color:var(--neon-green)">Bağlanılıyor...</h3><p style="margin-top:15px; color:#fff;">Robot yeniden başlatılacak. Lütfen ana Wi-Fi ağınıza geçip Pixel arayüzüne veya <b>http://robot.local</b> adresine tekrar bağlanın.</p>';
 
             // POST İsteği
             fetch('/api/wifi-connect', {

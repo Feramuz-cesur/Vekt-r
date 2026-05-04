@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Vector V2 - Cyber Control</title>
+    <title>Pixel - Cyber Control</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
@@ -450,7 +450,7 @@
                 Wi-Fi ayarları silinecek ve cihaz yeniden başlayacak.
             </p>
             <p class="text-gray-400 text-[1.8vh] font-tech mb-[3vh] leading-relaxed">
-                Sonra telefonunuzdan <span class="text-purple-400 font-bold">Vector_Setup</span> ağına bağlanın<br>
+                Sonra telefonunuzdan <span class="text-purple-400 font-bold">Pixel_Setup</span> ağına bağlanın<br>
                 (şifre: 12345678) ve yeni ağı seçin.
             </p>
 
@@ -476,8 +476,7 @@
             <!-- Sol: Logo ve Durum -->
             <div class="flex items-center gap-[2vh]">
                 <div class="flex items-center gap-[1vh] text-neon-blue font-tech">
-                    <i class="fa-solid fa-robot text-[4vh]"></i>
-                    <span class="text-[3vh] tracking-wider hidden sm:inline">VECTOR V2</span>
+                    <span class="text-[3.5vh] tracking-[0.4em] font-bold">PIXEL</span>
                 </div>
                 <div id="connection-status"
                     class="text-[1.8vh] px-[1vh] py-[0.5vh] rounded border border-red-500 text-red-300 bg-red-900/50">
@@ -503,7 +502,7 @@
                 </button>
 
                 <div id="recording-timer"
-                    class="hidden text-red-500 font-tech text-[2.2vh] w-[9vh] text-center font-bold tracking-widest bg-red-900/40 rounded px-[0.5vh] py-[0.5vh] border border-red-500/50">
+                    class="hidden text-red-500 font-tech text-[2.2vh] min-w-[12vh] text-center font-bold tracking-wider bg-red-900/40 rounded px-[1.4vh] py-[0.5vh] border border-red-500/50 leading-none flex items-center justify-center">
                     00:00
                 </div>
 
@@ -791,12 +790,12 @@
 
                         <!-- API Key -->
                         <div>
-                            <label class="text-[1.6vh] text-gray-400 font-tech mb-[0.8vh] block tracking-widest">GEMİNİ API ANAHTARI</label>
+                            <label class="text-[1.85vh] text-gray-400 font-tech mb-[0.8vh] block tracking-widest">GEMİNİ API ANAHTARI</label>
                             <div class="flex items-center border border-neon-purple/40 rounded-xl bg-gray-900/50 px-[1.4vh] h-[6vh] gap-[1vh] focus-within:border-neon-purple/70 transition-all">
                                 <i class="fa-solid fa-key text-neon-purple/50 text-[2vh]"></i>
-                                <input type="password" id="geminiApiKey" class="bg-transparent text-gray-200 flex-1 h-full text-[1.8vh] font-tech outline-none" placeholder="AIza...">
-                                <button onclick="toggleApiKeyVisibility()" class="text-gray-600 hover:text-neon-purple/70 transition-colors px-[0.5vh]">
-                                    <i id="apiKeyEyeIcon" class="fa-solid fa-eye text-[1.8vh]"></i>
+                                <input type="password" id="geminiApiKey" class="bg-transparent text-gray-200 flex-1 h-full text-[2vh] font-tech outline-none" placeholder="AIza...">
+                                <button onclick="toggleApiKeyVisibility()" class="text-gray-600 hover:text-neon-purple/70 transition-colors px-[0.5vh] h-full flex items-center justify-center leading-none">
+                                    <i id="apiKeyEyeIcon" class="fa-solid fa-eye text-[2vh] leading-none"></i>
                                 </button>
                             </div>
                         </div>
@@ -804,8 +803,8 @@
                         <!-- Ses + Model -->
                         <div class="grid grid-cols-2 gap-[1.2vh]">
                             <div>
-                                <label class="text-[1.6vh] text-gray-400 font-tech mb-[0.8vh] block tracking-widest">SES</label>
-                                <select id="geminiVoice" class="w-full bg-gray-900/50 border border-gray-700 rounded-xl text-gray-200 text-[1.6vh] px-[1.2vh] h-[6vh] outline-none focus:border-neon-purple/60 transition-colors cursor-pointer">
+                                <label class="text-[1.85vh] text-gray-400 font-tech mb-[0.8vh] block tracking-widest">SES</label>
+                                <select id="geminiVoice" class="w-full bg-gray-900/50 border border-gray-700 rounded-xl text-gray-200 text-[1.85vh] px-[1.2vh] h-[6vh] outline-none focus:border-neon-purple/60 transition-colors cursor-pointer">
                                     <option value="Aoede">Aoede (Kız)</option>
                                     <option value="Charon">Charon (Erkek)</option>
                                     <option value="Fenrir">Fenrir (Erkek)</option>
@@ -816,8 +815,8 @@
                                 </select>
                             </div>
                             <div>
-                                <label class="text-[1.6vh] text-gray-400 font-tech mb-[0.8vh] block tracking-widest">MODEL</label>
-                                <select id="geminiModel" class="w-full bg-gray-900/50 border border-gray-700 rounded-xl text-gray-200 text-[1.6vh] px-[1.2vh] h-[6vh] outline-none focus:border-neon-purple/60 transition-colors cursor-pointer">
+                                <label class="text-[1.85vh] text-gray-400 font-tech mb-[0.8vh] block tracking-widest">MODEL</label>
+                                <select id="geminiModel" class="w-full bg-gray-900/50 border border-gray-700 rounded-xl text-gray-200 text-[1.85vh] px-[1.2vh] h-[6vh] outline-none focus:border-neon-purple/60 transition-colors cursor-pointer">
                                     <option value="models/gemini-3.1-flash-live-preview">3.1 Flash Live</option>
                                     <option value="models/gemini-2.5-flash-native-audio-latest">2.5 Flash Audio</option>
                                 </select>
@@ -829,33 +828,33 @@
                             <div class="bg-gray-900/50 border border-gray-700 rounded-xl px-[1.6vh] py-[1.4vh] flex flex-col gap-[1.2vh]">
                                 <div class="flex justify-between items-center">
                                     <div class="flex items-center gap-[0.8vh]">
-                                        <i class="fa-solid fa-temperature-half text-neon-purple text-[1.8vh]"></i>
-                                        <span class="text-[1.5vh] text-gray-400 font-tech tracking-widest">SICAKLIK</span>
+                                        <i class="fa-solid fa-temperature-half text-neon-purple text-[2vh]"></i>
+                                        <span class="text-[1.7vh] text-gray-400 font-tech tracking-widest">SICAKLIK</span>
                                     </div>
-                                    <span id="tempValue" class="text-[2vh] font-tech font-bold text-neon-purple">1.0</span>
+                                    <span id="tempValue" class="text-[2.2vh] font-tech font-bold text-neon-purple">1.0</span>
                                 </div>
                                 <input type="range" id="geminiTemperature" min="0" max="2" step="0.1" value="1.0"
                                     oninput="document.getElementById('tempValue').innerText = parseFloat(this.value).toFixed(1); setAiSliderFill(this)"
                                     class="ai-slider">
                                 <div class="flex justify-between">
-                                    <span class="text-[1.3vh] text-gray-600 font-tech">SADE</span>
-                                    <span class="text-[1.3vh] text-gray-600 font-tech">YARATICI</span>
+                                    <span class="text-[1.5vh] text-gray-600 font-tech">SADE</span>
+                                    <span class="text-[1.5vh] text-gray-600 font-tech">YARATICI</span>
                                 </div>
                             </div>
                             <div class="bg-gray-900/50 border border-gray-700 rounded-xl px-[1.6vh] py-[1.4vh] flex flex-col gap-[1.2vh]">
                                 <div class="flex justify-between items-center">
                                     <div class="flex items-center gap-[0.8vh]">
-                                        <i class="fa-solid fa-volume-high text-neon-purple text-[1.8vh]"></i>
-                                        <span class="text-[1.5vh] text-gray-400 font-tech tracking-widest">AI SES</span>
+                                        <i class="fa-solid fa-volume-high text-neon-purple text-[2vh]"></i>
+                                        <span class="text-[1.7vh] text-gray-400 font-tech tracking-widest">AI SES</span>
                                     </div>
-                                    <span id="aiGainValue" class="text-[2vh] font-tech font-bold text-neon-purple">100%</span>
+                                    <span id="aiGainValue" class="text-[2.2vh] font-tech font-bold text-neon-purple">100%</span>
                                 </div>
                                 <input type="range" id="aiVolumeSlider" min="0" max="300" step="5" value="100"
                                     oninput="updateAiGain(this.value); setAiSliderFill(this)"
                                     class="ai-slider">
                                 <div class="flex justify-between">
-                                    <span class="text-[1.3vh] text-gray-600 font-tech">SESSİZ</span>
-                                    <span class="text-[1.3vh] text-gray-600 font-tech">%300</span>
+                                    <span class="text-[1.5vh] text-gray-600 font-tech">SESSİZ</span>
+                                    <span class="text-[1.5vh] text-gray-600 font-tech">%300</span>
                                 </div>
                             </div>
                         </div>
@@ -863,8 +862,8 @@
 
                     <!-- Sağ Kolon: System Prompt -->
                     <div class="flex flex-col min-h-0">
-                        <label class="text-[1.6vh] text-gray-400 font-tech mb-[0.8vh] block tracking-widest">KARAKTER / SİSTEM PROMPTU</label>
-                        <textarea id="geminiSystemPrompt" class="flex-1 w-full bg-gray-900/50 border border-gray-700 rounded-xl text-gray-200 text-[1.7vh] p-[1.6vh] resize-none outline-none focus:border-neon-purple/60 transition-all leading-relaxed" placeholder="Sen ... adında bir robotsun..."></textarea>
+                        <label class="text-[1.85vh] text-gray-400 font-tech mb-[0.8vh] block tracking-widest">KARAKTER / SİSTEM PROMPTU</label>
+                        <textarea id="geminiSystemPrompt" class="flex-1 w-full bg-gray-900/50 border border-gray-700 rounded-xl text-gray-200 text-[1.95vh] p-[1.6vh] resize-none outline-none focus:border-neon-purple/60 transition-all leading-relaxed" placeholder="Sen ... adında bir robotsun..."></textarea>
                     </div>
 
                 </div>
@@ -895,10 +894,11 @@
                         </button>
                         <!-- Ayarlar ve Kapat -->
                         <div class="flex flex-col gap-[1.5vh]">
-                            <button onclick="showAiSettings()" class="flex items-center gap-[0.8vh] bg-gray-800 hover:bg-gray-700 border border-gray-600 text-gray-300 px-[2.5vh] py-[1.3vh] rounded-full font-tech text-[1.6vh] transition-all active:scale-95">
-                                <i class="fa-solid fa-gear"></i> AYARLAR
+                            <button onclick="showAiSettings()" class="group relative flex items-center justify-center gap-[1.2vh] w-[20vh] bg-gray-800/60 hover:bg-gray-700 border-2 border-gray-500 text-gray-200 px-[3.5vh] py-[1.3vh] rounded-full font-tech font-bold text-[1.8vh] transition-all active:scale-95 shadow-[0_0_20px_rgba(156,163,175,0.25)]">
+                                <i class="fa-solid fa-gear text-gray-300 group-hover:text-white text-[2.2vh]"></i>
+                                <span class="tracking-wider">AYARLAR</span>
                             </button>
-                            <button onclick="setUIMode('manual')" class="group relative flex items-center gap-[1.2vh] bg-red-900/40 hover:bg-red-600 border-2 border-red-600 text-red-100 px-[3.5vh] py-[1.3vh] rounded-full font-tech font-bold text-[1.8vh] transition-all active:scale-95 shadow-[0_0_20px_rgba(220,38,38,0.4)]">
+                            <button onclick="setUIMode('manual')" class="group relative flex items-center justify-center gap-[1.2vh] w-[20vh] bg-red-900/40 hover:bg-red-600 border-2 border-red-600 text-red-100 px-[3.5vh] py-[1.3vh] rounded-full font-tech font-bold text-[1.8vh] transition-all active:scale-95 shadow-[0_0_20px_rgba(220,38,38,0.4)]">
                                 <i class="fa-solid fa-power-off text-red-400 group-hover:text-white text-[2.2vh]"></i>
                                 <span class="tracking-wider">KAPAT</span>
                             </button>
@@ -906,17 +906,12 @@
                     </div>
 
                     <!-- Robot Ses Efekt Sliderları -->
-                    <div class="mt-[2.5vh] w-full max-w-[38vh] bg-gray-900/60 border border-neon-purple/25 rounded-xl px-[2vh] py-[1.5vh]">
-                        <div class="text-[1.2vh] font-tech text-neon-purple/50 tracking-[0.25em] mb-[1.4vh] text-center">ROBOT SES EFEKTİ</div>
-                        <div class="flex items-center gap-[1.2vh] mb-[1.4vh]">
-                            <span class="text-[1.25vh] font-tech text-gray-500 w-[8.5vh] shrink-0">RING MOD</span>
+                    <div class="mt-[2.5vh] w-full max-w-[78vh] bg-gray-900/60 border border-neon-purple/25 rounded-xl px-[2.5vh] py-[1.8vh]">
+                        <div class="text-[1.3vh] font-tech text-neon-purple/50 tracking-[0.25em] mb-[1.4vh] text-center">ROBOT SES EFEKTİ</div>
+                        <div class="flex items-center gap-[1.5vh]">
+                            <span class="text-[1.35vh] font-tech text-gray-500 w-[8.5vh] shrink-0">RING MOD</span>
                             <input type="range" id="robotRingSlider" class="ai-slider flex-1" min="0" max="200" step="5" value="0">
-                            <span id="robotRingVal" class="text-[1.3vh] font-tech text-neon-purple w-[5.5vh] text-right shrink-0">OFF</span>
-                        </div>
-                        <div class="flex items-center gap-[1.2vh]">
-                            <span class="text-[1.25vh] font-tech text-gray-500 w-[8.5vh] shrink-0">BITCRUSH</span>
-                            <input type="range" id="robotBitsSlider" class="ai-slider flex-1" min="4" max="16" step="1" value="16">
-                            <span id="robotBitsVal" class="text-[1.3vh] font-tech text-neon-purple w-[5.5vh] text-right shrink-0">OFF</span>
+                            <span id="robotRingVal" class="text-[1.4vh] font-tech text-neon-purple w-[6vh] text-right shrink-0">OFF</span>
                         </div>
                     </div>
                 </div>
@@ -1220,7 +1215,7 @@
             log("Komut: Saat Istendi");
         }
 
-        // Kayıtlı Wi-Fi'yi unut: ESP yeniden başlar, AP modunda "Vector_Setup"
+        // Kayıtlı Wi-Fi'yi unut: ESP yeniden başlar, AP modunda "Pixel_Setup"
         // SSID ile karşılar; telefondan ona bağlanıp 192.168.4.1 üzerinden
         // yeni ağ seçilebilir.
         function toggleWifiForgetModal() {
@@ -1439,14 +1434,11 @@
 
         // Robot ses efekti parametreleri
         let robotRingFreq = 0;   // Hz, 0 = kapalı
-        let robotBits = 16;      // bit derinliği, 16 = kapalı
         let robotRingSamplePos = 0; // ring mod için kümülatif örnek sayacı
 
         function initRobotSliders() {
             const ringSlider = document.getElementById('robotRingSlider');
-            const bitsSlider = document.getElementById('robotBitsSlider');
             const ringVal = document.getElementById('robotRingVal');
-            const bitsVal = document.getElementById('robotBitsVal');
 
             function updateBg(el) {
                 const pct = (el.value - el.min) / (el.max - el.min) * 100;
@@ -1460,34 +1452,19 @@
                 updateBg(ringSlider);
             });
 
-            bitsSlider.addEventListener('input', () => {
-                robotBits = parseInt(bitsSlider.value);
-                bitsVal.textContent = robotBits === 16 ? 'OFF' : robotBits + ' bit';
-                updateBg(bitsSlider);
-            });
-
             updateBg(ringSlider);
-            updateBg(bitsSlider);
         }
 
-        // Ring modulator + bitcrusher efektini PCM16 verisine uygular.
+        // Ring modulator efektini PCM16 verisine uygular.
         function applyRobotEffect(pcmBytes) {
-            if (robotRingFreq === 0 && robotBits >= 16) return pcmBytes;
+            if (robotRingFreq === 0) return pcmBytes;
             const int16 = new Int16Array(pcmBytes.buffer, pcmBytes.byteOffset, Math.floor(pcmBytes.length / 2));
             const out = new Int16Array(int16.length);
             const SR = 24000;
             const TWO_PI_OVER_SR = (2 * Math.PI) / SR;
-            const MAX = 32767;
-            const step = robotBits < 16 ? MAX / Math.pow(2, robotBits - 1) : 0;
             for (let i = 0; i < int16.length; i++) {
                 let s = int16[i];
-                if (robotRingFreq > 0) {
-                    s = Math.round(s * Math.sin(TWO_PI_OVER_SR * robotRingFreq * robotRingSamplePos));
-                }
-                if (step > 0) {
-                    s = Math.round(s / step) * step;
-                    s = Math.max(-32768, Math.min(32767, s));
-                }
+                s = Math.round(s * Math.sin(TWO_PI_OVER_SR * robotRingFreq * robotRingSamplePos));
                 out[i] = s;
                 robotRingSamplePos++;
             }
@@ -1546,10 +1523,10 @@
             const icon = document.getElementById('apiKeyEyeIcon');
             if (input.type === 'password') {
                 input.type = 'text';
-                icon.className = 'fa-solid fa-eye-slash text-[1.8vh]';
+                icon.className = 'fa-solid fa-eye-slash text-[2vh] leading-none';
             } else {
                 input.type = 'password';
-                icon.className = 'fa-solid fa-eye text-[1.8vh]';
+                icon.className = 'fa-solid fa-eye text-[2vh] leading-none';
             }
         }
 
@@ -1890,7 +1867,7 @@
 
         function enqueueAudioForEsp32(pcmBytes) {
             // Sıralama önemli: önce robot efekti, sonra kazanç+güvenli limiter.
-            // Limiter'ın bitcrusher'ın yarattığı sert harmonikleri de yumuşatması için.
+            // Limiter'ın ring mod harmoniklerini de yumuşatması için.
             const withEffect = applyRobotEffect(pcmBytes);
             const safeOut = applyGainToPCM(withEffect, aiVolumeGain);
             aiAudioQueue.push(safeOut);

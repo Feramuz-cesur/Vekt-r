@@ -65,7 +65,7 @@ AsyncWebSocket ws("/ws");
 Adafruit_NeoPixel pixels(NUMPIXELS, RGB_PIN, NEO_GRB + NEO_KHZ800);
 
 // --- GLOBAL DEĞİŞKENLER ---
-#define AP_SSID "Vector_Setup"
+#define AP_SSID "Pixel_Setup"
 #define AP_PASS "12345678"
 volatile bool resetWifiPending = false; // WS'den "forgetWifi" gelince true
 volatile bool rebootPending = false;    // WiFi şifresi kaydedildikten sonra yeniden başlatmak için
@@ -233,21 +233,24 @@ void servoGit(Servo &s, int hedefAci, int hiz) {
   hiz = constrain(hiz, 1, 10);
 
   int baslangicAci = s.read();
+  if (baslangicAci == hedefAci) return;
 
-  int step = map(hiz, 1, 10, 1, 5); // hız arttıkça adım büyür
-  int bekleme = 10;                 // sabit gecikme
+  int step = map(hiz, 1, 10, 1, 4);
+  int bekleme = map(hiz, 1, 10, 22, 2);
 
   if (baslangicAci < hedefAci) {
-    for (int i = baslangicAci; i <= hedefAci; i += step) {
+    for (int i = baslangicAci; i < hedefAci; i += step) {
       s.write(i);
       vTaskDelay(bekleme / portTICK_PERIOD_MS);
     }
   } else {
-    for (int i = baslangicAci; i >= hedefAci; i -= step) {
+    for (int i = baslangicAci; i > hedefAci; i -= step) {
       s.write(i);
       vTaskDelay(bekleme / portTICK_PERIOD_MS);
     }
   }
+  s.write(hedefAci);
+  vTaskDelay(bekleme / portTICK_PERIOD_MS);
 }
 
 // --- RGB LED YÖNETİMİ ---
