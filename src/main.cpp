@@ -28,8 +28,8 @@
 #define IN3 25
 #define IN4 26
 #define THC_PIN 13
-const int servoPin1 = 27;
-const int servoPin2 = 14;
+const int servoArmPin = 27;
+const int servoHeadPin = 14;
 #define RX_PIN 4
 #define TX_PIN 5
 
@@ -57,7 +57,7 @@ Adafruit_SH1106G display =
     Adafruit_SH1106G(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 RoboEyes<Adafruit_SH1106G> eyes(display);
 
-Servo servo1, servo2;
+Servo servoArm, servoHead;
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 
@@ -449,17 +449,17 @@ void dance_1() {
   vTaskDelay(1500 / portTICK_PERIOD_MS);
   dur();
   vTaskDelay(200 / portTICK_PERIOD_MS);
-  servoGit(servo1, 50, 2);
-  servoGit(servo1, 10, 7);
+  servoGit(servoArm, 50, 2);
+  servoGit(servoArm, 10, 7);
   geri(60);
   vTaskDelay(1500 / portTICK_PERIOD_MS);
   dur();
-  servoGit(servo2, 40, 9);
-  servoGit(servo2, 0, 9);
-  servoGit(servo2, 40, 9);
-  servoGit(servo2, 0, 9);
-  servoGit(servo2, 40, 9);
-  servoGit(servo2, 20, 9);
+  servoGit(servoHead, 40, 9);
+  servoGit(servoHead, 0, 9);
+  servoGit(servoHead, 40, 9);
+  servoGit(servoHead, 0, 9);
+  servoGit(servoHead, 40, 9);
+  servoGit(servoHead, 20, 9);
 
   Serial.println("Dans Bitti.");
   danceTrigger = 0;
@@ -467,26 +467,26 @@ void dance_1() {
 }
 
 void dance_2() {
-  servoGit(servo2, 40, 10);
-  servoGit(servo2, 0, 10);
-  servoGit(servo2, 40, 10);
-  servoGit(servo2, 0, 10);
-  servoGit(servo2, 40, 10);
-  servoGit(servo2, 0, 10);
-  servoGit(servo2, 20, 10);
+  servoGit(servoHead, 40, 10);
+  servoGit(servoHead, 0, 10);
+  servoGit(servoHead, 40, 10);
+  servoGit(servoHead, 0, 10);
+  servoGit(servoHead, 40, 10);
+  servoGit(servoHead, 0, 10);
+  servoGit(servoHead, 20, 10);
 
   danceTrigger = 0;
 }
 
 void dance_3() {
 
-  servoGit(servo2, 40, 7);
-  servoGit(servo2, 0, 7);
-  servoGit(servo2, 40, 7);
-  servoGit(servo2, 0, 7);
-  servoGit(servo2, 40, 7);
-  servoGit(servo2, 0, 7);
-  servoGit(servo2, 20, 7);
+  servoGit(servoHead, 40, 7);
+  servoGit(servoHead, 0, 7);
+  servoGit(servoHead, 40, 7);
+  servoGit(servoHead, 0, 7);
+  servoGit(servoHead, 40, 7);
+  servoGit(servoHead, 0, 7);
+  servoGit(servoHead, 20, 7);
 
   danceTrigger = 0;
 }
@@ -499,40 +499,47 @@ void dance_4() {
 
   // vTaskDelay(1000 / portTICK_PERIOD_MS);
 
-  servoGit(servo1, 50, 8);
-  servoGit(servo1, 10, 8);
+  servoGit(servoArm, 50, 8);
+  servoGit(servoArm, 10, 8);
 
-  servoGit(servo2, 40, 7);
-  servoGit(servo2, 0, 7);
-  servoGit(servo2, 40, 7);
-  servoGit(servo2, 0, 7);
-  servoGit(servo2, 20, 7);
-
-  vTaskDelay(500 / portTICK_PERIOD_MS);
-
-  servoGit(servo1, 50, 8);
-  servoGit(servo1, 10, 8);
-
-  servoGit(servo2, 40, 7);
-  servoGit(servo2, 0, 7);
-  servoGit(servo2, 40, 7);
-  servoGit(servo2, 0, 7);
-  servoGit(servo2, 20, 7);
+  servoGit(servoHead, 40, 7);
+  servoGit(servoHead, 0, 7);
+  servoGit(servoHead, 40, 7);
+  servoGit(servoHead, 0, 7);
+  servoGit(servoHead, 20, 7);
 
   vTaskDelay(500 / portTICK_PERIOD_MS);
 
-  servoGit(servo1, 50, 8);
-  servoGit(servo1, 10, 8);
+  servoGit(servoArm, 50, 8);
+  servoGit(servoArm, 10, 8);
 
-  servoGit(servo2, 40, 7);
-  servoGit(servo2, 0, 7);
-  servoGit(servo2, 40, 7);
-  servoGit(servo2, 0, 7);
-  servoGit(servo2, 20, 7);
+  servoGit(servoHead, 40, 7);
+  servoGit(servoHead, 0, 7);
+  servoGit(servoHead, 40, 7);
+  servoGit(servoHead, 0, 7);
+  servoGit(servoHead, 20, 7);
+
+  vTaskDelay(500 / portTICK_PERIOD_MS);
+
+  servoGit(servoArm, 50, 8);
+  servoGit(servoArm, 10, 8);
+
+  servoGit(servoHead, 40, 7);
+  servoGit(servoHead, 0, 7);
+  servoGit(servoHead, 40, 7);
+  servoGit(servoHead, 0, 7);
+  servoGit(servoHead, 20, 7);
 
   danceTrigger = 0;
 }
-void dance_5() { danceTrigger = 0; }
+void dance_5() { 
+  
+  
+
+
+
+  
+  danceTrigger = 0; }
 void dance_6() { danceTrigger = 0; }
 void dance_7() { danceTrigger = 0; }
 
@@ -568,12 +575,12 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
     if (myObj.hasOwnProperty("arm")) {
       disableClockMode(); // Saat modunu boz
       int arm = jsonToInt(myObj, "arm");
-      servo1.write(arm);
+      servoArm.write(arm);
     }
     if (myObj.hasOwnProperty("head")) {
       disableClockMode(); // Saat modunu boz
       int head = jsonToInt(myObj, "head");
-      servo2.write(map(head, 0, 60, 60, 0));
+      servoHead.write(map(head, 0, 60, 60, 0));
     }
 
     // Tank Drive — Joystick'ten gelen bireysel sol/sağ motor hızları
@@ -634,10 +641,10 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       if (hasTarget) {
         if (s == "arm") {
           target = constrain(target, 0, (int)ARM_FULL_ANGLE);
-          servoGit(servo1, target, hiz);
+          servoGit(servoArm, target, hiz);
         } else if (s == "head") {
           target = constrain(target, 0, HEAD_LOGIC_MAX);
-          servoGit(servo2, map(target, 0, HEAD_LOGIC_MAX, HEAD_LOGIC_MAX, 0),
+          servoGit(servoHead, map(target, 0, HEAD_LOGIC_MAX, HEAD_LOGIC_MAX, 0),
                    hiz);
         }
       }
@@ -1195,8 +1202,8 @@ void setup() {
     Serial.println("DFPlayer Error");
   }
 
-  servo1.attach(servoPin1, 500, 2400);
-  servo2.attach(servoPin2, 500, 2400);
+  servoArm.attach(servoArmPin, 500, 2400);
+  servoHead.attach(servoHeadPin, 500, 2400);
 
   display.begin(i2c_Address, true);
   eyes.begin(SCREEN_WIDTH, SCREEN_HEIGHT, 100);
