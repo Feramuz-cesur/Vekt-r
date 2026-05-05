@@ -124,7 +124,7 @@ bool breathingUp = true;
 // 1 ve 2'yi yukarı çek (örn. {0, 90, 130, 170, 210, 254}).
 static const int MOTOR_PWM_LEVEL[6] = {0, 51, 101, 152, 203, 254};
 
-// Servo hareket hızı: hız seviyesi 1-5 -> servoGit() iç ölçeği 1-10
+// Servo hareket hızı: hız seviyesi 1-5 -> moveServoTo() iç ölçeği 1-10
 static const int SERVO_SPEED_LEVEL[6] = {0, 2, 4, 6, 8, 10};
 
 // Kol mm-açı dönüşümü (lineer):
@@ -220,37 +220,41 @@ void setMotorSag(int v) {
 // --- SERVO FONKSİYONU ---
 
 /**
- * @brief Servo motor kontrol fonksiyonu.
+ * @brief Smoothly drives a servo from its current position to a target angle.
  *
- * @param s          Servo referansı
- * @param hedefAci   [0..180] derece
- * @param hiz        [0..10]
- *                   1 = minimum hız ,
- *                   10 = maksimum hız
+ * @param s            Servo reference (servoArm or servoHead).
+ * @param targetAngle  Target angle in degrees. Hard-clamped to [0..180],
+ *                     but the mechanical limits per servo are:
+ *                       - servoArm  : 0..70°  (arm raise range)
+ *                       - servoHead : 0..60°  (head tilt range)
+ *                     Callers should respect those ranges.
+ * @param speed        Movement speed [1..10].
+ *                       1  = slowest (smoothest),
+ *                       10 = fastest (snappiest).
  */
-void servoGit(Servo &s, int hedefAci, int hiz) {
-  hedefAci = constrain(hedefAci, 0, 180);
-  hiz = constrain(hiz, 1, 10);
+void moveServoTo(Servo &s, int targetAngle, int speed) {
+  targetAngle = constrain(targetAngle, 0, 180);
+  speed = constrain(speed, 1, 10);
 
-  int baslangicAci = s.read();
-  if (baslangicAci == hedefAci) return;
+  int startAngle = s.read();
+  if (startAngle == targetAngle) return;
 
-  int step = map(hiz, 1, 10, 1, 4);
-  int bekleme = map(hiz, 1, 10, 22, 2);
+  int step = map(speed, 1, 10, 1, 4);
+  int delayMs = map(speed, 1, 10, 22, 2);
 
-  if (baslangicAci < hedefAci) {
-    for (int i = baslangicAci; i < hedefAci; i += step) {
+  if (startAngle < targetAngle) {
+    for (int i = startAngle; i < targetAngle; i += step) {
       s.write(i);
-      vTaskDelay(bekleme / portTICK_PERIOD_MS);
+      vTaskDelay(delayMs / portTICK_PERIOD_MS);
     }
   } else {
-    for (int i = baslangicAci; i > hedefAci; i -= step) {
+    for (int i = startAngle; i > targetAngle; i -= step) {
       s.write(i);
-      vTaskDelay(bekleme / portTICK_PERIOD_MS);
+      vTaskDelay(delayMs / portTICK_PERIOD_MS);
     }
   }
-  s.write(hedefAci);
-  vTaskDelay(bekleme / portTICK_PERIOD_MS);
+  s.write(targetAngle);
+  vTaskDelay(delayMs / portTICK_PERIOD_MS);
 }
 
 // --- RGB LED YÖNETİMİ ---
@@ -449,17 +453,17 @@ void dance_1() {
   vTaskDelay(1500 / portTICK_PERIOD_MS);
   dur();
   vTaskDelay(200 / portTICK_PERIOD_MS);
-  servoGit(servoArm, 50, 2);
-  servoGit(servoArm, 10, 7);
+  moveServoTo(servoArm, 50, 2);
+  moveServoTo(servoArm, 10, 7);
   geri(60);
   vTaskDelay(1500 / portTICK_PERIOD_MS);
   dur();
-  servoGit(servoHead, 40, 9);
-  servoGit(servoHead, 0, 9);
-  servoGit(servoHead, 40, 9);
-  servoGit(servoHead, 0, 9);
-  servoGit(servoHead, 40, 9);
-  servoGit(servoHead, 20, 9);
+  moveServoTo(servoHead, 40, 9);
+  moveServoTo(servoHead, 0, 9);
+  moveServoTo(servoHead, 40, 9);
+  moveServoTo(servoHead, 0, 9);
+  moveServoTo(servoHead, 40, 9);
+  moveServoTo(servoHead, 20, 9);
 
   Serial.println("Dans Bitti.");
   danceTrigger = 0;
@@ -467,26 +471,26 @@ void dance_1() {
 }
 
 void dance_2() {
-  servoGit(servoHead, 40, 10);
-  servoGit(servoHead, 0, 10);
-  servoGit(servoHead, 40, 10);
-  servoGit(servoHead, 0, 10);
-  servoGit(servoHead, 40, 10);
-  servoGit(servoHead, 0, 10);
-  servoGit(servoHead, 20, 10);
+  moveServoTo(servoHead, 40, 10);
+  moveServoTo(servoHead, 0, 10);
+  moveServoTo(servoHead, 40, 10);
+  moveServoTo(servoHead, 0, 10);
+  moveServoTo(servoHead, 40, 10);
+  moveServoTo(servoHead, 0, 10);
+  moveServoTo(servoHead, 20, 10);
 
   danceTrigger = 0;
 }
 
 void dance_3() {
 
-  servoGit(servoHead, 40, 7);
-  servoGit(servoHead, 0, 7);
-  servoGit(servoHead, 40, 7);
-  servoGit(servoHead, 0, 7);
-  servoGit(servoHead, 40, 7);
-  servoGit(servoHead, 0, 7);
-  servoGit(servoHead, 20, 7);
+  moveServoTo(servoHead, 40, 7);
+  moveServoTo(servoHead, 0, 7);
+  moveServoTo(servoHead, 40, 7);
+  moveServoTo(servoHead, 0, 7);
+  moveServoTo(servoHead, 40, 7);
+  moveServoTo(servoHead, 0, 7);
+  moveServoTo(servoHead, 20, 7);
 
   danceTrigger = 0;
 }
@@ -499,36 +503,36 @@ void dance_4() {
 
   // vTaskDelay(1000 / portTICK_PERIOD_MS);
 
-  servoGit(servoArm, 50, 8);
-  servoGit(servoArm, 10, 8);
+  moveServoTo(servoArm, 50, 8);
+  moveServoTo(servoArm, 10, 8);
 
-  servoGit(servoHead, 40, 7);
-  servoGit(servoHead, 0, 7);
-  servoGit(servoHead, 40, 7);
-  servoGit(servoHead, 0, 7);
-  servoGit(servoHead, 20, 7);
-
-  vTaskDelay(500 / portTICK_PERIOD_MS);
-
-  servoGit(servoArm, 50, 8);
-  servoGit(servoArm, 10, 8);
-
-  servoGit(servoHead, 40, 7);
-  servoGit(servoHead, 0, 7);
-  servoGit(servoHead, 40, 7);
-  servoGit(servoHead, 0, 7);
-  servoGit(servoHead, 20, 7);
+  moveServoTo(servoHead, 40, 7);
+  moveServoTo(servoHead, 0, 7);
+  moveServoTo(servoHead, 40, 7);
+  moveServoTo(servoHead, 0, 7);
+  moveServoTo(servoHead, 20, 7);
 
   vTaskDelay(500 / portTICK_PERIOD_MS);
 
-  servoGit(servoArm, 50, 8);
-  servoGit(servoArm, 10, 8);
+  moveServoTo(servoArm, 50, 8);
+  moveServoTo(servoArm, 10, 8);
 
-  servoGit(servoHead, 40, 7);
-  servoGit(servoHead, 0, 7);
-  servoGit(servoHead, 40, 7);
-  servoGit(servoHead, 0, 7);
-  servoGit(servoHead, 20, 7);
+  moveServoTo(servoHead, 40, 7);
+  moveServoTo(servoHead, 0, 7);
+  moveServoTo(servoHead, 40, 7);
+  moveServoTo(servoHead, 0, 7);
+  moveServoTo(servoHead, 20, 7);
+
+  vTaskDelay(500 / portTICK_PERIOD_MS);
+
+  moveServoTo(servoArm, 50, 8);
+  moveServoTo(servoArm, 10, 8);
+
+  moveServoTo(servoHead, 40, 7);
+  moveServoTo(servoHead, 0, 7);
+  moveServoTo(servoHead, 40, 7);
+  moveServoTo(servoHead, 0, 7);
+  moveServoTo(servoHead, 20, 7);
 
   danceTrigger = 0;
 }
@@ -641,10 +645,10 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       if (hasTarget) {
         if (s == "arm") {
           target = constrain(target, 0, (int)ARM_FULL_ANGLE);
-          servoGit(servoArm, target, hiz);
+          moveServoTo(servoArm, target, hiz);
         } else if (s == "head") {
           target = constrain(target, 0, HEAD_LOGIC_MAX);
-          servoGit(servoHead, map(target, 0, HEAD_LOGIC_MAX, HEAD_LOGIC_MAX, 0),
+          moveServoTo(servoHead, map(target, 0, HEAD_LOGIC_MAX, HEAD_LOGIC_MAX, 0),
                    hiz);
         }
       }
