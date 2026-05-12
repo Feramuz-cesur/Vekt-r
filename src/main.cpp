@@ -124,9 +124,6 @@ bool breathingUp = true;
 // 1 ve 2'yi yukarı çek (örn. {0, 90, 130, 170, 210, 254}).
 static const int MOTOR_PWM_LEVEL[6] = {0, 51, 101, 152, 203, 254};
 
-// Servo hareket hızı: hız seviyesi 1-5 -> moveServoTo() iç ölçeği 1-10
-static const int SERVO_SPEED_LEVEL[6] = {0, 2, 4, 6, 8, 10};
-
 // Kol mm-açı dönüşümü (lineer):
 //   ARM_FULL_MM mm fiziksel kalkış = ARM_FULL_ANGLE derece servo açısı
 // Örn. 110mm -> 70°. Mekanik kalibrasyon için bu iki sayıyı değiştir.
@@ -220,41 +217,101 @@ void setMotorSag(int v) {
 // --- SERVO FONKSİYONU ---
 
 /**
- * @brief Smoothly drives a servo from its current position to a target angle.
- *
- * @param s            Servo reference (servoArm or servoHead).
- * @param targetAngle  Target angle in degrees. Hard-clamped to [0..180],
- *                     but the mechanical limits per servo are:
- *                       - servoArm  : 0..70°  (arm raise range)
- *                       - servoHead : 0..60°  (head tilt range)
- *                     Callers should respect those ranges.
- * @param speed        Movement speed [1..10].
- *                       1  = slowest (smoothest),
- *                       10 = fastest (snappiest).
+ * @brief Servoyu mevcut konumdan hedef açıya yumuşakça götürür.
+ *        açı 0-180 (kol 0-70, kafa 0-60)
+ *        hız 1-5
  */
 void moveServoTo(Servo &s, int targetAngle, int speed) {
   targetAngle = constrain(targetAngle, 0, 180);
-  speed = constrain(speed, 1, 10);
+  speed = constrain(speed, 1, 5);
 
   int startAngle = s.read();
   if (startAngle == targetAngle) return;
 
-  int step = map(speed, 1, 10, 1, 4);
-  int delayMs = map(speed, 1, 10, 22, 2);
+  // Adım her zaman 1° (yumuşak hareket). Hız sadece °/ms oranını değiştirir.
+  // Hız 5'te 3ms/°: tipik hobi servo ~2-3ms/° yapabilir; bu sınırın altına inmiyoruz
+  // ki PWM komutları fiziksel hareketi sollamasın ve fonksiyon servo gerçekten
+  // varmadan geri dönmesin.
+  int delayMs = map(speed, 1, 5, 25, 3);
 
   if (startAngle < targetAngle) {
-    for (int i = startAngle; i < targetAngle; i += step) {
+    for (int i = startAngle; i < targetAngle; i++) {
       s.write(i);
       vTaskDelay(delayMs / portTICK_PERIOD_MS);
     }
   } else {
-    for (int i = startAngle; i > targetAngle; i -= step) {
+    for (int i = startAngle; i > targetAngle; i--) {
       s.write(i);
       vTaskDelay(delayMs / portTICK_PERIOD_MS);
     }
   }
   s.write(targetAngle);
-  vTaskDelay(delayMs / portTICK_PERIOD_MS);
+  // Yerleşme süresi: servo son derecedeki PWM'ye fiziksel olarak otursun
+  vTaskDelay(40 / portTICK_PERIOD_MS);
+}
+
+// =================================================================
+// SEMANTİK HAREKET YARDIMCILARI (BLOKLAYICI)
+// Kod içinden (dans, sekanslar) gerçek mesafe/derece ile hareket için.
+// AI tool-calling ile aynı kalibrasyon tablolarını kullanır.
+// UYARI: Bloklayıcıdır; WebSocket handler içinden ÇAĞIRMA.
+// =================================================================
+
+// Yardımcı: motoru süre kadar çalıştırır, sonra durdurur. Süre 50-10000ms'e kıstırılır.
+static void driveForDuration(void (*motorFn)(int), int pwm, unsigned long ms) {
+  if (ms < 50UL) ms = 50UL;
+  if (ms > 10000UL) ms = 10000UL;
+  motorFn(pwm);
+  vTaskDelay(ms / portTICK_PERIOD_MS);
+  dur();
+}
+
+/**
+ * @brief Belirtilen süre boyunca ileri gider, sonra durur. Bloklayıcı.
+ *        ms  50-10000
+ *        hız 1-5
+ */
+void ileriMs(unsigned long ms, int speedLevel = DEFAULT_SPEED_LEVEL) {
+  int lvl = clampSpeedLevel(speedLevel);
+  driveForDuration(ileri, MOTOR_PWM_LEVEL[lvl], ms);
+}
+
+/**
+ * @brief Belirtilen süre boyunca geri gider, sonra durur. Bloklayıcı.
+ *        ms  50-10000
+ *        hız 1-5
+ */
+void geriMs(unsigned long ms, int speedLevel = DEFAULT_SPEED_LEVEL) {
+  int lvl = clampSpeedLevel(speedLevel);
+  driveForDuration(geri, MOTOR_PWM_LEVEL[lvl], ms);
+}
+
+/**
+ * @brief Belirtilen süre boyunca sağa döner, sonra durur. Bloklayıcı.
+ *        ms  50-10000
+ *        hız 1-5
+ */
+void sagaDon(unsigned long ms, int speedLevel = DEFAULT_SPEED_LEVEL) {
+  int lvl = clampSpeedLevel(speedLevel);
+  driveForDuration(sag, MOTOR_PWM_LEVEL[lvl], ms);
+}
+
+/**
+ * @brief Belirtilen süre boyunca sola döner, sonra durur. Bloklayıcı.
+ *        ms  50-10000
+ *        hız 1-5
+ */
+void solaDon(unsigned long ms, int speedLevel = DEFAULT_SPEED_LEVEL) {
+  int lvl = clampSpeedLevel(speedLevel);
+  driveForDuration(sol, MOTOR_PWM_LEVEL[lvl], ms);
+}
+
+/**
+ * @brief vTaskDelay kısayolu (ms). bekle(500) = 500ms beklet.
+ *        ms 50-10000
+ */
+inline void bekle(unsigned long ms) {
+  vTaskDelay(ms / portTICK_PERIOD_MS);
 }
 
 // --- RGB LED YÖNETİMİ ---
@@ -453,17 +510,17 @@ void dance_1() {
   vTaskDelay(1500 / portTICK_PERIOD_MS);
   dur();
   vTaskDelay(200 / portTICK_PERIOD_MS);
-  moveServoTo(servoArm, 50, 2);
-  moveServoTo(servoArm, 10, 7);
+  moveServoTo(servoArm, 50, 1);
+  moveServoTo(servoArm, 10, 4);
   geri(60);
   vTaskDelay(1500 / portTICK_PERIOD_MS);
   dur();
-  moveServoTo(servoHead, 40, 9);
-  moveServoTo(servoHead, 0, 9);
-  moveServoTo(servoHead, 40, 9);
-  moveServoTo(servoHead, 0, 9);
-  moveServoTo(servoHead, 40, 9);
-  moveServoTo(servoHead, 20, 9);
+  moveServoTo(servoHead, 40, 5);
+  moveServoTo(servoHead, 0, 5);
+  moveServoTo(servoHead, 40, 5);
+  moveServoTo(servoHead, 0, 5);
+  moveServoTo(servoHead, 40, 5);
+  moveServoTo(servoHead, 20, 5);
 
   Serial.println("Dans Bitti.");
   danceTrigger = 0;
@@ -471,26 +528,26 @@ void dance_1() {
 }
 
 void dance_2() {
-  moveServoTo(servoHead, 40, 10);
-  moveServoTo(servoHead, 0, 10);
-  moveServoTo(servoHead, 40, 10);
-  moveServoTo(servoHead, 0, 10);
-  moveServoTo(servoHead, 40, 10);
-  moveServoTo(servoHead, 0, 10);
-  moveServoTo(servoHead, 20, 10);
+  moveServoTo(servoHead, 40, 5);
+  moveServoTo(servoHead, 0, 5);
+  moveServoTo(servoHead, 40, 5);
+  moveServoTo(servoHead, 0, 5);
+  moveServoTo(servoHead, 40, 5);
+  moveServoTo(servoHead, 0, 5);
+  moveServoTo(servoHead, 20, 5);
 
   danceTrigger = 0;
 }
 
 void dance_3() {
 
-  moveServoTo(servoHead, 40, 7);
-  moveServoTo(servoHead, 0, 7);
-  moveServoTo(servoHead, 40, 7);
-  moveServoTo(servoHead, 0, 7);
-  moveServoTo(servoHead, 40, 7);
-  moveServoTo(servoHead, 0, 7);
-  moveServoTo(servoHead, 20, 7);
+  moveServoTo(servoHead, 40, 4);
+  moveServoTo(servoHead, 0, 4);
+  moveServoTo(servoHead, 40, 4);
+  moveServoTo(servoHead, 0, 4);
+  moveServoTo(servoHead, 40, 4);
+  moveServoTo(servoHead, 0, 4);
+  moveServoTo(servoHead, 20, 4);
 
   danceTrigger = 0;
 }
@@ -503,47 +560,61 @@ void dance_4() {
 
   // vTaskDelay(1000 / portTICK_PERIOD_MS);
 
-  moveServoTo(servoArm, 50, 8);
-  moveServoTo(servoArm, 10, 8);
+  moveServoTo(servoArm, 50, 4);
+  moveServoTo(servoArm, 10, 4);
 
-  moveServoTo(servoHead, 40, 7);
-  moveServoTo(servoHead, 0, 7);
-  moveServoTo(servoHead, 40, 7);
-  moveServoTo(servoHead, 0, 7);
-  moveServoTo(servoHead, 20, 7);
-
-  vTaskDelay(500 / portTICK_PERIOD_MS);
-
-  moveServoTo(servoArm, 50, 8);
-  moveServoTo(servoArm, 10, 8);
-
-  moveServoTo(servoHead, 40, 7);
-  moveServoTo(servoHead, 0, 7);
-  moveServoTo(servoHead, 40, 7);
-  moveServoTo(servoHead, 0, 7);
-  moveServoTo(servoHead, 20, 7);
+  moveServoTo(servoHead, 40, 4);
+  moveServoTo(servoHead, 0, 4);
+  moveServoTo(servoHead, 40, 4);
+  moveServoTo(servoHead, 0, 4);
+  moveServoTo(servoHead, 20, 4);
 
   vTaskDelay(500 / portTICK_PERIOD_MS);
 
-  moveServoTo(servoArm, 50, 8);
-  moveServoTo(servoArm, 10, 8);
+  moveServoTo(servoArm, 50, 4);
+  moveServoTo(servoArm, 10, 4);
 
-  moveServoTo(servoHead, 40, 7);
-  moveServoTo(servoHead, 0, 7);
-  moveServoTo(servoHead, 40, 7);
-  moveServoTo(servoHead, 0, 7);
-  moveServoTo(servoHead, 20, 7);
+  moveServoTo(servoHead, 40, 4);
+  moveServoTo(servoHead, 0, 4);
+  moveServoTo(servoHead, 40, 4);
+  moveServoTo(servoHead, 0, 4);
+  moveServoTo(servoHead, 20, 4);
+
+  vTaskDelay(500 / portTICK_PERIOD_MS);
+
+  moveServoTo(servoArm, 50, 4);
+  moveServoTo(servoArm, 10, 4);
+
+  moveServoTo(servoHead, 40, 4);
+  moveServoTo(servoHead, 0, 4);
+  moveServoTo(servoHead, 40, 4);
+  moveServoTo(servoHead, 0, 4);
+  moveServoTo(servoHead, 20, 4);
 
   danceTrigger = 0;
 }
-void dance_5() { 
-  
-  
+void dance_5() {
 
+  moveServoTo(servoHead, 5, 4);
+  bekle(400);
+  eyes.setMood(ANGRY);
+  bekle(400);
+  ileriMs(180, 4);
+  bekle(100);
 
-
+  moveServoTo(servoArm, 0, 5);
+  moveServoTo(servoArm, 20, 5);  
+  moveServoTo(servoArm, 0, 5);
+  moveServoTo(servoArm, 20, 5);  
   
-  danceTrigger = 0; }
+  moveServoTo(servoHead, 40, 5);
+  moveServoTo(servoHead, 0, 5);
+  moveServoTo(servoHead, 40, 5);
+  moveServoTo(servoHead, 0, 5);
+  eyes.setMood(HAPPY);
+
+  danceTrigger = 0;
+}
 void dance_6() { danceTrigger = 0; }
 void dance_7() { danceTrigger = 0; }
 
@@ -631,7 +702,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       int level = clampSpeedLevel(
           myObj.hasOwnProperty("speed_level") ? jsonToInt(myObj, "speed_level")
                                               : DEFAULT_SPEED_LEVEL);
-      int hiz = SERVO_SPEED_LEVEL[level];
+      int hiz = level;
       bool hasTarget = false;
       int target = 0;
       if (myObj.hasOwnProperty("target_mm")) {
