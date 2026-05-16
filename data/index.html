@@ -505,6 +505,63 @@
         </div>
     </div>
 
+    <!-- KAYIT İSİMLENDİRME MODAL -->
+    <div id="save-recording-modal"
+        class="hidden fixed inset-0 z-[120] bg-black/90 flex items-center justify-center backdrop-blur-sm transition-opacity duration-300">
+        <div
+            class="bg-gray-900 border-2 border-red-500 rounded-2xl p-[3vh] w-[70vh] flex flex-col shadow-[0_0_50px_rgba(239,68,68,0.25)] relative transform -translate-y-[60%]">
+
+            <button onclick="discardRecording()"
+                class="absolute top-[2vh] right-[2vh] text-gray-400 hover:text-white text-[4vh] w-[6vh] h-[6vh] flex items-center justify-center rounded-full hover:bg-gray-800 transition-colors"
+                title="İptal et ve kaydı sil">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <h2 class="text-[3.2vh] font-tech text-red-400 mb-[2vh] flex items-center gap-[1.5vh] tracking-widest">
+                <i class="fa-solid fa-floppy-disk"></i> KAYDI İSİMLENDİR
+            </h2>
+
+            <p id="save-recording-info" class="text-gray-400 text-[1.7vh] font-tech mb-[2.5vh]">
+                Kaydedilen hareketler için bir isim girin.
+            </p>
+
+            <input id="save-recording-name" type="text" maxlength="40"
+                placeholder="Örn: Selam Verme"
+                class="w-full bg-gray-800 border-2 border-gray-700 focus:border-red-500 outline-none rounded-xl px-[2vh] py-[1.8vh] text-[2.2vh] font-tech text-white placeholder-gray-500 mb-[3vh] transition-colors"
+                onkeydown="if(event.key==='Enter') confirmSaveRecording();" />
+
+            <div class="flex gap-[1.5vh]">
+                <button onclick="discardRecording()"
+                    class="flex-1 bg-gray-800 border border-gray-600 text-gray-300 py-[1.8vh] rounded-xl font-tech text-[2vh] hover:bg-gray-700 transition-all active:scale-95">
+                    <i class="fa-solid fa-trash mr-[1vh]"></i> SİL
+                </button>
+                <button onclick="confirmSaveRecording()"
+                    class="flex-1 bg-red-900/40 border border-red-500 text-red-200 py-[1.8vh] rounded-xl font-tech font-bold text-[2vh] hover:bg-red-600 hover:text-white transition-all active:scale-95 shadow-[0_0_15px_rgba(239,68,68,0.3)]">
+                    <i class="fa-solid fa-check mr-[1vh]"></i> KAYDET
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- KAYITLI HAREKETLER MODAL -->
+    <div id="playback-list-modal"
+        class="hidden fixed inset-0 z-[120] bg-black/90 flex items-center justify-center backdrop-blur-sm transition-opacity duration-300">
+        <div
+            class="bg-gray-900 border-2 border-green-500 rounded-2xl p-[3vh] w-[78vh] max-h-[85vh] flex flex-col shadow-[0_0_50px_rgba(34,197,94,0.25)] relative">
+
+            <button onclick="closePlaybackListModal()"
+                class="absolute top-[2vh] right-[2vh] text-gray-400 hover:text-white text-[4vh] w-[6vh] h-[6vh] flex items-center justify-center rounded-full hover:bg-gray-800 transition-colors">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <h2 class="text-[3.2vh] font-tech text-green-400 mb-[2.5vh] flex items-center gap-[1.5vh] tracking-widest">
+                <i class="fa-solid fa-list-ul"></i> KAYITLI HAREKETLER
+            </h2>
+
+            <div id="playback-list" class="flex flex-col gap-[1.2vh] overflow-y-auto pr-[0.5vh]" style="max-height: 60vh;"></div>
+        </div>
+    </div>
+
     <!-- Ana Arayüz -->
     <div id="main-interface" class="flex-1 w-full flex flex-col p-[1vh] relative overflow-hidden">
 
@@ -1032,6 +1089,9 @@
                 localStorage.setItem('geminiModel', 'models/gemini-3.1-flash-live-preview');
                 console.log('[Init] Eski model adı düzeltildi:', cachedModel, '->', 'models/gemini-3.1-flash-live-preview');
             }
+
+            // Kayıtlı hareketler varsa oynat butonunu aktifleştir
+            updatePlayButtonState();
 
             // Ekranın kapanmasını engelle (Wake Lock API)
             requestWakeLock();
@@ -2259,6 +2319,51 @@
         let playbackTimeouts = [];      // Oynatılırken ayarlanan timeout'ları iptal etmek için
         const MAX_RECORDING_TIME_MS = 3 * 60 * 1000; // 3 Dakika (180,000 ms)
 
+        // Kalıcı kayıtlar (localStorage)
+        const SAVED_RECORDINGS_KEY = 'savedRecordings';
+        let savedRecordings = [];
+        try {
+            savedRecordings = JSON.parse(localStorage.getItem(SAVED_RECORDINGS_KEY) || '[]');
+            if (!Array.isArray(savedRecordings)) savedRecordings = [];
+        } catch (e) {
+            savedRecordings = [];
+        }
+
+        function persistSavedRecordings() {
+            try {
+                localStorage.setItem(SAVED_RECORDINGS_KEY, JSON.stringify(savedRecordings));
+            } catch (e) {
+                console.warn('Kayıtlar localStorage\'a yazılamadı:', e);
+            }
+        }
+
+        function escapeHtmlAttr(s) {
+            return String(s).replace(/[&<>"']/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            })[c]);
+        }
+
+        function updatePlayButtonState() {
+            const btnPlay = document.getElementById('btn-play');
+            if (!btnPlay) return;
+            if (isPlaying) return; // oynatma sırasında dokunma
+            if (isRecording) {
+                btnPlay.disabled = true;
+                btnPlay.classList.add('opacity-50', 'cursor-not-allowed');
+                btnPlay.classList.remove('hover:text-white');
+                return;
+            }
+            if (savedRecordings.length > 0) {
+                btnPlay.disabled = false;
+                btnPlay.classList.remove('opacity-50', 'cursor-not-allowed');
+                btnPlay.classList.add('hover:text-white');
+            } else {
+                btnPlay.disabled = true;
+                btnPlay.classList.add('opacity-50', 'cursor-not-allowed');
+                btnPlay.classList.remove('hover:text-white');
+            }
+        }
+
         // 1. Arayüz Güncellemeleri
         function updateRecordingUI() {
             const btnRecord = document.getElementById('btn-record');
@@ -2287,12 +2392,8 @@
                 clearInterval(recordTimerInterval);
                 timerDisplay.innerText = "00:00"; // Sıfırla
 
-                // Eğer elinde kaydedilmiş veri varsa, oynat butonunu aktif et
-                if (recordedData.length > 0) {
-                    btnPlay.disabled = false;
-                    btnPlay.classList.remove('opacity-50', 'cursor-not-allowed');
-                    btnPlay.classList.add('hover:text-white');
-                }
+                // Kayıtlı hareket varsa oynat butonunu aktif et
+                updatePlayButtonState();
             }
         }
 
@@ -2386,6 +2487,11 @@
                 // KAYDI DURDUR
                 isRecording = false;
                 log(`Kayıt Durduruldu. ${recordedData.length} Emir Kaydedildi.`);
+                updateRecordingUI();
+                if (recordedData.length > 0) {
+                    openSaveRecordingModal();
+                }
+                return;
             }
 
             updateRecordingUI();
@@ -2397,21 +2503,129 @@
                 return;
             }
 
-            if (recordedData.length === 0) {
+            if (isPlaying) {
+                // Oynatmayı durdur
+                stopPlayback();
+                return;
+            }
+
+            if (savedRecordings.length === 0) {
                 log("Oynatılacak kaydedilmiş hareket bulunamadı.");
                 return;
             }
 
-            if (!isPlaying) {
-                // OYNATMAYA BAŞLA
-                isPlaying = true;
-                log("Kayıt Oynatılıyor...");
-                updatePlaybackUI();
-                startPlayback();
-            } else {
-                // OYNATMAYI DURDUR
-                stopPlayback();
+            // Kayıt listesini aç
+            openPlaybackListModal();
+        }
+
+        // *** KAYIT İSİMLENDİRME MODAL ***
+        function openSaveRecordingModal() {
+            const modal = document.getElementById('save-recording-modal');
+            const input = document.getElementById('save-recording-name');
+            const info = document.getElementById('save-recording-info');
+            input.value = '';
+            input.classList.remove('border-red-500');
+            input.classList.add('border-gray-700');
+            if (info) info.innerText = `${recordedData.length} emir kaydedildi. Bu hareket için bir isim girin.`;
+            modal.classList.remove('hidden');
+            setTimeout(() => input.focus(), 100);
+        }
+
+        function confirmSaveRecording() {
+            const input = document.getElementById('save-recording-name');
+            const name = input.value.trim();
+            if (!name) {
+                input.classList.remove('border-gray-700');
+                input.classList.add('border-red-500');
+                input.focus();
+                return;
             }
+            savedRecordings.push({
+                id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+                name: name,
+                data: recordedData.slice(),
+                createdAt: Date.now()
+            });
+            persistSavedRecordings();
+            log(`"${name}" kaydedildi.`);
+            recordedData = [];
+            document.getElementById('save-recording-modal').classList.add('hidden');
+            updatePlayButtonState();
+        }
+
+        function discardRecording() {
+            recordedData = [];
+            document.getElementById('save-recording-modal').classList.add('hidden');
+            log("Kayıt iptal edildi.");
+            updatePlayButtonState();
+        }
+
+        // *** KAYITLI HAREKETLER LİSTE MODAL ***
+        function openPlaybackListModal() {
+            renderPlaybackList();
+            document.getElementById('playback-list-modal').classList.remove('hidden');
+        }
+
+        function closePlaybackListModal() {
+            document.getElementById('playback-list-modal').classList.add('hidden');
+        }
+
+        function renderPlaybackList() {
+            const list = document.getElementById('playback-list');
+            if (savedRecordings.length === 0) {
+                list.innerHTML = '<div class="text-gray-500 text-[2vh] font-tech text-center py-[5vh]"><i class="fa-solid fa-inbox text-[4vh] block mb-[1.5vh] text-gray-700"></i>Henüz kayıtlı hareket yok.</div>';
+                return;
+            }
+            // Yeniden eskiye sırala
+            const items = savedRecordings.slice().sort((a, b) => b.createdAt - a.createdAt);
+            list.innerHTML = items.map(r => {
+                const d = new Date(r.createdAt);
+                const pad = n => (n < 10 ? '0' + n : '' + n);
+                const dateStr = `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                const count = Array.isArray(r.data) ? r.data.length : 0;
+                const safeName = escapeHtmlAttr(r.name);
+                return `
+                    <div class="flex items-center gap-[1.2vh] bg-gray-800/60 border-2 border-gray-700 hover:border-green-500 rounded-xl p-[1.4vh] transition-all">
+                        <button type="button" onclick="playSavedRecording('${r.id}')"
+                            class="flex-1 flex items-center gap-[1.5vh] text-left active:scale-[0.99] transition-transform min-w-0">
+                            <div class="w-[5.5vh] h-[5.5vh] rounded-full bg-green-900/40 border border-green-500 flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(34,197,94,0.3)]">
+                                <i class="fa-solid fa-play text-green-400 text-[2.2vh] ml-[0.3vh]"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-[2.1vh] font-tech text-gray-100 font-bold truncate">${safeName}</div>
+                                <div class="text-[1.4vh] font-tech text-gray-500 mt-[0.3vh]">${dateStr} · ${count} emir</div>
+                            </div>
+                        </button>
+                        <button type="button" onclick="deleteSavedRecording('${r.id}')"
+                            class="w-[5.5vh] h-[5.5vh] rounded-lg bg-red-900/40 border border-red-500 text-red-300 hover:bg-red-600 hover:text-white flex items-center justify-center text-[2.2vh] transition-all active:scale-95 shrink-0"
+                            title="Sil">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>`;
+            }).join('');
+        }
+
+        function deleteSavedRecording(id) {
+            savedRecordings = savedRecordings.filter(r => r.id !== id);
+            persistSavedRecordings();
+            renderPlaybackList();
+            updatePlayButtonState();
+            log("Kayıt silindi.");
+        }
+
+        function playSavedRecording(id) {
+            const r = savedRecordings.find(x => x.id === id);
+            if (!r) return;
+            if (!Array.isArray(r.data) || r.data.length === 0) {
+                log("Bu kayıt boş.");
+                return;
+            }
+            recordedData = r.data.slice();
+            closePlaybackListModal();
+            isPlaying = true;
+            log(`"${r.name}" oynatılıyor...`);
+            updatePlaybackUI();
+            startPlayback();
         }
 
         // 4. Veri Kaydetme Fonksiyonu
