@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s https://api.github.com/repos/Keralots/SmallOLED-PCMonitor/contents/)",
+      "Bash(curl -s https://api.github.com/repos/Keralots/SmallOLED-PCMonitor/contents/src)",
+      "Bash(curl -s https://api.github.com/repos/Keralots/SmallOLED-PCMonitor/contents/include)",
+      "Bash(curl -s https://api.github.com/repos/Keralots/SmallOLED-PCMonitor/contents/lib)",
+      "Bash(curl -s https://api.github.com/repos/Keralots/SmallOLED-PCMonitor/contents/src/clocks)",
+      "Bash(curl -s https://raw.githubusercontent.com/Keralots/SmallOLED-PCMonitor/main/src/clocks/clocks.h)",
+      "Bash(curl -s https://raw.githubusercontent.com/Keralots/SmallOLED-PCMonitor/main/src/clocks/clock_constants.h)",
+      "Bash(curl -s https://api.github.com/repos/Keralots/SmallOLED-PCMonitor/contents/src/config)",
+      "Bash(curl -s https://raw.githubusercontent.com/Keralots/SmallOLED-PCMonitor/main/src/clocks/animation_detection.cpp)",
+      "Bash(curl -s https://raw.githubusercontent.com/Keralots/SmallOLED-PCMonitor/main/src/clocks/clock_globals.cpp)",
+      "Bash(curl -s https://raw.githubusercontent.com/Keralots/SmallOLED-PCMonitor/main/src/config/config.h)",
+      "Bash(curl -s https://api.github.com/repos/Keralots/SmallOLED-PCMonitor)",
+      "Bash(curl -s https://raw.githubusercontent.com/Keralots/SmallOLED-PCMonitor/main/README.md)",
+      "Bash(curl -sI https://raw.githubusercontent.com/Keralots/SmallOLED-PCMonitor/main/LICENSE)",
+      "Bash(curl -sI https://raw.githubusercontent.com/Keralots/SmallOLED-PCMonitor/main/LICENSE.md)",
+      "Bash(curl -sI https://raw.githubusercontent.com/Keralots/SmallOLED-PCMonitor/main/COPYING)",
+      "Bash(mkdir -p \"/c/Users/Feramuz/Desktop/Vector Yazılım/WS_Multi_Output_JSON/tmp_repo\")",
+      "Bash(curl -s -o clocks.h https://raw.githubusercontent.com/Keralots/SmallOLED-PCMonitor/main/src/clocks/clocks.h)",
+      "Bash(curl -s -o clock_common.cpp https://raw.githubusercontent.com/Keralots/SmallOLED-PCMonitor/main/src/clocks/clock_common.cpp)",
+      "Bash(curl -s -o clock_mario.cpp https://raw.githubusercontent.com/Keralots/SmallOLED-PCMonitor/main/src/clocks/clock_mario.cpp)",
+      "Bash(curl -s -o clock_pacman.cpp https://raw.githubusercontent.com/Keralots/SmallOLED-PCMonitor/main/src/clocks/clock_pacman.cpp)",
+      "Bash(curl -s -o \"/c/Users/Feramuz/Desktop/Vector Yazılım/WS_Multi_Output_JSON/tmp_repo/display.h\" https://raw.githubusercontent.com/Keralots/SmallOLED-PCMonitor/main/src/display/display.h)",
+      "Bash(cd \"/c/Users/Feramuz/Desktop/Vector Yazılım/WS_Multi_Output_JSON/tmp_repo\" && grep -hoE 'getTimeWithTimeout|displayAvailable|ntpSynced|wifiConnected|lastReceived|wifiDisconnectTime|nextDisplayUpdate|lastNtpSyncTime' clock_*.cpp animation_detection.cpp | sort | uniq -c)",
+      "Read(//c/c/Users/Feramuz/Desktop/Vector Yazılım/WS_Multi_Output_JSON/**)",
+      "Bash(cd \"/c/Users/Feramuz/Desktop/Vector Yazılım/WS_Multi_Output_JSON/tmp_repo\" && grep -nE 'getTimeWithTimeout' clock_*.cpp | head -20)",
+      "Bash(cd \"/c/Users/Feramuz/Desktop/Vector Yazılım/WS_Multi_Output_JSON/tmp_repo\" && grep -nE 'drawNoWiFiIcon|wifiConnected|ntpSynced' clock_*.cpp | head -20)",
+      "Bash(pio --version)",
+      "PowerShell($paths = @\\(\"$env:USERPROFILE\\\\.platformio\\\\penv\\\\Scripts\\\\pio.exe\", \"$env:USERPROFILE\\\\.platformio\\\\penv\\\\Scripts\\\\platformio.exe\"\\); foreach \\($p in $paths\\) { if \\(Test-Path $p\\) { Write-Output \"FOUND: $p\"; & $p --version; break } }; Get-Command pio -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source)",
+      "PowerShell(& \"$env:USERPROFILE\\\\.platformio\\\\penv\\\\Scripts\\\\pio.exe\" run 2>&1 | Select-Object -Last 80)",
+      "PowerShell(& \"$env:USERPROFILE\\\\.platformio\\\\penv\\\\Scripts\\\\pio.exe\" run 2>&1 | Select-Object -Last 60)",
+      "Bash(cd \"/c/Users/Feramuz/Desktop/Vector Yazılım/WS_Multi_Output_JSON\" && rm -rf tmp_repo && ls src/clock_styles/ && echo \"--- artifact removed ---\")",
+      "PowerShell(& \"$env:USERPROFILE\\\\.platformio\\\\penv\\\\Scripts\\\\pio.exe\" run 2>&1 | Select-Object -Last 10)"
+    ],
+    "additionalDirectories": [
+      "c:\\c\\Users\\Feramuz\\Desktop\\Vector Yazılım\\WS_Multi_Output_JSON"
+    ]
+  }
+}

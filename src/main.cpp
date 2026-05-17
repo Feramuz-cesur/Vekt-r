@@ -22,6 +22,10 @@
 // RGB Kütüphanesi
 #include <Adafruit_NeoPixel.h>
 
+// Saat animasyonları (Keralots/SmallOLED-PCMonitor uyarlaması)
+#include "clock_styles/clocks.h"
+#include "clock_styles/clock_styles_compat.h"
+
 // --- PIN TANIMLAMALARI ---
 #define IN1 32
 #define IN2 33
@@ -92,6 +96,10 @@ volatile bool touchTrigger = false;
 volatile unsigned long ipDisplayUntil = 0;
 volatile bool isClockModeActive = false; // Saat modu sürekli açık mı?
 volatile bool pendingClockDraw = false;  // Websocket'ten gelen çizim isteği
+// Saat tarzı (0 = bizim sade HH:MM, 1..N = port edilen animasyonlar).
+// Touch sensörüne saat modundayken her dokunuşta cycle edilir.
+#define CLOCK_STYLE_COUNT 5
+volatile uint8_t clockStyleIndex = 0;
 unsigned long lastMillis = 0;
 unsigned long touchPressStartMillis = 0;
 int long interval = 18000;
@@ -485,6 +493,10 @@ void showIpAddressFor3Seconds() {
 void enableClockMode() {
   isClockModeActive = true;
   pendingClockDraw = true;
+  // Her saat moduna girişte bizim sade HH:MM ekranıyla başla.
+  // Animasyonlar touch sensörüyle döngüsel olarak gezilir.
+  clockStyleIndex = 0;
+  resetClockAnimationState(); // port edilen animasyonların state'ini temizle
 }
 
 // Saat modundan çıkıp gözlere dön
@@ -1057,11 +1069,23 @@ void Task_Mantik(void *parameter) {
 
       if (!touchTrigger) {
         Serial.println("Touch Triggered!");
-        eyes.setMood(HAPPY);
-        eyes.anim_laugh();
         touchTrigger = true;
 
-        // Dokununca yeşil yansın
+        if (isClockModeActive) {
+          // Saat modundayken touch = bir sonraki saat tarzına geç.
+          // Gözler uyanmasın, dans tetiklenmesin.
+          clockStyleIndex = (clockStyleIndex + 1) % CLOCK_STYLE_COUNT;
+          resetClockAnimationState();
+          pendingClockDraw = true;
+          Serial.print("Clock style -> ");
+          Serial.println(clockStyleIndex);
+        } else {
+          // Normal mod: mevcut "happy" davranışı korunur
+          eyes.setMood(HAPPY);
+          eyes.anim_laugh();
+        }
+
+        // Dokununca yeşil yansın (her iki modda da geri bildirim için)
         String oldMode = lightMode;
         lightMode = "STATIC";
         selectedColor = pixels.Color(0, 255, 0);
@@ -1147,31 +1171,78 @@ void Task_Mantik(void *parameter) {
     }
 
     // *** SAAT ÇİZİMİ (SÜREKLİ GÜNCELLEME + I2C GÜVENLİĞİ) ***
+    // clockStyleIndex == 0 → bizim sade HH:MM ekranı (saniyede 1 yenilenir)
+    // clockStyleIndex >= 1 → port edilen animasyonlu saatler (her döngüde
+    //   çağrılır, kendi içlerinde frame timer'ları var: ~30-60fps)
     static unsigned long lastClockUpdate = 0;
     if (isClockModeActive) {
-      if (pendingClockDraw || (currentMillis - lastClockUpdate >= 1000)) {
+      // Port edilen kodun WiFi ikon mantığı için bayrak güncelle
+      wifiConnected = (WiFi.status() == WL_CONNECTED);
+
+      bool isAnimatedStyle = (clockStyleIndex != 0);
+      bool shouldDraw = pendingClockDraw || isAnimatedStyle ||
+                        (currentMillis - lastClockUpdate >= 1000);
+
+      if (shouldDraw) {
         pendingClockDraw = false;
         lastClockUpdate = currentMillis;
 
-        displayLocked = true; // Gözleri kilitle
-        vTaskDelay(
-            100 /
-            portTICK_PERIOD_MS); // Mevcut göz kare çiziminin bitmesini bekle
+        if (!displayLocked) {
+          displayLocked = true; // Gözleri kilitle
+          vTaskDelay(100 / portTICK_PERIOD_MS); // mevcut göz karesi bitsin
+        }
 
-        struct tm timeinfo;
-        if (!getLocalTime(&timeinfo)) {
-          Serial.println("Saati alirken hata olustu");
-          ekranaYaz("Saat Hatasi", "Baglanti Yok");
-        } else {
-          char timeStringBuff[10]; // 14:30
-          strftime(timeStringBuff, sizeof(timeStringBuff), "%H:%M", &timeinfo);
-
-          display.clearDisplay();
-          display.setTextSize(4);
-          display.setTextColor(SH110X_WHITE);
-          display.setCursor(4, 16);
-          display.println(timeStringBuff);
-          display.display();
+        switch (clockStyleIndex) {
+          case 0: {
+            // Bizim mevcut sade saat ekranı
+            struct tm timeinfo;
+            if (!getLocalTime(&timeinfo)) {
+              Serial.println("Saati alirken hata olustu");
+              ekranaYaz("Saat Hatasi", "Baglanti Yok");
+            } else {
+              char timeStringBuff[10];
+              strftime(timeStringBuff, sizeof(timeStringBuff), "%H:%M", &timeinfo);
+              display.clearDisplay();
+              display.setTextSize(4);
+              display.setTextColor(SH110X_WHITE);
+              display.setCursor(4, 16);
+              display.println(timeStringBuff);
+              display.display();
+            }
+            break;
+          }
+          // Port edilen animasyonlu saatler sadece çizim komutlarını tampona
+          // yollar — clearDisplay() ve display() sarmasını burada yapıyoruz.
+          // Ayrıca her frame'de text rengi/boyutu reset edilmeli, çünkü
+          // animasyon kodu base state üzerine çizim yapıyor.
+          case 1:
+            display.clearDisplay();
+            display.setTextColor(SH110X_WHITE);
+            display.setTextSize(1);
+            displayClockWithMario();
+            display.display();
+            break;
+          case 2:
+            display.clearDisplay();
+            display.setTextColor(SH110X_WHITE);
+            display.setTextSize(1);
+            displayClockWithPacman();
+            display.display();
+            break;
+          case 3:
+            display.clearDisplay();
+            display.setTextColor(SH110X_WHITE);
+            display.setTextSize(1);
+            displayClockWithPong();
+            display.display();
+            break;
+          case 4:
+            display.clearDisplay();
+            display.setTextColor(SH110X_WHITE);
+            display.setTextSize(1);
+            displayClockWithSpaceInvader();
+            display.display();
+            break;
         }
       }
     }
